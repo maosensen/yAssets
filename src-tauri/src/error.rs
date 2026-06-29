@@ -11,7 +11,7 @@ use serde::Serialize;
 // `Db`/`Internal` are part of the IPC error contract (mirrored in errors.ts)
 // but not yet constructed by any command — keep them as the stable surface.
 #[allow(dead_code)]
-#[derive(Debug, thiserror::Error, Serialize)]
+#[derive(Debug, thiserror::Error, Serialize, specta::Type)]
 #[serde(tag = "code", content = "detail")]
 pub enum AppError {
     #[error("not found: {0}")]

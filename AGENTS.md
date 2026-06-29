@@ -129,9 +129,15 @@ src-tauri/src/
 
 Migrate `store` schemas and DB schemas with versioned migrations on startup; don't let an old config file fail to parse on upgrade.
 
-### Type-safe IPC (planned)
+### Type-safe IPC (tauri-specta)
 
-The current `invoke<T>` wrapper hand-types the boundary. The intended hardening is `tauri-specta` to generate `src/lib/bindings.ts` from the Rust commands, with a `check:bindings` CI step so a Rust signature change that isn't regenerated fails the pipeline rather than the user's machine. `tauri-specta` v2 is RC — pin exact versions when adding it.
+`tauri-specta` generates `src/lib/bindings.ts` from the Rust commands — the IPC types cross the boundary, so a Rust signature change surfaces as a TS compile error.
+
+- The command list lives once in `specta_builder()` in `lib.rs`; it feeds both the runtime `invoke_handler` and the bindings export.
+- Annotate every command with `#[specta::specta]` (next to `#[tauri::command]`) and `#[derive(specta::Type)]` on any type in a command signature. Then add it to the `collect_commands!` in `specta_builder()`.
+- `bindings.ts` regenerates on every debug run, and via the `export_bindings` test. `pnpm check:bindings` (also in CI) runs that test + `git diff --exit-code` so drift fails the pipeline, not the user's machine. **Don't hand-edit `bindings.ts`** (Biome ignores it).
+- Use the generated `commands.*` for full type safety, or the logging `invoke<T>` wrapper in `@/lib/tauri`. `src/lib/errors.ts` re-exports the generated `AppError`.
+- `tauri-specta`/`specta` v2 are RC and tightly coupled — versions are pinned with `=` in `Cargo.toml`; bump all three together. specta refuses to export 64-bit ints (precision) — use `f64`/`String`, or a 32-bit type.
 
 ### Media/asset pipeline (the app's reason to exist)
 

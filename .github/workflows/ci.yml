@@ -44,3 +44,7 @@ jobs:
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
       - run: cargo test --manifest-path src-tauri/Cargo.toml
+      # tauri-specta bindings drift: the export_bindings test regenerates
+      # src/lib/bindings.ts; fail if it differs from what's committed.
+      - name: Check bindings are up to date
+        run: git diff --exit-code src/lib/bindings.ts

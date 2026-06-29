@@ -7,7 +7,13 @@
 	},
 	"files": {
 		"ignoreUnknown": false,
-		"includes": ["**", "!src/routeTree.gen.ts", "!src-tauri/gen", "!**/*.svg"]
+		"includes": [
+			"**",
+			"!src/routeTree.gen.ts",
+			"!src/lib/bindings.ts",
+			"!src-tauri/gen",
+			"!**/*.svg"
+		]
 	},
 	"formatter": {
 		"enabled": true,

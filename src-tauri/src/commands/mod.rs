@@ -13,6 +13,7 @@ use std::fs;
 
 /// Demo command kept from the scaffold so the index route has something to call.
 #[tauri::command]
+#[specta::specta]
 pub fn greet(name: &str) -> String {
     format!("Hello, {name}! You've been greeted from Rust!")
 }
@@ -20,14 +21,17 @@ pub fn greet(name: &str) -> String {
 /// Milliseconds elapsed since the managed [`AppState`] was created.
 ///
 /// Demonstrates managed-state injection plus the `AppResult` error model
-/// (this particular command never fails, but real ones will).
+/// (this particular command never fails, but real ones will). Returned as
+/// `f64` so it maps to a plain TS `number` — specta refuses to export 64-bit
+/// integer types to avoid silent precision loss across the IPC boundary.
 #[tauri::command]
-pub fn uptime_ms(state: tauri::State<'_, AppState>) -> AppResult<u64> {
-    Ok(state.started_at.elapsed().as_millis() as u64)
+#[specta::specta]
+pub fn uptime_ms(state: tauri::State<'_, AppState>) -> AppResult<f64> {
+    Ok(state.started_at.elapsed().as_secs_f64() * 1000.0)
 }
 
 /// A single directory entry returned by [`list_dir`].
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, specta::Type)]
 pub struct DirEntry {
     pub name: String,
     pub path: String,
@@ -40,6 +44,7 @@ pub struct DirEntry {
 /// typed [`AppError`](crate::error::AppError) through the `From<std::io::Error>`
 /// impl, so the frontend gets `NotFound` vs `Io` rather than an opaque string.
 #[tauri::command]
+#[specta::specta]
 pub fn list_dir(path: String) -> AppResult<Vec<DirEntry>> {
     let mut entries = Vec::new();
     for entry in fs::read_dir(&path)? {

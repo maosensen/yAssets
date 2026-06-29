@@ -18,7 +18,8 @@
 		"rust:fmt:check": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check",
 		"rust:clippy": "cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings",
 		"rust:test": "cargo test --manifest-path src-tauri/Cargo.toml",
-		"check": "pnpm typecheck && pnpm lint && pnpm test && pnpm rust:fmt:check && pnpm rust:clippy"
+		"check:bindings": "cargo test --manifest-path src-tauri/Cargo.toml export_bindings && git diff --exit-code src/lib/bindings.ts",
+		"check": "pnpm typecheck && pnpm lint && pnpm test && pnpm check:bindings && pnpm rust:fmt:check && pnpm rust:clippy"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.6.0",

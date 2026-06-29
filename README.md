@@ -14,6 +14,7 @@ A cross-platform **media / asset manager** desktop app, built on Tauri 2 with a 
 | Client state | Zustand |
 | Styling | Tailwind CSS v4 (OKLCH) + shadcn/ui (Base UI) |
 | Forms | react-hook-form + zod |
+| Type-safe IPC | tauri-specta → generated `src/lib/bindings.ts` |
 | Lint / format | Biome (TS) · rustfmt + clippy (Rust) |
 | Tests | Vitest + Testing Library · `cargo test` |
 | Hooks | lefthook (biome + rustfmt + clippy on commit) |
