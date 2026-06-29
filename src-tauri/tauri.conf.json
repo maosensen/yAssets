@@ -1,0 +1,44 @@
+{
+	"$schema": "https://schema.tauri.app/config/2",
+	"productName": "yAssets",
+	"version": "0.1.0",
+	"identifier": "com.maosensen.yassets",
+	"build": {
+		"beforeDevCommand": "pnpm dev",
+		"devUrl": "http://localhost:1420",
+		"beforeBuildCommand": "pnpm build",
+		"frontendDist": "../dist"
+	},
+	"app": {
+		"windows": [
+			{
+				"label": "main",
+				"title": "yAssets",
+				"width": 1100,
+				"height": 720,
+				"minWidth": 720,
+				"minHeight": 480,
+				"resizable": true,
+				"visible": false
+			}
+		],
+		"security": {
+			"csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1421 http://localhost:1420"
+		}
+	},
+	"bundle": {
+		"active": true,
+		"targets": "all",
+		"category": "Productivity",
+		"copyright": "© 2026 maosensen",
+		"shortDescription": "Cross-platform media/asset manager.",
+		"longDescription": "yAssets is a cross-platform desktop media/asset manager built with Tauri 2.",
+		"icon": [
+			"icons/32x32.png",
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/icon.icns",
+			"icons/icon.ico"
+		]
+	}
+}

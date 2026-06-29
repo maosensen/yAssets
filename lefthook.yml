@@ -1,0 +1,15 @@
+# Git hooks for both sides of the app. Install once with `pnpm lefthook install`.
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      glob: "*.{ts,tsx,js,jsx,json,jsonc,css}"
+      run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+    rustfmt:
+      glob: "*.rs"
+      run: cargo fmt --manifest-path src-tauri/Cargo.toml
+      stage_fixed: true
+    clippy:
+      glob: "*.rs"
+      run: cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
