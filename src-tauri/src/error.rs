@@ -8,9 +8,6 @@
 
 use serde::Serialize;
 
-// `Db`/`Internal` are part of the IPC error contract (mirrored in errors.ts)
-// but not yet constructed by any command — keep them as the stable surface.
-#[allow(dead_code)]
 #[derive(Debug, thiserror::Error, Serialize, specta::Type)]
 #[serde(tag = "code", content = "detail")]
 pub enum AppError {
@@ -20,6 +17,17 @@ pub enum AppError {
     Io(String),
     #[error("database error: {0}")]
     Db(String),
+    /// A command that requires an open library was called without one.
+    #[error("no library open")]
+    NoLibraryOpen,
+    /// The folder is not a yAssets library, is damaged, or was written by a
+    /// newer app version (schema ahead of this build's migrations).
+    #[error("library incompatible: {0}")]
+    LibraryIncompatible(String),
+    /// The operation conflicts with current state (target not empty, folder
+    /// cycle, import in flight while switching libraries, …).
+    #[error("conflict: {0}")]
+    Conflict(String),
     /// User-visible catch-all. Internal details belong in the logs, not here.
     #[error("internal error")]
     Internal,
@@ -34,5 +42,21 @@ impl From<std::io::Error> for AppError {
             std::io::ErrorKind::NotFound => AppError::NotFound(err.to_string()),
             _ => AppError::Io(err.to_string()),
         }
+    }
+}
+
+impl From<rusqlite::Error> for AppError {
+    fn from(err: rusqlite::Error) -> Self {
+        // Full detail goes to the log; the IPC payload carries a displayable
+        // summary (the frontend maps codes to localized copy anyway).
+        log::error!("database error: {err}");
+        AppError::Db(err.to_string())
+    }
+}
+
+impl From<serde_json::Error> for AppError {
+    fn from(err: serde_json::Error) -> Self {
+        log::error!("json (de)serialization error: {err}");
+        AppError::LibraryIncompatible(format!("invalid library metadata: {err}"))
     }
 }

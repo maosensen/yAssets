@@ -1,20 +1,53 @@
 mod commands;
+mod db;
 mod error;
+mod events;
+mod import;
+mod library;
+mod media_protocol;
 mod state;
 
 use state::AppState;
-use tauri_specta::{collect_commands, Builder};
+use tauri_specta::{collect_commands, collect_events, Builder};
 
 /// Single source of truth for the typed IPC surface. Used to build the runtime
 /// invoke handler *and* to export `src/lib/bindings.ts` (see the
 /// `export_bindings` test, wired into `pnpm check:bindings`). Add new commands
-/// here and they flow to both the handler and the generated TypeScript.
+/// and events here and they flow to both the runtime and the generated
+/// TypeScript (`commands.*` / `events.*`).
 fn specta_builder() -> Builder<tauri::Wry> {
-    Builder::<tauri::Wry>::new().commands(collect_commands![
-        commands::greet,
-        commands::uptime_ms,
-        commands::list_dir
-    ])
+    Builder::<tauri::Wry>::new()
+        .commands(collect_commands![
+            commands::library::create_library,
+            commands::library::open_library,
+            commands::library::close_library,
+            commands::library::reopen_last_library,
+            commands::library::get_current_library,
+            commands::library::list_recent_libraries,
+            commands::library::remove_recent_library,
+            commands::library::get_library_stats,
+            commands::import::import_paths,
+            commands::import::cancel_import,
+            commands::assets::list_assets,
+            commands::assets::get_asset,
+            commands::assets::update_asset,
+            commands::assets::reveal_asset,
+            commands::folders::list_folders,
+            commands::folders::create_folder,
+            commands::folders::rename_folder,
+            commands::folders::move_folder,
+            commands::folders::delete_folder,
+            commands::folders::add_assets_to_folder,
+            commands::folders::remove_assets_from_folder,
+            commands::trash::trash_assets,
+            commands::trash::restore_assets,
+            commands::trash::delete_assets_forever,
+            commands::trash::empty_trash
+        ])
+        .events(collect_events![
+            events::ImportProgress,
+            events::ImportFinished
+        ])
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -58,8 +91,14 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(AppState::default())
+        // Library media (thumbnails / originals) is served over this custom
+        // protocol by id — the WebView never sees absolute filesystem paths.
+        .register_asynchronous_uri_scheme_protocol("yasset", media_protocol::handler)
         .invoke_handler(specta.invoke_handler())
-        .setup(|app| {
+        .setup(move |app| {
+            // Wire the typed event channels declared in `specta_builder()`.
+            specta.mount_events(app);
+
             // The window starts hidden (`visible: false` in tauri.conf.json) so the
             // window-state plugin can restore size/position before the first paint —
             // this avoids the resize/reposition flicker on launch. Show it once ready.

@@ -92,10 +92,15 @@ src/
 
 ```
 src-tauri/src/
-├── lib.rs            # Builder + plugin registration + setup
+├── lib.rs            # Builder + plugin registration + protocol + setup
 ├── main.rs
-├── commands/mod.rs   # all #[tauri::command]s
-├── state/mod.rs      # managed state (AppState) — long-lived resources
+├── commands/         # one file per domain: library / assets / folders / import / trash
+├── db/               # connection pragmas + versioned migrations (PRAGMA user_version)
+├── library/          # Library type (folder layout, id rules, reader pool), recents
+├── import/           # import pipeline coordinator + thumbs (decode/resize/encode)
+├── media_protocol.rs # yasset:// async protocol (thumb/<id>, file/<id>)
+├── events.rs         # typed events (tauri-specta collect_events!)
+├── state/mod.rs      # managed state (AppState) — open library + import registry
 └── error.rs          # AppError (typed, serializable, IPC-facing)
 ```
 
@@ -113,7 +118,7 @@ src-tauri/src/
 - ❌ Never `fs:default` — scope `fs` to explicit directories (`$APPDATA/**`, `$APPCACHE/**`). Widen per feature.
 - ❌ Never put `shell:default` in baseline. To open URLs/files use `opener`; only reach for `shell` to execute processes, and scope it tightly.
 - ✅ `opener` is limited to `allow-open-url`.
-- ✅ Custom protocols (e.g. a future `thumb://`) must be scoped to the library directory.
+- ✅ The `yasset://` protocol is the only bridge from WebView to library files. Its id whitelist (`^[0-9a-z]{10,32}$`) is the complete input surface — no user-controlled path segments ever reach a filesystem join. The frontend never sees absolute paths (even reveal-in-Finder resolves paths in Rust).
 - ✅ CSP is set in `tauri.conf.json` (no `unsafe-eval`). If `invoke`/plugin calls fail at runtime with a permission error, add the matching permission to the capability set — don't disable the security model.
 - ✅ Split capabilities per window; don't let one `main` capability manage everything as the app grows.
 
@@ -139,12 +144,37 @@ Migrate `store` schemas and DB schemas with versioned migrations on startup; don
 - Use the generated `commands.*` for full type safety, or the logging `invoke<T>` wrapper in `@/lib/tauri`. `src/lib/errors.ts` re-exports the generated `AppError`.
 - `tauri-specta`/`specta` v2 are RC and tightly coupled — versions are pinned with `=` in `Cargo.toml`; bump all three together. specta refuses to export 64-bit ints (precision) — use `f64`/`String`, or a 32-bit type.
 
-### Media/asset pipeline (the app's reason to exist)
+### Media/asset pipeline (implemented — phase 1)
 
-For grid performance, follow the standard three moves:
-1. **Pre-generate thumbnails** on import (downscaled WebP) into `app_cache_dir()`; grids render thumbnails only, full images decode on the detail view. Rust: `image` → `fast_image_resize` → encode, on a `rayon` pool.
-2. **Serve images via a custom async protocol** (`thumb://<id>`), scoped to the library directory.
-3. **Virtualize + precompute layout**: `@tanstack/react-virtual` renders only the viewport; store each asset's aspect ratio so masonry coordinates are pure math (no DOM measuring, no waiting on image load).
+The standard three moves, as shipped:
+1. **Thumbnails pre-generate on import** (≤512px long edge, lossy WebP q80) into the library's own `thumbs/` (not `app_cache_dir` — the library folder is fully self-contained and portable). Rust: `image` (with `Limits` against decompression bombs, EXIF orientation applied **before** recording dimensions) → `fast_image_resize` (SIMD Lanczos3) → the `webp` crate (the `image` crate's WebP encoder is lossless-only, 3-5× larger).
+2. **`yasset://` async protocol** serves media by id: `thumb/<id>` (hot path, zero DB — path derives from the id) and `file/<id>` (one reader-pool lookup). Frontend builds URLs only via `src/lib/media.ts` (`convertFileSrc` handles the Windows `http://yasset.localhost` shape). CSP `img-src` lists `yasset:` + `http://yasset.localhost`.
+3. **Justified-rows masonry, virtualized by row**: `src/lib/masonry.ts` computes the whole layout as pure math from DB-stored aspect ratios; `@tanstack/react-virtual` gets exact row heights (no `measureElement`). Zoom maps to one parameter (`targetRowHeight`); scroll anchors to the first visible row across relayouts.
+
+### Library on disk
+
+```
+MyLibrary/
+├── library.json   # id/name/schema_version — readable without opening the DB
+├── library.db     # SQLite, WAL; PRAGMA user_version drives versioned migrations
+├── assets/<shard>/<id>[.<ext>]   # originals, stored under generated ids
+└── thumbs/<shard>/<id>.webp
+```
+
+- **Ids:** 20-char nanoid over `[0-9a-z]` ONLY (`library::new_id`) — macOS APFS is case-insensitive; a mixed-case alphabet would collide on disk. `<shard>` = first two id chars.
+- **Concurrency:** one writer connection behind a `Mutex` + a small lazily-grown reader pool; WAL keeps readers and the writer from blocking each other. All DB access via `Library::read`/`Library::write` (blocking threads; never hold a lock across an await). `foreign_keys` is per-connection — `db::apply_pragmas` on every new connection or CASCADE silently dies.
+- **Import pipeline:** discover (walkdir, skips hidden/`Thumbs.db`/the library itself) → blake3 dedupe (batch set + DB by hash) → copy → thumbnail (best effort; failures import thumbless) → one micro-transaction per file. Progress via typed events (`ImportProgress`/`ImportFinished`), throttled ≥80 ms. Cancel flags live in `AppState`; a library switch signals them, and late commits still land in the *old* library (the pipeline holds its own `Arc<Library>`).
+- **Trash:** soft delete (`deleted_at`); files and folder memberships stay put, so restore is O(1) and returns assets to their folders. Permanent deletion removes rows first (one transaction), then files — crash residue is invisible orphan files, surfaced by the log-only sweep on library open, never live rows pointing at missing files.
+- **Auto-reopen:** the `_library` route guard calls `reopen_last_library` on cold start (race-free — navigation blocks until decided). Explicit close clears the pointer.
+- **Cloud-synced folders (iCloud/Dropbox) are unsupported** as library locations in phase 1 — WAL sidecars can corrupt under sync. Closing a library checkpoints (`TRUNCATE`) so the folder can be copied whole.
+
+### Frontend conventions added in phase 1
+
+- **All user-visible copy lives in `src/lib/text.ts`** (`T.*`, Chinese) — no bare string literals in components; error codes map to copy via `describeError` in `src/lib/errors.ts`.
+- **View state is search params** on the `/` route (zod-validated: `view`/`folderId`/`q`) — back/forward ride router history; the sidebar derives active state from the URL. Search input writes with `replace` (no history noise).
+- **`src/lib/tauri-events.ts` is the only file** (besides generated bindings) that subscribes `@tauri-apps/api` events — drag-drop must use the native event (HTML5 drop has no real paths; consequently in-app drag must be pointer-based, never HTML5 DnD).
+- **Base UI, not Radix:** menu triggers take `render={...}` (no `asChild`), menu items use `onClick` (`onSelect` type-checks but never fires), and `*MenuLabel` must sit inside a `*MenuGroup` or it throws at runtime.
+- The router's `defaultErrorComponent` (`src/components/app-error-fallback.tsx`) must always offer a way out (home + reload) — never ship a dead-end error screen.
 
 ## WebView portability
 

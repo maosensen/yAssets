@@ -1,0 +1,166 @@
+/**
+ * 全部用户可见文案（含 aria-label、toast、确认语）集中于此 —— 组件里不写裸中文。
+ *
+ * 约定：
+ * - 按领域分组；插值一律用函数
+ * - 错误码 → 文案的映射在 `errors` 组（配合 `describeError`）
+ * - 超过 ~300 行再按域拆文件
+ */
+
+export const T = {
+	app: {
+		name: "yAssets",
+	},
+	common: {
+		cancel: "取消",
+		confirm: "确认",
+		remove: "移除",
+		loading: "加载中…",
+	},
+	welcome: {
+		tagline: "本地优先的素材管理库",
+		createLibrary: "新建素材库",
+		openLibrary: "打开素材库",
+		pickCreateTitle: "选择新素材库的位置（空文件夹）",
+		pickOpenTitle: "选择素材库文件夹",
+		recentTitle: "最近使用",
+		recentEmpty: "还没有最近打开的库",
+		missingBadge: "已移动或删除",
+		removeRecent: "从列表中移除",
+		opening: "正在打开…",
+	},
+	toolbar: {
+		back: "后退",
+		forward: "前进",
+		searchPlaceholder: "搜索",
+		zoom: "缩略图大小",
+	},
+	sidebar: {
+		all: "全部",
+		uncategorized: "未分类",
+		recent: "最近添加",
+		trash: "回收站",
+		foldersTitle: "文件夹",
+		newFolder: "新建文件夹",
+		filterPlaceholder: "筛选…",
+		switcher: {
+			openOther: "打开其他库…",
+			createNew: "新建库…",
+			closeCurrent: "关闭当前库",
+			recentGroup: "最近使用",
+		},
+	},
+	folderDialog: {
+		createTitle: "新建文件夹",
+		createChildTitle: (parent: string) => `在「${parent}」中新建文件夹`,
+		renameTitle: "重命名文件夹",
+		namePlaceholder: "文件夹名称",
+		createAction: "创建",
+		renameAction: "重命名",
+	},
+	folderMenu: {
+		newSubfolder: "新建子文件夹",
+		rename: "重命名",
+		delete: "删除文件夹",
+		deleteTitle: (name: string) => `删除文件夹「${name}」？`,
+		deleteDesc: "其子文件夹会一并删除；素材不会被删除，将回到「未分类」。",
+		deleteAction: "删除",
+	},
+	assetMenu: {
+		addToFolder: "添加到文件夹",
+		noFolders: "暂无文件夹",
+		removeFromFolder: "从当前文件夹移除",
+		reveal: "在 Finder 中显示",
+		trash: "移到回收站",
+		restore: "恢复",
+		deleteForever: "彻底删除…",
+	},
+	trashUi: {
+		emptyTrash: "清空回收站",
+		itemsInTrash: (n: number) => `回收站中共 ${n} 项`,
+		confirmEmptyTitle: "清空回收站？",
+		confirmEmptyDesc: "回收站中的所有素材将被永久删除，且无法恢复。",
+		confirmDeleteTitle: "彻底删除？",
+		confirmDeleteDesc: "该素材将被永久删除，且无法恢复。",
+		confirmAction: "永久删除",
+		emptyState: "回收站是空的",
+	},
+	viewTitles: {
+		all: "全部",
+		uncategorized: "未分类",
+		recent: "最近添加",
+		trash: "回收站",
+		folderFallback: "文件夹",
+		searchPrefix: (q: string) => `搜索：${q}`,
+	},
+	gridEmpty: {
+		noSearchResult: "没有匹配的素材",
+		folderEmpty: "这个文件夹还没有素材",
+		uncategorizedEmpty: "没有未分类的素材",
+		recentEmpty: "最近 30 天没有添加素材",
+	},
+	grid: {
+		emptyTitle: "拖放文件到这里",
+		emptyHint: "你可以一次拖拽多个文件或文件夹添加",
+	},
+	import: {
+		started: "正在准备导入…",
+		discovering: (total: number) => `正在扫描文件…（已发现 ${total} 个）`,
+		progress: (done: number, total: number) => `正在导入 ${done}/${total}…`,
+		finished: (imported: number, skipped: number) =>
+			skipped > 0
+				? `已导入 ${imported} 项，跳过重复 ${skipped} 项`
+				: `已导入 ${imported} 项`,
+		finishedWithFailures: (imported: number, skipped: number, failed: number) =>
+			`已导入 ${imported} 项，失败 ${failed} 项${skipped > 0 ? `，跳过 ${skipped} 项` : ""}`,
+		cancelled: (imported: number) => `导入已取消（已完成 ${imported} 项）`,
+		dropHint: "松开以导入到当前库",
+		importFiles: "导入文件",
+		importFolder: "导入本地文件夹",
+	},
+	inspector: {
+		emptyTitle: "未选择素材",
+		emptyHint: "选中素材后在这里查看与编辑信息",
+		notePlaceholder: "添加注释…",
+		ratingLabel: "评分",
+		starLabel: (n: number) => `${n} 星`,
+		foldersLabel: "文件夹",
+		addToFolder: "添加到文件夹",
+		removeFromThisFolder: "移出此文件夹",
+		infoTitle: "基本信息",
+		infoDimensions: "尺寸",
+		infoSize: "文件大小",
+		infoFormat: "格式",
+		infoImported: "添加日期",
+		infoCreated: "创建日期",
+		infoModified: "修改日期",
+		infoSource: "来源",
+		exportAction: "导出",
+		exportSoon: "即将支持",
+		itemCount: (n: number) => `${n} 个素材`,
+	},
+	preview: {
+		close: "关闭预览",
+		prev: "上一张",
+		next: "下一张",
+		counter: (current: number, total: number) => `${current} / ${total}`,
+	},
+	errorPage: {
+		title: "出错了",
+		hint: "界面遇到了一个意外错误。你可以回到首页继续使用，问题依旧的话请重新加载应用。",
+		goHome: "回到首页",
+		reload: "重新加载应用",
+		detailsLabel: "错误详情",
+	},
+	errors: {
+		NotFound: "找不到目标文件或文件夹",
+		Io: "文件读写失败",
+		Db: "数据库出错",
+		NoLibraryOpen: "当前没有打开的素材库",
+		LibraryIncompatible: "所选文件夹不是有效的素材库，或由更新版本的应用创建",
+		Conflict: "操作与当前状态冲突",
+		Internal: "发生内部错误",
+		unknown: "发生未知错误",
+		withDetail: (summary: string, detail: string) => `${summary}（${detail}）`,
+	},
+} as const;

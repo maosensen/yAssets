@@ -32,6 +32,31 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-log = "2"
 tauri-plugin-store = "2"
+log = "0.4"
+# Data layer: SQLite lives in Rust only — SQL never crosses the IPC boundary.
+# `bundled` statically compiles SQLite so all three platforms ship the same version.
+rusqlite = { version = "0.37", features = ["bundled"] }
+# Content-hash dedupe for the import pipeline (streaming, >1 GB/s single-thread).
+blake3 = "1"
+# Media pipeline: decode (image) → SIMD resize (fast_image_resize) → lossy WebP
+# encode (`webp`; the `image` crate's WebP encoder is lossless-only).
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif", "bmp"] }
+fast_image_resize = "5"
+webp = "0.3"
+# CPU parallelism for the import pipeline (hash/decode/resize).
+rayon = "1"
+# Recursive directory discovery on import (does not follow symlinks).
+walkdir = "2"
+# Asset/folder/job ids. MUST use the lowercase alphabet in `library` — macOS
+# APFS is case-insensitive, so mixed-case ids would collide on disk.
+nanoid = "0.4"
+# Content-Type for the media protocol + recorded mime on import.
+mime_guess = "2"
+# Percent-decoding of custom-protocol request paths.
+percent-encoding = "2"
+
+[dev-dependencies]
+tempfile = "3"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"
