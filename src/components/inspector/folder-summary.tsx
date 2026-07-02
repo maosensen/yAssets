@@ -17,7 +17,8 @@ import { libraryStatsQueryOptions } from "@/lib/queries/library";
 import { T } from "@/lib/text";
 
 export function FolderSummary() {
-	const search = useSearch({ from: "/_library/" });
+	// Also rendered under /preview (same layout) — fall back to "all".
+	const search = useSearch({ from: "/_library/", shouldThrow: false });
 	const { data: stats } = useQuery(libraryStatsQueryOptions());
 	const { data: folders } = useQuery(foldersQueryOptions());
 
@@ -26,9 +27,9 @@ export function FolderSummary() {
 		title,
 		count,
 	} = (() => {
-		switch (search.view) {
+		switch (search?.view) {
 			case "folder": {
-				const folder = folders?.find((f) => f.id === search.folderId);
+				const folder = folders?.find((f) => f.id === search?.folderId);
 				return {
 					icon: FolderIcon,
 					title: folder?.name ?? T.viewTitles.folderFallback,

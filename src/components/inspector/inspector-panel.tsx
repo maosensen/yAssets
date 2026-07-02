@@ -12,7 +12,9 @@ export function InspectorPanel() {
 	const singleId = selectedIds.size === 1 ? [...selectedIds][0] : undefined;
 
 	return (
-		<aside className="h-full border-l">
+		// Translucent over the native vibrancy, matching the sidebar chrome.
+		// No border-l: the ResizableHandle already draws the 1px divider.
+		<aside className="h-full bg-sidebar/50">
 			{singleId ? <AssetDetails assetId={singleId} /> : <FolderSummary />}
 		</aside>
 	);

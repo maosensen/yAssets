@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { createContext, useContext, useEffect, useState } from "react";
+import { setNativeWindowTheme } from "@/lib/tauri";
 
 type Theme = "dark" | "light" | "system";
 
@@ -37,6 +38,11 @@ export function ThemeProvider({
 	useEffect(() => {
 		const root = window.document.documentElement;
 		root.classList.remove("light", "dark");
+
+		// Keep the NATIVE window appearance (titlebar, vibrancy materials) in
+		// lockstep with the app theme — otherwise dark UI over light-system
+		// frosted glass blends into gray mud.
+		void setNativeWindowTheme(theme === "system" ? null : theme);
 
 		if (theme === "system") {
 			const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")

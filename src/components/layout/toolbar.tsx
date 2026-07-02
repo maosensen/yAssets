@@ -74,6 +74,8 @@ export function Toolbar() {
 	})();
 
 	return (
+		// The grid route's own header (center column) — Eagle-style anatomy.
+		// Doubles as a window drag strip (no native titlebar).
 		<header
 			className="flex h-12 shrink-0 items-center gap-3 border-b px-3"
 			data-tauri-drag-region

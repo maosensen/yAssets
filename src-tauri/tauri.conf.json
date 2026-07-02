@@ -10,6 +10,7 @@
 		"frontendDist": "../dist"
 	},
 	"app": {
+		"macOSPrivateApi": true,
 		"windows": [
 			{
 				"label": "main",
@@ -19,7 +20,15 @@
 				"minWidth": 720,
 				"minHeight": 480,
 				"resizable": true,
-				"visible": false
+				"visible": false,
+				"transparent": true,
+				"theme": "Dark",
+				"titleBarStyle": "Overlay",
+				"hiddenTitle": true,
+				"windowEffects": {
+					"effects": ["sidebar"],
+					"state": "followsWindowActiveState"
+				}
 			}
 		],
 		"security": {

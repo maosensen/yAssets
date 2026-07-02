@@ -8,7 +8,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
 	return (
 		<QueryClientProvider client={queryClient}>
-			<ThemeProvider defaultTheme="system" storageKey="app-theme">
+			<ThemeProvider defaultTheme="dark" storageKey="yassets-theme">
 				{children}
 			</ThemeProvider>
 		</QueryClientProvider>

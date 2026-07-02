@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as LibraryRouteImport } from './routes/_library'
 import { Route as LibraryIndexRouteImport } from './routes/_library/index'
+import { Route as LibraryPreviewRouteImport } from './routes/_library/preview'
 
 const WelcomeRoute = WelcomeRouteImport.update({
   id: '/welcome',
@@ -27,27 +28,35 @@ const LibraryIndexRoute = LibraryIndexRouteImport.update({
   path: '/',
   getParentRoute: () => LibraryRoute,
 } as any)
+const LibraryPreviewRoute = LibraryPreviewRouteImport.update({
+  id: '/preview',
+  path: '/preview',
+  getParentRoute: () => LibraryRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LibraryIndexRoute
   '/welcome': typeof WelcomeRoute
+  '/preview': typeof LibraryPreviewRoute
 }
 export interface FileRoutesByTo {
   '/welcome': typeof WelcomeRoute
+  '/preview': typeof LibraryPreviewRoute
   '/': typeof LibraryIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_library': typeof LibraryRouteWithChildren
   '/welcome': typeof WelcomeRoute
+  '/_library/preview': typeof LibraryPreviewRoute
   '/_library/': typeof LibraryIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/welcome'
+  fullPaths: '/' | '/welcome' | '/preview'
   fileRoutesByTo: FileRoutesByTo
-  to: '/welcome' | '/'
-  id: '__root__' | '/_library' | '/welcome' | '/_library/'
+  to: '/welcome' | '/preview' | '/'
+  id: '__root__' | '/_library' | '/welcome' | '/_library/preview' | '/_library/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -78,14 +87,23 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LibraryIndexRouteImport
       parentRoute: typeof LibraryRoute
     }
+    '/_library/preview': {
+      id: '/_library/preview'
+      path: '/preview'
+      fullPath: '/preview'
+      preLoaderRoute: typeof LibraryPreviewRouteImport
+      parentRoute: typeof LibraryRoute
+    }
   }
 }
 
 interface LibraryRouteChildren {
+  LibraryPreviewRoute: typeof LibraryPreviewRoute
   LibraryIndexRoute: typeof LibraryIndexRoute
 }
 
 const LibraryRouteChildren: LibraryRouteChildren = {
+  LibraryPreviewRoute: LibraryPreviewRoute,
   LibraryIndexRoute: LibraryIndexRoute,
 }
 

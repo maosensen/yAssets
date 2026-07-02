@@ -6,13 +6,12 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { z } from "zod";
 import { AssetGrid } from "@/components/grid/asset-grid";
 import { GridEmptyState } from "@/components/grid/grid-empty-state";
-import { PreviewOverlay } from "@/components/preview/preview-overlay";
+import { Toolbar } from "@/components/layout/toolbar";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -25,8 +24,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { useImport } from "@/hooks/use-import";
-import type { AssetScope } from "@/lib/bindings";
 import { pickDirectory, pickFiles } from "@/lib/dialogs";
+import { libraryViewSchema, scopeFromView } from "@/lib/library-view";
 import {
 	assetListQueryOptions,
 	useDeleteAssetsForever,
@@ -37,48 +36,19 @@ import { useSelectionStore } from "@/lib/stores/selection-store";
 import { useViewPrefsStore } from "@/lib/stores/view-prefs-store";
 import { T } from "@/lib/text";
 
-const librarySearchSchema = z.object({
-	view: z
-		.enum(["all", "uncategorized", "recent", "trash", "folder"])
-		.catch("all"),
-	folderId: z.string().optional(),
-	q: z.string().optional(),
-});
-
-export type LibrarySearch = z.infer<typeof librarySearchSchema>;
-
-/** "Recent" window, in days. */
-const RECENT_DAYS = 30;
-
 export const Route = createFileRoute("/_library/")({
-	validateSearch: librarySearchSchema,
+	validateSearch: libraryViewSchema,
 	component: LibraryHome,
 });
 
-function scopeFromSearch(search: LibrarySearch): AssetScope {
-	switch (search.view) {
-		case "folder":
-			return search.folderId
-				? { kind: "folder", folder_id: search.folderId }
-				: { kind: "all" };
-		case "uncategorized":
-			return { kind: "uncategorized" };
-		case "recent":
-			return { kind: "recent", days: RECENT_DAYS };
-		case "trash":
-			return { kind: "trash" };
-		default:
-			return { kind: "all" };
-	}
-}
-
 function LibraryHome() {
 	const search = Route.useSearch();
+	const navigate = useNavigate();
 	const sort = useViewPrefsStore((state) => state.sort);
 	const dir = useViewPrefsStore((state) => state.dir);
-	// scopeFromSearch only reads view/folderId, but depend on the whole
+	// scopeFromView only reads view/folderId, but depend on the whole
 	// (immutable) search object to keep exhaustive-deps honest.
-	const scope = useMemo(() => scopeFromSearch(search), [search]);
+	const scope = useMemo(() => scopeFromView(search), [search]);
 	const { data } = useQuery(
 		assetListQueryOptions({ scope, search: search.q, sort, dir }),
 	);
@@ -90,28 +60,19 @@ function LibraryHome() {
 	const clearSelection = useSelectionStore((state) => state.clear);
 	const [deleteForeverId, setDeleteForeverId] = useState<string | null>(null);
 	const [confirmEmptyTrash, setConfirmEmptyTrash] = useState(false);
-	const [previewIndex, setPreviewIndex] = useState<number | null>(null);
 
 	const inTrash = search.view === "trash";
 	const currentFolderId =
 		search.view === "folder" ? (search.folderId ?? null) : null;
 
+	// Double-click → full-pane preview route, carrying the view context so
+	// prev/next walk the same list.
 	const openPreview = useCallback(
 		(id: string) => {
-			const idx = data?.items.findIndex((asset) => asset.id === id) ?? -1;
-			if (idx >= 0) setPreviewIndex(idx);
+			void navigate({ to: "/preview", search: { ...search, id } });
 		},
-		[data],
+		[navigate, search],
 	);
-
-	// View/data changes can shrink the list — keep the index in range.
-	useEffect(() => {
-		if (previewIndex === null || !data) return;
-		if (data.items.length === 0) setPreviewIndex(null);
-		else if (previewIndex >= data.items.length) {
-			setPreviewIndex(data.items.length - 1);
-		}
-	}, [previewIndex, data]);
 
 	// View switch: reset selection (ids may not exist in the new slice).
 	useEffect(() => {
@@ -119,11 +80,8 @@ function LibraryHome() {
 	}, [clearSelection]);
 
 	// Keyboard: Delete/Backspace trashes the selection (outside trash view);
-	// Esc clears it. Skipped while typing or while the preview is open
-	// (the overlay owns the keyboard then).
-	const previewOpen = previewIndex !== null;
+	// Esc clears it. Skipped while typing in inputs.
 	useEffect(() => {
-		if (previewOpen) return;
 		const onKeyDown = (event: KeyboardEvent) => {
 			const target = event.target as HTMLElement | null;
 			if (
@@ -148,7 +106,7 @@ function LibraryHome() {
 		};
 		window.addEventListener("keydown", onKeyDown);
 		return () => window.removeEventListener("keydown", onKeyDown);
-	}, [inTrash, trashMutation, clearSelection, previewOpen]);
+	}, [inTrash, trashMutation, clearSelection]);
 
 	const importFiles = async () => {
 		const files = await pickFiles(T.import.importFiles);
@@ -159,10 +117,8 @@ function LibraryHome() {
 		if (dir) importPaths([dir], currentFolderId);
 	};
 
-	if (!data) return null;
-
 	const emptyHint = (() => {
-		if (data.items.length > 0) return null;
+		if (!data || data.items.length > 0) return null;
 		if (search.q) return T.gridEmpty.noSearchResult;
 		switch (search.view) {
 			case "trash":
@@ -179,8 +135,10 @@ function LibraryHome() {
 	})();
 
 	return (
+		// Center column anatomy: header (Toolbar) + optional trash bar + main.
 		<div className="flex h-full flex-col">
-			{inTrash && data.total != null && data.total > 0 && (
+			<Toolbar />
+			{data && inTrash && data.total != null && data.total > 0 && (
 				<div className="flex items-center justify-between border-b px-4 py-2">
 					<span className="text-muted-foreground text-sm">
 						{T.trashUi.itemsInTrash(data.total)}
@@ -198,7 +156,7 @@ function LibraryHome() {
 			)}
 
 			<div className="min-h-0 flex-1">
-				{data.items.length === 0 ? (
+				{!data ? null : data.items.length === 0 ? (
 					emptyHint ? (
 						<div className="flex h-full items-center justify-center">
 							<p className="text-muted-foreground text-sm">{emptyHint}</p>
@@ -220,15 +178,6 @@ function LibraryHome() {
 					/>
 				)}
 			</div>
-
-			{previewIndex !== null && data.items.length > 0 && (
-				<PreviewOverlay
-					assets={data.items}
-					index={Math.min(previewIndex, data.items.length - 1)}
-					onNavigate={setPreviewIndex}
-					onClose={() => setPreviewIndex(null)}
-				/>
-			)}
 
 			<AlertDialog
 				open={deleteForeverId !== null}

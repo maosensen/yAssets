@@ -53,24 +53,28 @@ function DetailsBody({ detail }: { detail: AssetDetail }) {
 	const update = useUpdateAsset();
 
 	return (
-		<div className="flex h-full flex-col gap-4 overflow-y-auto p-3">
-			<PreviewBox detail={detail} />
-			<NameField detail={detail} />
-			<div className="flex items-center justify-between">
-				<span className="text-muted-foreground text-xs">
-					{T.inspector.ratingLabel}
-				</span>
-				<RatingStars
-					value={detail.rating ?? 0}
-					onChange={(rating) =>
-						update.mutate({ id: detail.id, patch: { rating } })
-					}
-				/>
+		// Inspector column anatomy: scrollable main + fixed action footer.
+		<div className="flex h-full flex-col">
+			<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
+				<PreviewBox detail={detail} />
+				<NameField detail={detail} />
+				<div className="flex items-center justify-between">
+					<span className="text-muted-foreground text-xs">
+						{T.inspector.ratingLabel}
+					</span>
+					<RatingStars
+						value={detail.rating ?? 0}
+						onChange={(rating) =>
+							update.mutate({ id: detail.id, patch: { rating } })
+						}
+					/>
+				</div>
+				<NoteField detail={detail} />
+				<FolderChips detail={detail} />
+				<InfoTable detail={detail} />
+				{/* 标签区（二阶段）：tags/asset_tags 表已在 schema v1 预留 */}
 			</div>
-			<NoteField detail={detail} />
-			<FolderChips detail={detail} />
-			<InfoTable detail={detail} />
-			<div className="mt-auto flex gap-2 pt-2">
+			<footer className="flex shrink-0 gap-2 border-t p-3">
 				<Button
 					variant="outline"
 					size="sm"
@@ -89,8 +93,7 @@ function DetailsBody({ detail }: { detail: AssetDetail }) {
 				>
 					{T.inspector.exportAction}
 				</Button>
-			</div>
-			{/* 标签区（二阶段）：tags/asset_tags 表已在 schema v1 预留 */}
+			</footer>
 		</div>
 	);
 }

@@ -1,4 +1,5 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { logger } from "@/lib/logger";
 
 /**
@@ -44,4 +45,19 @@ export function unwrap<T, E>(
 		throw result.error;
 	}
 	return result.data;
+}
+
+/**
+ * Sync the NATIVE window appearance (titlebar + vibrancy materials) with the
+ * app theme. Without this, a dark UI over light-mode system materials blends
+ * into a muddy gray instead of frosted glass. `null` = follow the system.
+ */
+export async function setNativeWindowTheme(
+	theme: "light" | "dark" | null,
+): Promise<void> {
+	try {
+		await getCurrentWindow().setTheme(theme);
+	} catch (error) {
+		logger.warn({ error }, "failed to set native window theme");
+	}
 }

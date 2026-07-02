@@ -31,7 +31,8 @@ import { type FolderDialogState, FolderNameDialog } from "./folder-name-dialog";
 import { FolderTreeItem } from "./folder-tree-item";
 
 export function FolderTree({ filter }: { filter: string }) {
-	const search = useSearch({ from: "/_library/" });
+	// Also rendered under /preview (same layout) — no throw, no active folder.
+	const search = useSearch({ from: "/_library/", shouldThrow: false });
 	const { data: folders } = useQuery(foldersQueryOptions());
 	const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(
 		new Set(),
@@ -54,7 +55,7 @@ export function FolderTree({ filter }: { filter: string }) {
 		});
 
 	const activeFolderId =
-		search.view === "folder" ? (search.folderId ?? null) : null;
+		search?.view === "folder" ? (search.folderId ?? null) : null;
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">

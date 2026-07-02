@@ -12,7 +12,8 @@ import { T } from "@/lib/text";
 import { cn } from "@/lib/utils";
 
 export function SmartViews() {
-	const search = useSearch({ from: "/_library/" });
+	// Also rendered under /preview (same layout) — no throw, just no active view.
+	const search = useSearch({ from: "/_library/", shouldThrow: false });
 	const { data: stats } = useQuery(libraryStatsQueryOptions());
 
 	const items = [
@@ -46,7 +47,7 @@ export function SmartViews() {
 					search={{ view }}
 					className={cn(
 						"flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-sidebar-accent",
-						search.view === view
+						search?.view === view
 							? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
 							: "text-sidebar-foreground/80",
 					)}

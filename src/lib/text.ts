@@ -17,6 +17,16 @@ export const T = {
 		remove: "移除",
 		loading: "加载中…",
 	},
+	preferences: {
+		title: "偏好设置",
+		open: "偏好设置…",
+		navGeneral: "通用",
+		sectionAppearance: "外观",
+		theme: "主题",
+		themeLight: "浅色",
+		themeDark: "深色",
+		themeSystem: "跟随系统",
+	},
 	welcome: {
 		tagline: "本地优先的素材管理库",
 		createLibrary: "新建素材库",
