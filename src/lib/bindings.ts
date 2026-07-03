@@ -83,6 +83,19 @@ export const commands = {
 	 *  the absolute path — the OS shows it directly.
 	 */
 	revealAsset: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("reveal_asset", { id })),
+	/**
+	 *  Video assets still missing a cover — the queue for the frontend capture
+	 *  worker (the WebView's own decoder grabs a frame; see `set_video_thumbnail`).
+	 *  Extension list mirrors `VIDEO_EXTS` in `src/lib/viewer-registry.ts`.
+	 */
+	listVideoThumbCandidates: () => typedError<string[], AppError>(__TAURI_INVOKE("list_video_thumb_candidates")),
+	/**
+	 *  Store a frontend-captured video frame as the asset's cover and record
+	 *  playback metadata. The frame arrives base64-encoded (JPEG/PNG, ≤512px
+	 *  long edge) and runs through the same WebP/color/dhash pipeline as image
+	 *  imports; `video_*`/`duration_ms` describe the SOURCE video, not the frame.
+	 */
+	setVideoThumbnail: (assetId: string, frameBase64: string, videoWidth: number, videoHeight: number, durationMs: number | null) => typedError<null, AppError>(__TAURI_INVOKE("set_video_thumbnail", { assetId, frameBase64, videoWidth, videoHeight, durationMs })),
 	/**  Flat folder list, siblings ordered by manual position then name. */
 	listFolders: () => typedError<Folder[], AppError>(__TAURI_INVOKE("list_folders")),
 	createFolder: (name: string, parentId: string | null) => typedError<Folder, AppError>(__TAURI_INVOKE("create_folder", { name, parentId })),

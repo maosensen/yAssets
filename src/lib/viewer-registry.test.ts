@@ -37,6 +37,20 @@ test("a thumb without dimensions cannot drive the canvas", () => {
 	);
 });
 
+test("video maps by extension and beats the thumb check once covered", () => {
+	expect(viewerKindFor({ ...base, ext: "mp4" })).toBe("video");
+	// A captured cover sets has_thumb + dimensions — still a video.
+	expect(
+		viewerKindFor({
+			...base,
+			ext: "mov",
+			has_thumb: true,
+			width: 1920,
+			height: 1080,
+		}),
+	).toBe("video");
+});
+
 test("audio, markdown and text map by extension (case-insensitive)", () => {
 	expect(viewerKindFor({ ...base, ext: "mp3" })).toBe("audio");
 	expect(viewerKindFor({ ...base, ext: "FLAC".toLowerCase() })).toBe("audio");

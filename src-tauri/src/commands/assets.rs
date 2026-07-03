@@ -565,3 +565,95 @@ mod tests {
         .expect("reader");
     }
 }
+
+/// Video assets still missing a cover — the queue for the frontend capture
+/// worker (the WebView's own decoder grabs a frame; see `set_video_thumbnail`).
+/// Extension list mirrors `VIDEO_EXTS` in `src/lib/viewer-registry.ts`.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_video_thumb_candidates(
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<String>> {
+    let library = state.current_library()?;
+    library
+        .read(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id FROM assets
+                 WHERE deleted_at IS NULL AND has_thumb = 0
+                   AND ext IN ('mp4', 'mov', 'm4v', 'webm')",
+            )?;
+            let ids = stmt
+                .query_map([], |row| row.get(0))?
+                .collect::<rusqlite::Result<Vec<String>>>()?;
+            Ok(ids)
+        })
+        .await
+}
+
+/// Store a frontend-captured video frame as the asset's cover and record
+/// playback metadata. The frame arrives base64-encoded (JPEG/PNG, ≤512px
+/// long edge) and runs through the same WebP/color/dhash pipeline as image
+/// imports; `video_*`/`duration_ms` describe the SOURCE video, not the frame.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_video_thumbnail(
+    asset_id: String,
+    frame_base64: String,
+    video_width: u32,
+    video_height: u32,
+    duration_ms: f64,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    use base64::Engine;
+
+    // The id becomes a thumbs/ path component — hold it to the id alphabet.
+    let id_ok = (10..=32).contains(&asset_id.len())
+        && asset_id
+            .bytes()
+            .all(|b| b.is_ascii_digit() || b.is_ascii_lowercase());
+    if !id_ok {
+        return Err(AppError::Conflict("invalid asset id".into()));
+    }
+
+    let library = state.current_library()?;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(frame_base64.as_bytes())
+        .map_err(|err| AppError::Conflict(format!("invalid frame data: {err}")))?;
+
+    let dest = library.thumb_path(&asset_id);
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
+        let img = image::load_from_memory(&bytes)
+            .map_err(|err| AppError::Conflict(format!("frame decode failed: {err}")))?
+            .to_rgba8();
+        let (w, h) = (img.width(), img.height());
+        crate::import::thumbs::write_from_rgba(img.into_raw(), w, h, &dest)
+    })
+    .await
+    .map_err(|err| {
+        log::error!("video thumbnail task failed: {err}");
+        AppError::Internal
+    })??;
+
+    let duration = duration_ms.is_finite().then_some(duration_ms as i64);
+    library
+        .write(move |conn| {
+            conn.execute(
+                "UPDATE assets
+                 SET has_thumb = 1, width = ?2, height = ?3, duration_ms = ?4,
+                     hue = ?5, palette = ?6, dhash = ?7, updated_at = ?8
+                 WHERE id = ?1 AND deleted_at IS NULL",
+                rusqlite::params![
+                    asset_id,
+                    video_width,
+                    video_height,
+                    duration,
+                    outcome.hue,
+                    outcome.palette,
+                    outcome.dhash,
+                    now_ms(),
+                ],
+            )?;
+            Ok(())
+        })
+        .await
+}

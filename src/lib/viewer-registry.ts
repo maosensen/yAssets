@@ -16,7 +16,19 @@ type ViewerAsset = {
 	height: number | null;
 };
 
-export type ViewerKind = "image" | "audio" | "markdown" | "text" | "fallback";
+export type ViewerKind =
+	| "image"
+	| "video"
+	| "audio"
+	| "markdown"
+	| "text"
+	| "fallback";
+
+/**
+ * Formats WebKit/WebView2 play natively via <video>. Mirrored by the SQL in
+ * `list_video_thumb_candidates` (src-tauri/src/commands/assets.rs).
+ */
+export const VIDEO_EXTS = new Set(["mp4", "mov", "m4v", "webm"]);
 
 /** Formats WebKit/WebView2 decode natively via <audio>. */
 const AUDIO_EXTS = new Set(["mp3", "m4a", "aac", "wav", "flac", "aiff"]);
@@ -77,11 +89,14 @@ const TEXT_EXTS = new Set([
 ]);
 
 export function viewerKindFor(asset: ViewerAsset): ViewerKind {
+	const ext = asset.ext.toLowerCase();
+	// Video wins over the thumb check — captured covers set has_thumb, and
+	// those must keep playing, not open in the image canvas.
+	if (VIDEO_EXTS.has(ext)) return "video";
 	// Pan/zoom canvas needs real dimensions for its coordinate system.
 	if (asset.has_thumb && asset.width != null && asset.height != null) {
 		return "image";
 	}
-	const ext = asset.ext.toLowerCase();
 	if (AUDIO_EXTS.has(ext)) return "audio";
 	if (MARKDOWN_EXTS.has(ext)) return "markdown";
 	if (TEXT_EXTS.has(ext)) return "text";

@@ -29,6 +29,7 @@ import {
 	type ViewerHandle,
 } from "@/components/preview/canvas-viewer";
 import { TextViewer } from "@/components/preview/text-viewer";
+import { VideoViewer } from "@/components/preview/video-viewer";
 import { Button } from "@/components/ui/button";
 import { useWindowDrag } from "@/hooks/use-window-drag";
 import type { AssetSummary } from "@/lib/bindings";
@@ -306,6 +307,14 @@ function PreviewBody({
 					asset={asset}
 					viewerRef={viewerRef}
 					onScaleChange={onScaleChange}
+				/>
+			);
+		case "video":
+			return (
+				<VideoViewer
+					assetId={asset.id}
+					name={asset.name}
+					hasThumb={asset.has_thumb}
 				/>
 			);
 		case "audio":

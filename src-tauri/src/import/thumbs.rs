@@ -81,6 +81,38 @@ pub fn generate(src: &Path, dest: &Path, ext: &str) -> AppResult<ThumbOutcome> {
     })
 }
 
+/// Encode an already-decoded RGBA frame as an asset's thumbnail — the video
+/// cover path (frames are captured by the WebView's own decoder and shipped
+/// over IPC). Runs the same resize → color/dhash → WebP steps as `generate`.
+pub fn write_from_rgba(rgba: Vec<u8>, w: u32, h: u32, dest: &Path) -> AppResult<ThumbOutcome> {
+    if w == 0 || h == 0 || rgba.len() < (w as usize * h as usize * 4) {
+        return Err(AppError::Conflict("invalid frame buffer".into()));
+    }
+    let (thumb_w, thumb_h) = fit_long_edge(w, h, THUMB_LONG_EDGE);
+    let resized = if (thumb_w, thumb_h) == (w, h) {
+        rgba
+    } else {
+        resize_rgba(rgba, w, h, thumb_w, thumb_h)?
+    };
+
+    let (hue, palette) = crate::import::color::analyze_rgba(&resized);
+    let dhash = crate::import::dhash::compute(&resized, thumb_w, thumb_h).map(|v| v as i64);
+
+    let encoded = webp::Encoder::from_rgba(&resized, thumb_w, thumb_h).encode(WEBP_QUALITY);
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(dest, &*encoded)?;
+
+    Ok(ThumbOutcome {
+        width: w,
+        height: h,
+        hue,
+        palette,
+        dhash,
+    })
+}
+
 /// Bitmap path: decode via `image` (EXIF-oriented, bomb-limited) → RGBA →
 /// SIMD downscale. Returns (src_w, src_h, thumb_w, thumb_h, thumb_rgba).
 fn decode_bitmap(src: &Path) -> AppResult<(u32, u32, u32, u32, Vec<u8>)> {
