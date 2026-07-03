@@ -14,10 +14,15 @@ import {
 	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
+import {
+	IconChevronLeft,
+	IconChevronRight,
+	IconClose,
+} from "@/components/icons";
 import { Button } from "@/components/ui/button";
+import { useWindowDrag } from "@/hooks/use-window-drag";
 import { libraryViewSchema, scopeFromView } from "@/lib/library-view";
 import { fileUrl, thumbUrl } from "@/lib/media";
 import { assetListQueryOptions } from "@/lib/queries/assets";
@@ -140,10 +145,13 @@ function PreviewTopbar({
 	onPrev: () => void;
 	onNext: () => void;
 }) {
+	const windowDrag = useWindowDrag();
 	return (
+		// biome-ignore lint/a11y/noStaticElementInteractions: window-chrome drag/zoom gestures, not content interaction
 		<header
 			className="flex h-12 shrink-0 items-center gap-2 border-b px-3"
-			data-tauri-drag-region
+			onPointerDown={windowDrag.onPointerDown}
+			onDoubleClick={windowDrag.onDoubleClick}
 		>
 			<Button
 				variant="ghost"
@@ -151,7 +159,7 @@ function PreviewTopbar({
 				aria-label={T.preview.close}
 				onClick={onBack}
 			>
-				<X className="size-4" />
+				<IconClose className="size-4" />
 			</Button>
 			<span className="min-w-0 flex-1 truncate font-medium text-sm">
 				{title}
@@ -168,7 +176,7 @@ function PreviewTopbar({
 					disabled={index <= 0}
 					onClick={onPrev}
 				>
-					<ChevronLeft className="size-4" />
+					<IconChevronLeft className="size-4" />
 				</Button>
 				<Button
 					variant="ghost"
@@ -177,7 +185,7 @@ function PreviewTopbar({
 					disabled={index < 0 || index >= total - 1}
 					onClick={onNext}
 				>
-					<ChevronRight className="size-4" />
+					<IconChevronRight className="size-4" />
 				</Button>
 			</div>
 		</header>

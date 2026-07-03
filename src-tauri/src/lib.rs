@@ -28,6 +28,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::library::get_library_stats,
             commands::import::import_paths,
             commands::import::cancel_import,
+            commands::import::import_clipboard,
             commands::assets::list_assets,
             commands::assets::get_asset,
             commands::assets::update_asset,

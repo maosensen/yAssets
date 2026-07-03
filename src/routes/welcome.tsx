@@ -7,8 +7,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { format } from "date-fns";
-import { Clock, FolderOpen, FolderPlus, X } from "lucide-react";
 import { toast } from "sonner";
+import { EmptyState } from "@/components/empty-state";
+import {
+	IconClose,
+	IconFolderAdd,
+	IconFolderOpen,
+	IconRecent,
+} from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { useLibraryActions } from "@/hooks/use-library-actions";
 import { describeError } from "@/lib/errors";
@@ -39,7 +45,7 @@ function WelcomePage() {
 					onClick={() => void actions.pickAndCreate()}
 					disabled={actions.busy}
 				>
-					<FolderPlus className="size-4" />
+					<IconFolderAdd className="size-4" />
 					{T.welcome.createLibrary}
 				</Button>
 				<Button
@@ -48,7 +54,7 @@ function WelcomePage() {
 					onClick={() => void actions.pickAndOpen()}
 					disabled={actions.busy}
 				>
-					<FolderOpen className="size-4" />
+					<IconFolderOpen className="size-4" />
 					{T.welcome.openLibrary}
 				</Button>
 			</div>
@@ -78,13 +84,17 @@ function RecentList({
 	return (
 		<section className="w-full max-w-md">
 			<h2 className="mb-2 flex items-center gap-1.5 text-muted-foreground text-sm">
-				<Clock className="size-3.5" />
+				<IconRecent className="size-3.5" />
 				{T.welcome.recentTitle}
 			</h2>
 			{!recents || recents.length === 0 ? (
-				<p className="rounded-lg border border-dashed p-6 text-center text-muted-foreground text-sm">
-					{T.welcome.recentEmpty}
-				</p>
+				<EmptyState
+					variant="panel"
+					className="h-auto py-4"
+					icon={IconRecent}
+					title={T.welcome.recentEmpty}
+					hint={T.welcome.recentEmptyHint}
+				/>
 			) : (
 				<ul className="flex flex-col gap-1">
 					{recents.map((entry) => (
@@ -126,7 +136,7 @@ function RecentList({
 								aria-label={T.welcome.removeRecent}
 								onClick={() => removeMutation.mutate(entry.path)}
 							>
-								<X className="size-4" />
+								<IconClose className="size-4" />
 							</Button>
 						</li>
 					))}

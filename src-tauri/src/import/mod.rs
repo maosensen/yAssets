@@ -434,7 +434,7 @@ fn display_name(path: &Path) -> String {
     path.file_stem()
         .or_else(|| path.file_name())
         .map(|n| n.to_string_lossy().into_owned())
-        .unwrap_or_else(|| "未命名".to_string())
+        .unwrap_or_else(|| "Untitled".to_string())
 }
 
 fn system_time_ms(time: Option<std::time::SystemTime>) -> Option<i64> {

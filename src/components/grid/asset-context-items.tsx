@@ -45,9 +45,9 @@ function targetIds(assetId: string): string[] {
 		: [assetId];
 }
 
-/** `label` or `label（N 项）` for batch actions. */
+/** `label` or `label (N)` for batch actions. */
 function withCount(label: string, count: number): string {
-	return count > 1 ? `${label}（${count} 项）` : label;
+	return count > 1 ? `${label} (${count})` : label;
 }
 
 export function AssetContextItems({

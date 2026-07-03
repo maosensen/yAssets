@@ -5,7 +5,7 @@
  */
 
 import { useNavigate } from "@tanstack/react-router";
-import { Palette } from "lucide-react";
+import { IconPalette } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
 	Popover,
@@ -57,7 +57,9 @@ export function ColorFilter({ search }: { search: LibraryView }) {
 					/>
 				}
 			>
-				<Palette className={cn("size-4", active !== null && "text-primary")} />
+				<IconPalette
+					className={cn("size-4", active !== null && "text-primary")}
+				/>
 			</PopoverTrigger>
 			<PopoverContent className="w-auto p-2" align="end">
 				<div className="grid grid-cols-6 gap-1.5">

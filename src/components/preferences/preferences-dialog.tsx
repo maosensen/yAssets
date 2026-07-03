@@ -6,9 +6,15 @@
  * Shortcuts, …) drop in without restructuring.
  */
 
-import { Monitor, Moon, Settings2, Sun } from "lucide-react";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import {
+	type IconComponent,
+	IconMonitor,
+	IconMoon,
+	IconSettings,
+	IconSun,
+} from "@/components/icons";
 import { useTheme } from "@/components/theme-provider";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { T } from "@/lib/text";
@@ -24,8 +30,8 @@ type SectionId = "general";
 const SECTIONS: Array<{
 	id: SectionId;
 	label: string;
-	icon: typeof Settings2;
-}> = [{ id: "general", label: T.preferences.navGeneral, icon: Settings2 }];
+	icon: IconComponent;
+}> = [{ id: "general", label: T.preferences.navGeneral, icon: IconSettings }];
 
 export function PreferencesDialog({
 	open,
@@ -78,19 +84,19 @@ function GeneralPane() {
 					<div className="flex gap-1.5">
 						<ThemeChip
 							active={theme === "light"}
-							icon={<Sun className="size-4" />}
+							icon={<IconSun className="size-4" />}
 							label={T.preferences.themeLight}
 							onClick={() => setTheme("light")}
 						/>
 						<ThemeChip
 							active={theme === "dark"}
-							icon={<Moon className="size-4" />}
+							icon={<IconMoon className="size-4" />}
 							label={T.preferences.themeDark}
 							onClick={() => setTheme("dark")}
 						/>
 						<ThemeChip
 							active={theme === "system"}
-							icon={<Monitor className="size-4" />}
+							icon={<IconMonitor className="size-4" />}
 							label={T.preferences.themeSystem}
 							onClick={() => setTheme("system")}
 						/>

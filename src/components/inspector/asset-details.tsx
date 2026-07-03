@@ -2,20 +2,25 @@
  * Inspector for the selected asset: preview, rename, rating, debounced note
  * autosave, folder membership chips, info table, reveal/export actions.
  *
+ * Layout rhythm: major modules (identity / organization / note / properties)
+ * are separated by dashed dividers, properties keep generous row spacing —
+ * see `section.tsx` for the shared primitives.
+ *
  * Plain controlled state + mutations — no form library: these are
  * independent, instantly-committing fields (react-hook-form would be pure
  * overhead here; zod stays reserved for route search validation).
  */
 
 import { useQuery } from "@tanstack/react-query";
-import {
-	Folder as FolderIcon,
-	Plus,
-	SquareArrowOutUpRight,
-	X,
-} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import {
+	IconClose,
+	IconFolder,
+	IconPlus,
+	IconReveal,
+} from "@/components/icons";
 import { RatingStars } from "@/components/inspector/rating-stars";
+import { DashedDivider, SectionLabel } from "@/components/inspector/section";
 import { TagChips } from "@/components/inspector/tag-chips";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,24 +63,41 @@ function DetailsBody({ detail }: { detail: AssetDetail }) {
 	return (
 		// Inspector column anatomy: scrollable main + fixed action footer.
 		<div className="flex h-full flex-col">
-			<div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-3">
-				<PreviewBox detail={detail} />
-				<NameField detail={detail} />
-				<div className="flex items-center justify-between">
-					<span className="text-muted-foreground text-xs">
-						{T.inspector.ratingLabel}
-					</span>
-					<RatingStars
-						value={detail.rating ?? 0}
-						onChange={(rating) =>
-							update.mutate({ id: detail.id, patch: { rating } })
-						}
-					/>
-				</div>
-				<NoteField detail={detail} />
-				{detail.palette.length > 0 && <PaletteRow colors={detail.palette} />}
-				<TagChips assetIds={[detail.id]} tags={detail.tags} />
-				<FolderChips detail={detail} />
+			<div className="min-h-0 flex-1 overflow-y-auto p-4">
+				{/* Identity: preview + name + rating */}
+				<section className="flex flex-col gap-3">
+					<PreviewBox detail={detail} />
+					<NameField detail={detail} />
+					<div className="flex items-center justify-between">
+						<SectionLabel>{T.inspector.ratingLabel}</SectionLabel>
+						<RatingStars
+							value={detail.rating ?? 0}
+							onChange={(rating) =>
+								update.mutate({ id: detail.id, patch: { rating } })
+							}
+						/>
+					</div>
+				</section>
+
+				<DashedDivider />
+
+				{/* Organization: tags + folders + extracted colors */}
+				<section className="flex flex-col gap-4">
+					<TagChips assetIds={[detail.id]} tags={detail.tags} />
+					<FolderChips detail={detail} />
+					{detail.palette.length > 0 && <PaletteRow colors={detail.palette} />}
+				</section>
+
+				<DashedDivider />
+
+				{/* Note */}
+				<section className="flex flex-col gap-2">
+					<SectionLabel>{T.inspector.noteLabel}</SectionLabel>
+					<NoteField detail={detail} />
+				</section>
+
+				<DashedDivider />
+
 				<InfoTable detail={detail} />
 			</div>
 			<footer className="flex shrink-0 gap-2 border-t p-3">
@@ -85,7 +107,7 @@ function DetailsBody({ detail }: { detail: AssetDetail }) {
 					className="flex-1"
 					onClick={() => revealAsset(detail.id)}
 				>
-					<SquareArrowOutUpRight className="size-3.5" />
+					<IconReveal className="size-3.5" />
 					{T.assetMenu.reveal}
 				</Button>
 				<Button
@@ -197,17 +219,15 @@ function FolderChips({ detail }: { detail: AssetDetail }) {
 	}, [folders, detail.folder_ids]);
 
 	return (
-		<div className="flex flex-col gap-1.5">
-			<span className="text-muted-foreground text-xs">
-				{T.inspector.foldersLabel}
-			</span>
+		<div className="flex flex-col gap-2">
+			<SectionLabel>{T.inspector.foldersLabel}</SectionLabel>
 			<div className="flex flex-wrap items-center gap-1.5">
 				{detail.folder_ids.map((folderId) => (
 					<span
 						key={folderId}
 						className="group flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-xs"
 					>
-						<FolderIcon className="size-3 text-muted-foreground" />
+						<IconFolder className="size-3 text-muted-foreground" />
 						<span className="max-w-32 truncate">
 							{nameById.get(folderId) ?? folderId}
 						</span>
@@ -222,7 +242,7 @@ function FolderChips({ detail }: { detail: AssetDetail }) {
 								})
 							}
 						>
-							<X className="size-3" />
+							<IconClose className="size-3" />
 						</button>
 					</span>
 				))}
@@ -236,7 +256,7 @@ function FolderChips({ detail }: { detail: AssetDetail }) {
 							/>
 						}
 					>
-						<Plus className="size-3" />
+						<IconPlus className="size-3" />
 						{T.inspector.addToFolder}
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="start">
@@ -267,18 +287,21 @@ function FolderChips({ detail }: { detail: AssetDetail }) {
 	);
 }
 
-/** Extracted swatches — clicking one filters the library by that hue-ish. */
+/** Extracted swatches from the thumbnail's dominant colors. */
 function PaletteRow({ colors }: { colors: string[] }) {
 	return (
-		<div className="flex items-center gap-1.5">
-			{colors.map((color) => (
-				<span
-					key={color}
-					className="size-5 rounded-md border border-foreground/10"
-					style={{ backgroundColor: color }}
-					title={color}
-				/>
-			))}
+		<div className="flex flex-col gap-2">
+			<SectionLabel>{T.inspector.paletteLabel}</SectionLabel>
+			<div className="flex items-center gap-1.5">
+				{colors.map((color) => (
+					<span
+						key={color}
+						className="size-5 rounded-md border border-foreground/10"
+						style={{ backgroundColor: color }}
+						title={color}
+					/>
+				))}
+			</div>
 		</div>
 	);
 }
@@ -300,11 +323,9 @@ function InfoTable({ detail }: { detail: AssetDetail }) {
 	];
 
 	return (
-		<div className="flex flex-col gap-1">
-			<span className="text-muted-foreground text-xs">
-				{T.inspector.infoTitle}
-			</span>
-			<dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
+		<div className="flex flex-col gap-2.5">
+			<SectionLabel>{T.inspector.infoTitle}</SectionLabel>
+			<dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-xs">
 				{rows.map(([label, value]) => (
 					<div key={label} className="contents">
 						<dt className="text-muted-foreground">{label}</dt>

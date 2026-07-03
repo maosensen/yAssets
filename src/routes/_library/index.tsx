@@ -7,10 +7,20 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { EmptyState } from "@/components/empty-state";
 import { AssetGrid } from "@/components/grid/asset-grid";
 import { GridEmptyState } from "@/components/grid/grid-empty-state";
+import {
+	type IconComponent,
+	IconFolderOpen,
+	IconPalette,
+	IconRecent,
+	IconSearch,
+	IconTag,
+	IconTrash,
+	IconUncategorized,
+} from "@/components/icons";
 import { Toolbar } from "@/components/layout/toolbar";
 import {
 	AlertDialog,
@@ -23,7 +33,7 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { useImport } from "@/hooks/use-import";
+import { useImport, useImportClipboard } from "@/hooks/use-import";
 import { pickDirectory, pickFiles } from "@/lib/dialogs";
 import { libraryViewSchema, scopeFromView } from "@/lib/library-view";
 import {
@@ -57,6 +67,7 @@ function LibraryHome() {
 	dataRef.current = data;
 
 	const { importPaths, isImporting } = useImport();
+	const { importClipboard } = useImportClipboard();
 	const trashMutation = useTrashAssets();
 	const deleteForeverMutation = useDeleteAssetsForever();
 	const emptyTrashMutation = useEmptyTrash();
@@ -85,7 +96,7 @@ function LibraryHome() {
 	}, [clearSelection]);
 
 	// Keyboard: Delete/Backspace trashes the selection (outside trash view);
-	// Esc clears it. Skipped while typing in inputs.
+	// Esc clears it; ⌘V imports from the clipboard. Skipped while typing.
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {
 			const target = event.target as HTMLElement | null;
@@ -112,6 +123,13 @@ function LibraryHome() {
 				}
 				return;
 			}
+			// Cmd/Ctrl+V — paste external assets (files or a bitmap) into the
+			// current folder view.
+			if ((event.metaKey || event.ctrlKey) && event.key === "v") {
+				event.preventDefault();
+				importClipboard(currentFolderId);
+				return;
+			}
 			if (event.key === "Delete" || event.key === "Backspace") {
 				const { selectedIds } = useSelectionStore.getState();
 				if (selectedIds.size === 0 || inTrash) return;
@@ -122,7 +140,13 @@ function LibraryHome() {
 		};
 		window.addEventListener("keydown", onKeyDown);
 		return () => window.removeEventListener("keydown", onKeyDown);
-	}, [inTrash, trashMutation, clearSelection]);
+	}, [
+		inTrash,
+		trashMutation,
+		clearSelection,
+		importClipboard,
+		currentFolderId,
+	]);
 
 	const importFiles = async () => {
 		const files = await pickFiles(T.import.importFiles);
@@ -133,26 +157,34 @@ function LibraryHome() {
 		if (dir) importPaths([dir], currentFolderId);
 	};
 
-	const emptyHint = (() => {
+	// Per-view empty placeholder (unified EmptyState); null on an empty "all"
+	// view, which gets the full import empty state instead.
+	const emptyState = ((): {
+		icon: IconComponent;
+		copy: { title: string; hint: string };
+	} | null => {
 		if (!data || data.items.length > 0) return null;
-		if (search.q) return T.gridEmpty.noSearchResult;
+		if (search.q) return { icon: IconSearch, copy: T.gridEmpty.noSearchResult };
 		switch (search.view) {
 			case "trash":
-				return T.trashUi.emptyState;
+				return { icon: IconTrash, copy: T.gridEmpty.trashEmpty };
 			case "folder":
-				return T.gridEmpty.folderEmpty;
+				return { icon: IconFolderOpen, copy: T.gridEmpty.folderEmpty };
 			case "tag":
-				return T.gridEmpty.tagEmpty;
+				return { icon: IconTag, copy: T.gridEmpty.tagEmpty };
 			case "color":
-				return T.gridEmpty.colorEmpty;
+				return { icon: IconPalette, copy: T.gridEmpty.colorEmpty };
 			case "uncategorized":
-				return T.gridEmpty.uncategorizedEmpty;
+				return {
+					icon: IconUncategorized,
+					copy: T.gridEmpty.uncategorizedEmpty,
+				};
 			case "untagged":
-				return T.gridEmpty.untaggedEmpty;
+				return { icon: IconTag, copy: T.gridEmpty.untaggedEmpty };
 			case "recent":
-				return T.gridEmpty.recentEmpty;
+				return { icon: IconRecent, copy: T.gridEmpty.recentEmpty };
 			default:
-				return null; // "all" empty → full import empty state
+				return null;
 		}
 	})();
 
@@ -171,7 +203,7 @@ function LibraryHome() {
 						onClick={() => setConfirmEmptyTrash(true)}
 						disabled={emptyTrashMutation.isPending}
 					>
-						<Trash2 className="size-4" />
+						<IconTrash className="size-4" />
 						{T.trashUi.emptyTrash}
 					</Button>
 				</div>
@@ -179,10 +211,12 @@ function LibraryHome() {
 
 			<div className="min-h-0 flex-1">
 				{!data ? null : data.items.length === 0 ? (
-					emptyHint ? (
-						<div className="flex h-full items-center justify-center">
-							<p className="text-muted-foreground text-sm">{emptyHint}</p>
-						</div>
+					emptyState ? (
+						<EmptyState
+							icon={emptyState.icon}
+							title={emptyState.copy.title}
+							hint={emptyState.copy.hint}
+						/>
 					) : (
 						<GridEmptyState
 							importing={isImporting}

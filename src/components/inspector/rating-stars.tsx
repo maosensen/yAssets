@@ -3,7 +3,7 @@
  * to 0 (Eagle behavior); arrow keys step the value.
  */
 
-import { Star } from "lucide-react";
+import { IconStar } from "@/components/icons";
 import { T } from "@/lib/text";
 import { cn } from "@/lib/utils";
 
@@ -37,12 +37,10 @@ export function RatingStars({ value, onChange }: RatingStarsProps) {
 					className="rounded p-0.5 outline-none hover:scale-110 focus-visible:ring-2 focus-visible:ring-ring"
 					onClick={() => onChange(star === value ? 0 : star)}
 				>
-					<Star
+					<IconStar
 						className={cn(
 							"size-4 transition-colors",
-							star <= value
-								? "fill-current text-primary"
-								: "text-muted-foreground/40",
+							star <= value ? "text-primary" : "text-muted-foreground/40",
 						)}
 					/>
 				</button>

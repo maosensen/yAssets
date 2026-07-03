@@ -6,7 +6,14 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "@tanstack/react-router";
-import { Clock, Images, Inbox, Tags, Trash2 } from "lucide-react";
+import {
+	IconAll,
+	type IconComponent,
+	IconRecent,
+	IconTag,
+	IconTrash,
+	IconUncategorized,
+} from "@/components/icons";
 import { useDropTarget } from "@/hooks/use-drop-target";
 import type { LibraryView } from "@/lib/library-view";
 import { libraryStatsQueryOptions } from "@/lib/queries/library";
@@ -23,32 +30,32 @@ export function SmartViews() {
 	const items: Array<{
 		view: SmartView;
 		label: string;
-		icon: typeof Images;
+		icon: IconComponent;
 		count: number | undefined;
 	}> = [
-		{ view: "all", label: T.sidebar.all, icon: Images, count: stats?.total },
+		{ view: "all", label: T.sidebar.all, icon: IconAll, count: stats?.total },
 		{
 			view: "uncategorized",
 			label: T.sidebar.uncategorized,
-			icon: Inbox,
+			icon: IconUncategorized,
 			count: stats?.uncategorized,
 		},
 		{
 			view: "untagged",
 			label: T.sidebar.untagged,
-			icon: Tags,
+			icon: IconTag,
 			count: stats?.untagged,
 		},
 		{
 			view: "recent",
 			label: T.sidebar.recent,
-			icon: Clock,
+			icon: IconRecent,
 			count: undefined,
 		},
 		{
 			view: "trash",
 			label: T.sidebar.trash,
-			icon: Trash2,
+			icon: IconTrash,
 			count: stats?.trash,
 		},
 	] as const;
@@ -78,7 +85,7 @@ function SmartViewRow({
 }: {
 	view: SmartView;
 	label: string;
-	Icon: typeof Images;
+	Icon: IconComponent;
 	count: number | undefined;
 	active: boolean;
 }) {

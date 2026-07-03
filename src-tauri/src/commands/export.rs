@@ -107,7 +107,7 @@ fn sanitize_filename(name: &str) -> String {
         .collect();
     let trimmed = cleaned.trim().trim_matches('.').trim();
     if trimmed.is_empty() {
-        "未命名".to_string()
+        "Untitled".to_string()
     } else {
         trimmed.to_string()
     }
@@ -139,7 +139,7 @@ mod tests {
     #[test]
     fn sanitize_strips_separators() {
         assert_eq!(sanitize_filename("a/b:c"), "a_b_c");
-        assert_eq!(sanitize_filename("  ..  "), "未命名");
+        assert_eq!(sanitize_filename("  ..  "), "Untitled");
     }
 
     #[test]

@@ -6,6 +6,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
+import { SectionLabel } from "@/components/inspector/section";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -42,8 +43,8 @@ export function TagList() {
 
 	return (
 		<div className="flex min-h-0 shrink-0 flex-col">
-			<div className="px-2 py-1 text-muted-foreground text-xs">
-				{T.sidebar.tagsTitle}
+			<div className="px-2 py-1">
+				<SectionLabel>{T.sidebar.tagsTitle}</SectionLabel>
 			</div>
 			<div className="max-h-48 overflow-y-auto">
 				{tags.map((tag) => (

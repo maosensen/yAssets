@@ -11,13 +11,14 @@ import {
 	useRouter,
 	useSearch,
 } from "@tanstack/react-router";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
+import { IconChevronLeft, IconChevronRight } from "@/components/icons";
 import { ColorFilter } from "@/components/layout/color-filter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useWindowDrag } from "@/hooks/use-window-drag";
 import { foldersQueryOptions } from "@/lib/queries/folders";
 import { tagsQueryOptions } from "@/lib/queries/tags";
 import {
@@ -29,6 +30,7 @@ import { T } from "@/lib/text";
 
 export function Toolbar() {
 	const router = useRouter();
+	const windowDrag = useWindowDrag();
 	const canGoBack = useCanGoBack();
 	const search = useSearch({ from: "/_library/" });
 	const navigate = useNavigate();
@@ -87,10 +89,12 @@ export function Toolbar() {
 
 	return (
 		// The grid route's own header (center column) — Eagle-style anatomy.
-		// Doubles as a window drag strip (no native titlebar).
+		// Doubles as a window drag strip; double-click zooms (no native titlebar).
+		// biome-ignore lint/a11y/noStaticElementInteractions: window-chrome drag/zoom gestures, not content interaction
 		<header
 			className="flex h-12 shrink-0 items-center gap-3 border-b px-3"
-			data-tauri-drag-region
+			onPointerDown={windowDrag.onPointerDown}
+			onDoubleClick={windowDrag.onDoubleClick}
 		>
 			<div className="flex items-center gap-1">
 				<Button
@@ -100,7 +104,7 @@ export function Toolbar() {
 					disabled={!canGoBack}
 					onClick={() => router.history.back()}
 				>
-					<ChevronLeft className="size-4" />
+					<IconChevronLeft className="size-4" />
 				</Button>
 				<Button
 					variant="ghost"
@@ -109,7 +113,7 @@ export function Toolbar() {
 					// No "can go forward" API — forward on empty history is a no-op.
 					onClick={() => router.history.forward()}
 				>
-					<ChevronRight className="size-4" />
+					<IconChevronRight className="size-4" />
 				</Button>
 			</div>
 

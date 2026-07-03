@@ -5,14 +5,15 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useSearch } from "@tanstack/react-router";
-import {
-	CopyCheck,
-	FolderPlus,
-	RotateCcw,
-	SquareArrowOutUpRight,
-	Trash2,
-} from "lucide-react";
 import { useMemo } from "react";
+import {
+	IconExport,
+	IconFolderAdd,
+	IconMulti,
+	IconRestore,
+	IconTrash,
+} from "@/components/icons";
+import { DashedDivider, SectionLabel } from "@/components/inspector/section";
 import { TagChips } from "@/components/inspector/tag-chips";
 import { Button } from "@/components/ui/button";
 import {
@@ -47,68 +48,72 @@ export function MultiSummary({ ids }: { ids: string[] }) {
 	const { exportAssets } = useExport();
 
 	return (
-		<div className="flex h-full flex-col gap-5 overflow-y-auto p-3">
-			<div className="flex flex-col items-center gap-1 pt-6">
-				<CopyCheck className="size-8 text-muted-foreground/60" />
+		<div className="flex h-full flex-col overflow-y-auto p-4">
+			<div className="flex flex-col items-center gap-1.5 pt-6 pb-2">
+				<div className="flex size-12 items-center justify-center rounded-xl border border-border/70 border-dashed bg-muted/40">
+					<IconMulti className="size-5 text-muted-foreground/70" />
+				</div>
 				<p className="font-medium text-sm">{T.multi.title(ids.length)}</p>
 			</div>
 
 			{!inTrash && (
 				<>
-					<TagChips assetIds={ids} />
+					<DashedDivider />
+					<div className="flex flex-col gap-4">
+						<TagChips assetIds={ids} />
 
-					<div className="flex flex-col gap-1.5">
-						<span className="text-muted-foreground text-xs">
-							{T.inspector.foldersLabel}
-						</span>
-						<DropdownMenu>
-							<DropdownMenuTrigger
-								render={
-									<Button
-										variant="outline"
-										size="sm"
-										className="justify-start"
-									/>
-								}
-							>
-								<FolderPlus className="size-4" />
-								{T.assetMenu.addToFolder}
-							</DropdownMenuTrigger>
-							<DropdownMenuContent align="start">
-								{flat.length === 0 ? (
-									<DropdownMenuItem disabled>
-										{T.assetMenu.noFolders}
-									</DropdownMenuItem>
-								) : (
-									flat.map(({ node, depth }) => (
-										<DropdownMenuItem
-											key={node.id}
-											style={{ paddingLeft: 8 + depth * 12 }}
-											onClick={() =>
-												addToFolder.mutate({
-													assetIds: ids,
-													folderId: node.id,
-												})
-											}
-										>
-											{node.name}
+						<div className="flex flex-col gap-2">
+							<SectionLabel>{T.inspector.foldersLabel}</SectionLabel>
+							<DropdownMenu>
+								<DropdownMenuTrigger
+									render={
+										<Button
+											variant="outline"
+											size="sm"
+											className="justify-start"
+										/>
+									}
+								>
+									<IconFolderAdd className="size-4" />
+									{T.assetMenu.addToFolder}
+								</DropdownMenuTrigger>
+								<DropdownMenuContent align="start">
+									{flat.length === 0 ? (
+										<DropdownMenuItem disabled>
+											{T.assetMenu.noFolders}
 										</DropdownMenuItem>
-									))
-								)}
-							</DropdownMenuContent>
-						</DropdownMenu>
+									) : (
+										flat.map(({ node, depth }) => (
+											<DropdownMenuItem
+												key={node.id}
+												style={{ paddingLeft: 8 + depth * 12 }}
+												onClick={() =>
+													addToFolder.mutate({
+														assetIds: ids,
+														folderId: node.id,
+													})
+												}
+											>
+												{node.name}
+											</DropdownMenuItem>
+										))
+									)}
+								</DropdownMenuContent>
+							</DropdownMenu>
+						</div>
 					</div>
 				</>
 			)}
 
-			<div className="mt-auto flex flex-col gap-2">
+			<div className="mt-auto flex flex-col gap-2 pt-4">
+				<DashedDivider className="my-0 mb-1" />
 				{!inTrash && (
 					<Button
 						variant="outline"
 						size="sm"
 						onClick={() => void exportAssets(ids)}
 					>
-						<SquareArrowOutUpRight className="size-4" />
+						<IconExport className="size-4" />
 						{T.export.actionN(ids.length)}
 					</Button>
 				)}
@@ -121,7 +126,7 @@ export function MultiSummary({ ids }: { ids: string[] }) {
 							clearSelection();
 						}}
 					>
-						<RotateCcw className="size-4" />
+						<IconRestore className="size-4" />
 						{T.multi.restore(ids.length)}
 					</Button>
 				) : (
@@ -134,7 +139,7 @@ export function MultiSummary({ ids }: { ids: string[] }) {
 							clearSelection();
 						}}
 					>
-						<Trash2 className="size-4" />
+						<IconTrash className="size-4" />
 						{T.multi.trash(ids.length)}
 					</Button>
 				)}

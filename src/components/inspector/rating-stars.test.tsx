@@ -13,14 +13,14 @@ describe("RatingStars", () => {
 	it("clicking a star selects it", () => {
 		const onChange = vi.fn();
 		render(<RatingStars value={0} onChange={onChange} />);
-		fireEvent.click(screen.getByRole("button", { name: "4 星" }));
+		fireEvent.click(screen.getByRole("button", { name: "4 stars" }));
 		expect(onChange).toHaveBeenCalledWith(4);
 	});
 
 	it("clicking the current value clears to zero", () => {
 		const onChange = vi.fn();
 		render(<RatingStars value={4} onChange={onChange} />);
-		fireEvent.click(screen.getByRole("button", { name: "4 星" }));
+		fireEvent.click(screen.getByRole("button", { name: "4 stars" }));
 		expect(onChange).toHaveBeenCalledWith(0);
 	});
 

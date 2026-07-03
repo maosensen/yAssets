@@ -62,6 +62,16 @@ export const commands = {
 	 *  the job still emits its terminal `ImportFinished { cancelled: true }`.
 	 */
 	cancelImport: (jobId: string) => typedError<null, AppError>(__TAURI_INVOKE("cancel_import", { jobId })),
+	/**
+	 *  Import whatever the clipboard holds (⌘V): copied files take priority,
+	 *  then a raw bitmap (screenshots, browser "Copy Image") which is written to
+	 *  a temp PNG and fed through the regular pipeline — so hashing/dedupe/
+	 *  thumbnails/events all behave exactly like a file import.
+	 * 
+	 *  Returns `Conflict` when the clipboard has nothing importable (the frontend
+	 *  shows a quiet info toast for that code).
+	 */
+	importClipboard: (folderId: string | null) => typedError<ImportStarted, AppError>(__TAURI_INVOKE("import_clipboard", { folderId })),
 	listAssets: (query: AssetListQuery) => typedError<AssetListResult, AppError>(__TAURI_INVOKE("list_assets", { query })),
 	getAsset: (id: string) => typedError<AssetDetail, AppError>(__TAURI_INVOKE("get_asset", { id })),
 	updateAsset: (id: string, patch: AssetPatch) => typedError<AssetDetail, AppError>(__TAURI_INVOKE("update_asset", { id, patch })),

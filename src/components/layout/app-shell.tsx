@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/resizable";
 import { useDragImport } from "@/hooks/use-drag-import";
 import { useImport, useImportEvents } from "@/hooks/use-import";
+import { useWindowDrag } from "@/hooks/use-window-drag";
 import { T } from "@/lib/text";
 
 export function AppShell() {
@@ -69,14 +70,23 @@ export function AppShell() {
 /** Sidebar column: header (switcher) / main (nav) / footer (filter). */
 function Sidebar() {
 	const [filter, setFilter] = useState("");
+	// The whole sidebar is a window drag surface (press-and-move on empty
+	// space, long-press anywhere); double-click on the header zooms.
+	const windowDrag = useWindowDrag();
 
 	return (
 		// Translucent over the native vibrancy — the frosted-glass chrome.
 		// No border-r: the ResizableHandle already draws the 1px divider.
-		<aside className="flex h-full flex-col bg-sidebar/50 text-sidebar-foreground">
-			{/* Overlay titlebar: top inset clears the macOS traffic lights;
-			    the header doubles as the window drag strip. */}
-			<header className="shrink-0 px-2 pt-8 pb-1" data-tauri-drag-region>
+		<aside
+			className="flex h-full flex-col bg-sidebar/50 text-sidebar-foreground"
+			onPointerDown={windowDrag.onPointerDown}
+		>
+			{/* Overlay titlebar: top inset clears the macOS traffic lights. */}
+			{/* biome-ignore lint/a11y/noStaticElementInteractions: window-chrome zoom gesture (double-click titlebar), not content interaction */}
+			<header
+				className="shrink-0 px-2 pt-8 pb-1"
+				onDoubleClick={windowDrag.onDoubleClick}
+			>
 				<LibrarySwitcher />
 			</header>
 			<div className="flex min-h-0 flex-1 flex-col gap-2 px-2">

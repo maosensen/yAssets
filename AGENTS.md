@@ -153,6 +153,15 @@ Migrate `store` schemas and DB schemas with versioned migrations on startup; don
 - **Export:** `export_assets(ids, dest_dir)` copies managed files back out under their original name+ext, de-duplicating collisions ` (n)`-style; wired to inspector / grid context menu / multi-select panel.
 - **Multi-select & in-app drag:** selection is a Set in `stores/selection-store` (Cmd toggle, Shift range via ordered ids, marquee via `masonry.itemsInRect`, Cmd+A). In-app card→folder/trash dragging is POINTER-based (`stores/drag-store` + `use-card-drag`/`use-drop-target`) — HTML5 DnD is unusable here (native drag-drop is claimed for OS file imports).
 
+### Phase 2.5 additions (UI polish)
+
+- **Icons:** Solar *Bold Duotone* via `unplugin-icons` (build-time SVG components, offline). Components import by semantic name from `src/components/icons.ts` ONLY — never from `~icons/*` directly. `lucide-react` stays installed solely so unused shadcn scaffolding under `ui/**` still typechecks; nothing that renders may import it.
+- **Empty/error placeholders:** every "nothing here" moment renders `src/components/empty-state.tsx` (icon tile + title + hint + optional actions; `variant="page" | "panel"`, `tone="destructive"` for errors). Don't hand-roll centered-text placeholders.
+- **Inspector rhythm:** major modules are separated by `DashedDivider`, labels use `SectionLabel` (micro-caps) — both from `src/components/inspector/section.tsx` (also used for sidebar section headers).
+- **Window gestures:** chrome regions (column headers, whole sidebar) use `use-window-drag.ts` — press-and-move / long-press → `startDragging`, double-click empty header → `toggleMaximize`. Requires `core:window:allow-start-dragging` / `allow-toggle-maximize` capabilities. `data-tauri-drag-region` is not used.
+- **Native theme sync:** `getCurrentWindow().setTheme()` needs `core:window:allow-set-theme` — without it the vibrancy stays dark and light mode turns to mud (that was the phase-2 light-theme bug). Light palette layers `--background` (near-white) vs `--sidebar` (a step darker) to mirror the dark `#17191d`/`#1f2023` split.
+- **Clipboard paste import:** ⌘V on the grid calls `import_clipboard` (Rust, `clipboard-rs`): copied files first, else a clipboard bitmap is written to a temp PNG — either way it feeds the normal import pipeline (dedupe/thumbs/events included). "Nothing importable" is `AppError::Conflict`, which the frontend shows as a quiet info toast.
+
 ### Media/asset pipeline (implemented — phase 1)
 
 The standard three moves, as shipped:
@@ -179,7 +188,7 @@ MyLibrary/
 
 ### Frontend conventions added in phase 1
 
-- **All user-visible copy lives in `src/lib/text.ts`** (`T.*`, Chinese) — no bare string literals in components; error codes map to copy via `describeError` in `src/lib/errors.ts`.
+- **All user-visible copy lives in `src/lib/text.ts`** (`T.*`, English as of phase 2.5) — no bare string literals in components; error codes map to copy via `describeError` in `src/lib/errors.ts`.
 - **View state is search params** on the `/` route (zod-validated: `view`/`folderId`/`q`) — back/forward ride router history; the sidebar derives active state from the URL. Search input writes with `replace` (no history noise).
 - **`src/lib/tauri-events.ts` is the only file** (besides generated bindings) that subscribes `@tauri-apps/api` events — drag-drop must use the native event (HTML5 drop has no real paths; consequently in-app drag must be pointer-based, never HTML5 DnD).
 - **Base UI, not Radix:** menu triggers take `render={...}` (no `asChild`), menu items use `onClick` (`onSelect` type-checks but never fires), and `*MenuLabel` must sit inside a `*MenuGroup` or it throws at runtime.

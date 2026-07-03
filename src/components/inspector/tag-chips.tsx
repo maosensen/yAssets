@@ -5,8 +5,9 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { Plus, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { IconClose, IconPlus } from "@/components/icons";
+import { SectionLabel } from "@/components/inspector/section";
 import { TagDot } from "@/components/sidebar/tag-list";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,10 +70,8 @@ export function TagChips({ assetIds, tags = [] }: TagChipsProps) {
 	};
 
 	return (
-		<div className="flex flex-col gap-1.5">
-			<span className="text-muted-foreground text-xs">
-				{T.sidebar.tagsTitle}
-			</span>
+		<div className="flex flex-col gap-2">
+			<SectionLabel>{T.sidebar.tagsTitle}</SectionLabel>
 			<div className="flex flex-wrap items-center gap-1.5">
 				{tags.map((tag) => (
 					<span
@@ -92,7 +91,7 @@ export function TagChips({ assetIds, tags = [] }: TagChipsProps) {
 								})
 							}
 						>
-							<X className="size-3" />
+							<IconClose className="size-3" />
 						</button>
 					</span>
 				))}
@@ -107,7 +106,7 @@ export function TagChips({ assetIds, tags = [] }: TagChipsProps) {
 							/>
 						}
 					>
-						<Plus className="size-3" />
+						<IconPlus className="size-3" />
 						{T.sidebar.tagsTitle}
 					</PopoverTrigger>
 					<PopoverContent className="w-56 p-0" align="start">
@@ -154,7 +153,7 @@ export function TagChips({ assetIds, tags = [] }: TagChipsProps) {
 											value={`__create__${trimmed}`}
 											onSelect={createAndAttach}
 										>
-											<Plus className="size-3.5" />
+											<IconPlus className="size-3.5" />
 											{T.tags.createEntry(trimmed)}
 										</CommandItem>
 									)}

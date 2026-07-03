@@ -7,7 +7,8 @@
  */
 
 import { type ErrorComponentProps, useRouter } from "@tanstack/react-router";
-import { CircleAlert, House, RotateCw } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
+import { IconError, IconHome, IconReload } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { logger } from "@/lib/logger";
 import { T } from "@/lib/text";
@@ -29,25 +30,23 @@ export function AppErrorFallback({ error, reset }: ErrorComponentProps) {
 		error instanceof Error ? error.message : String(error ?? "unknown");
 
 	return (
-		<main className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
-			<div className="flex flex-col items-center gap-2 text-center">
-				<CircleAlert className="size-10 text-destructive" />
-				<h1 className="font-semibold text-xl">{T.errorPage.title}</h1>
-				<p className="max-w-md text-muted-foreground text-sm">
-					{T.errorPage.hint}
-				</p>
-			</div>
-
-			<div className="flex gap-3">
+		<main className="flex min-h-screen flex-col items-center justify-center gap-2 p-8">
+			<EmptyState
+				className="h-auto"
+				icon={IconError}
+				tone="destructive"
+				title={T.errorPage.title}
+				hint={T.errorPage.hint}
+			>
 				<Button onClick={goHome}>
-					<House className="size-4" />
+					<IconHome className="size-4" />
 					{T.errorPage.goHome}
 				</Button>
 				<Button variant="outline" onClick={() => window.location.reload()}>
-					<RotateCw className="size-4" />
+					<IconReload className="size-4" />
 					{T.errorPage.reload}
 				</Button>
-			</div>
+			</EmptyState>
 
 			<details className="w-full max-w-xl">
 				<summary className="cursor-pointer text-muted-foreground text-xs">

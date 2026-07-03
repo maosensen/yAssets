@@ -22,7 +22,7 @@ export function isCommandError(error: unknown): error is CommandError {
 }
 
 /**
- * Human-readable (Chinese) message for any thrown value — the standard
+ * Human-readable message for any thrown value — the standard
  * `onError` → `toast.error(describeError(err))` path.
  *
  * Known codes map to fixed copy in `T.errors`; the Rust-provided `detail`

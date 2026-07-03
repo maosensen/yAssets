@@ -13,7 +13,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { commands, events } from "@/lib/bindings";
-import { describeError } from "@/lib/errors";
+import { describeError, isCommandError } from "@/lib/errors";
 import { assetKeys, folderKeys, libraryKeys } from "@/lib/queries/keys";
 import { unwrap } from "@/lib/tauri";
 import { T } from "@/lib/text";
@@ -108,5 +108,31 @@ export function useImport() {
 			if (paths.length > 0) mutation.mutate({ paths, folderId });
 		},
 		isImporting: mutation.isPending,
+	};
+}
+
+/**
+ * ⌘V — import copied files or a clipboard bitmap. Progress rides the same
+ * import events/toast as any other import; an unusable clipboard (Conflict)
+ * is an expected no-op and gets a quiet info toast instead of an error.
+ */
+export function useImportClipboard() {
+	const mutation = useMutation({
+		mutationFn: async (folderId: string | null) =>
+			unwrap(await commands.importClipboard(folderId)),
+		onSuccess: (started) =>
+			toast.loading(T.import.started, { id: started.job_id }),
+		onError: (error) => {
+			if (isCommandError(error) && error.code === "Conflict") {
+				toast.info(T.import.pasteEmpty);
+			} else {
+				toast.error(describeError(error));
+			}
+		},
+	});
+
+	return {
+		importClipboard: (folderId?: string | null) =>
+			mutation.mutate(folderId ?? null),
 	};
 }

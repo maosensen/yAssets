@@ -4,15 +4,15 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import {
-	ChevronsUpDown,
-	FolderOpen,
-	FolderPlus,
-	Library,
-	Settings2,
-	X,
-} from "lucide-react";
 import { useState } from "react";
+import {
+	IconClose,
+	IconFolderAdd,
+	IconFolderOpen,
+	IconLibrary,
+	IconSettings,
+	IconSwitcher,
+} from "@/components/icons";
 import { PreferencesDialog } from "@/components/preferences/preferences-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,11 +53,11 @@ export function LibrarySwitcher() {
 						/>
 					}
 				>
-					<Library className="size-4 shrink-0" />
+					<IconLibrary className="size-4 shrink-0" />
 					<span className="min-w-0 flex-1 truncate text-left font-medium">
 						{library?.name ?? T.app.name}
 					</span>
-					<ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
+					<IconSwitcher className="size-3.5 shrink-0 text-muted-foreground" />
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="start" className="w-64">
 					{otherRecents.length > 0 && (
@@ -89,20 +89,20 @@ export function LibrarySwitcher() {
 						</>
 					)}
 					<DropdownMenuItem onClick={() => void actions.pickAndOpen()}>
-						<FolderOpen className="size-4" />
+						<IconFolderOpen className="size-4" />
 						{T.sidebar.switcher.openOther}
 					</DropdownMenuItem>
 					<DropdownMenuItem onClick={() => void actions.pickAndCreate()}>
-						<FolderPlus className="size-4" />
+						<IconFolderAdd className="size-4" />
 						{T.sidebar.switcher.createNew}
 					</DropdownMenuItem>
 					<DropdownMenuSeparator />
 					<DropdownMenuItem onClick={() => setPrefsOpen(true)}>
-						<Settings2 className="size-4" />
+						<IconSettings className="size-4" />
 						{T.preferences.open}
 					</DropdownMenuItem>
 					<DropdownMenuItem onClick={() => actions.closeCurrent()}>
-						<X className="size-4" />
+						<IconClose className="size-4" />
 						{T.sidebar.switcher.closeCurrent}
 					</DropdownMenuItem>
 				</DropdownMenuContent>

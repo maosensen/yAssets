@@ -7,8 +7,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useSearch } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
+import { IconPlus } from "@/components/icons";
+import { SectionLabel } from "@/components/inspector/section";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -60,9 +61,7 @@ export function FolderTree({ filter }: { filter: string }) {
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			<div className="flex items-center justify-between px-2 py-1">
-				<span className="text-muted-foreground text-xs">
-					{T.sidebar.foldersTitle}
-				</span>
+				<SectionLabel>{T.sidebar.foldersTitle}</SectionLabel>
 				<Button
 					variant="ghost"
 					size="icon"
@@ -70,7 +69,7 @@ export function FolderTree({ filter }: { filter: string }) {
 					aria-label={T.sidebar.newFolder}
 					onClick={() => setDialog({ mode: "create", parentId: null })}
 				>
-					<Plus className="size-3.5" />
+					<IconPlus className="size-3.5" />
 				</Button>
 			</div>
 

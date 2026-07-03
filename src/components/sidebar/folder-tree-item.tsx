@@ -4,7 +4,7 @@
  */
 
 import { Link } from "@tanstack/react-router";
-import { ChevronRight, Folder as FolderIcon } from "lucide-react";
+import { IconChevronRight, IconFolder } from "@/components/icons";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -60,10 +60,10 @@ export function FolderTreeItem(props: FolderTreeItemProps) {
 						<button
 							type="button"
 							className="flex size-5 shrink-0 items-center justify-center rounded hover:bg-sidebar-accent"
-							aria-label={expanded ? "折叠" : "展开"}
+							aria-label={expanded ? T.sidebar.collapse : T.sidebar.expand}
 							onClick={() => onToggle(node.id)}
 						>
-							<ChevronRight
+							<IconChevronRight
 								className={cn(
 									"size-3.5 text-muted-foreground transition-transform",
 									expanded && "rotate-90",
@@ -83,7 +83,7 @@ export function FolderTreeItem(props: FolderTreeItemProps) {
 								: "text-sidebar-foreground/80",
 						)}
 					>
-						<FolderIcon className="size-4 shrink-0" />
+						<IconFolder className="size-4 shrink-0" />
 						<span className="min-w-0 flex-1 truncate">{node.name}</span>
 						{node.assetCount > 0 && (
 							<span className="text-muted-foreground text-xs tabular-nums">

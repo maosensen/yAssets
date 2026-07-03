@@ -1,6 +1,7 @@
 /** Empty library view: drop hint + explicit import entry points. */
 
-import { FolderInput, ImagePlus, ImageUp } from "lucide-react";
+import { EmptyState } from "@/components/empty-state";
+import { IconFolderImport, IconImportImages } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { T } from "@/lib/text";
 
@@ -16,22 +17,19 @@ export function GridEmptyState({
 	onImportFolder,
 }: GridEmptyStateProps) {
 	return (
-		<div className="flex h-full flex-col items-center justify-center gap-6 p-8">
-			<div className="flex flex-col items-center gap-2 text-center">
-				<ImageUp className="size-12 text-muted-foreground/50" />
-				<h2 className="font-medium text-lg">{T.grid.emptyTitle}</h2>
-				<p className="text-muted-foreground text-sm">{T.grid.emptyHint}</p>
-			</div>
-			<div className="flex gap-3">
-				<Button variant="outline" onClick={onImportFiles} disabled={importing}>
-					<ImagePlus className="size-4" />
-					{T.import.importFiles}
-				</Button>
-				<Button variant="outline" onClick={onImportFolder} disabled={importing}>
-					<FolderInput className="size-4" />
-					{T.import.importFolder}
-				</Button>
-			</div>
-		</div>
+		<EmptyState
+			icon={IconImportImages}
+			title={T.grid.emptyTitle}
+			hint={T.grid.emptyHint}
+		>
+			<Button variant="outline" onClick={onImportFiles} disabled={importing}>
+				<IconImportImages className="size-4" />
+				{T.import.importFiles}
+			</Button>
+			<Button variant="outline" onClick={onImportFolder} disabled={importing}>
+				<IconFolderImport className="size-4" />
+				{T.import.importFolder}
+			</Button>
+		</EmptyState>
 	);
 }
