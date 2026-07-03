@@ -1,11 +1,12 @@
 /**
  * Full-pane image preview — a route, not an overlay. Renders in the shell's
  * middle pane (sidebar + inspector stay put), with its own topbar carrying
- * back / filename / counter / prev-next and room for future actions
- * (zoom, rotate, edit…). Navigated to from a grid double-click.
+ * back / position / filename, centered zoom controls, and prev-next.
  *
- * View context (view/folderId/q) rides in search params so the same cached
- * list backs prev/next; `id` is the current asset.
+ * Images render in a free pan/zoom canvas (see CanvasViewer): pinch or ⌘±
+ * zooms, drag/scroll pans, double-click toggles fit ↔ 100%, `0`/`1` jump to
+ * fit/actual. View context (view/folderId/q) rides in search params so the
+ * same cached list backs prev/next; `id` is the current asset.
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -14,11 +15,21 @@ import {
 	useNavigate,
 	useRouter,
 } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import { IconChevronLeft, IconChevronRight } from "@/components/icons";
+import {
+	IconChevronLeft,
+	IconChevronRight,
+	IconMinus,
+	IconPlus,
+} from "@/components/icons";
+import {
+	CanvasViewer,
+	type ViewerHandle,
+} from "@/components/preview/canvas-viewer";
 import { Button } from "@/components/ui/button";
 import { useWindowDrag } from "@/hooks/use-window-drag";
+import type { AssetSummary } from "@/lib/bindings";
 import { libraryViewSchema, scopeFromView } from "@/lib/library-view";
 import { fileUrl, thumbUrl } from "@/lib/media";
 import { assetListQueryOptions } from "@/lib/queries/assets";
@@ -60,6 +71,19 @@ function PreviewPage() {
 	const index = items.findIndex((asset) => asset.id === search.id);
 	const asset = index >= 0 ? items[index] : undefined;
 
+	// Zoom state surfaced from the canvas for the topbar controls.
+	const viewerRef = useRef<ViewerHandle | null>(null);
+	const [zoomPercent, setZoomPercent] = useState<number | null>(null);
+	const onScaleChange = useCallback(
+		(scale: number) => setZoomPercent(Math.round(scale * 100)),
+		[],
+	);
+	const zoomable =
+		asset?.has_thumb === true && asset.width != null && asset.height != null;
+	useEffect(() => {
+		if (!zoomable) setZoomPercent(null);
+	}, [zoomable]);
+
 	const goBack = () => {
 		if (router.history.canGoBack()) router.history.back();
 		else void navigate({ to: "/", search: view, replace: true });
@@ -80,14 +104,22 @@ function PreviewPage() {
 		if (asset) selectOnly(asset.id);
 	}, [asset, selectOnly]);
 
-	// Keyboard: Esc back, ←/→ navigate. Latest closures via ref so the
-	// listener mounts once (stable deps) yet always sees current index.
+	// Keyboard: Esc back, ←/→ navigate, ±/0/1 zoom. Latest closures via ref so
+	// the listener mounts once (stable deps) yet always sees current index.
 	const keyHandler = useRef<(event: KeyboardEvent) => void>(() => {});
 	keyHandler.current = (event: KeyboardEvent) => {
 		if (event.key === "Escape") goBack();
 		else if (event.key === "ArrowLeft" && index > 0) goTo(index - 1);
 		else if (event.key === "ArrowRight" && index < items.length - 1) {
 			goTo(index + 1);
+		} else if (event.key === "+" || event.key === "=") {
+			viewerRef.current?.zoomIn();
+		} else if (event.key === "-") {
+			viewerRef.current?.zoomOut();
+		} else if (event.key === "0") {
+			viewerRef.current?.zoomToFit();
+		} else if (event.key === "1") {
+			viewerRef.current?.zoomToActual();
 		}
 	};
 	useEffect(() => {
@@ -109,17 +141,26 @@ function PreviewPage() {
 				title={asset?.name ?? ""}
 				index={index}
 				total={items.length}
+				zoomPercent={zoomPercent}
+				viewerRef={viewerRef}
 				onBack={goBack}
 				onPrev={() => goTo(index - 1)}
 				onNext={() => goTo(index + 1)}
 			/>
-			<div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden p-6">
+			<div className="min-h-0 flex-1 overflow-hidden">
 				{asset ? (
-					<PreviewImage key={asset.id} asset={asset} />
+					<PreviewBody
+						key={asset.id}
+						asset={asset}
+						viewerRef={viewerRef}
+						onScaleChange={onScaleChange}
+					/>
 				) : (
-					<span className="text-muted-foreground text-sm">
-						{T.common.loading}
-					</span>
+					<div className="flex h-full items-center justify-center">
+						<span className="text-muted-foreground text-sm">
+							{T.common.loading}
+						</span>
+					</div>
 				)}
 			</div>
 		</div>
@@ -130,6 +171,8 @@ function PreviewTopbar({
 	title,
 	index,
 	total,
+	zoomPercent,
+	viewerRef,
 	onBack,
 	onPrev,
 	onNext,
@@ -137,6 +180,8 @@ function PreviewTopbar({
 	title: string;
 	index: number;
 	total: number;
+	zoomPercent: number | null;
+	viewerRef: React.RefObject<ViewerHandle | null>;
 	onBack: () => void;
 	onPrev: () => void;
 	onNext: () => void;
@@ -145,12 +190,12 @@ function PreviewTopbar({
 	return (
 		// biome-ignore lint/a11y/noStaticElementInteractions: window-chrome drag/zoom gestures, not content interaction
 		<header
-			className="flex h-12 shrink-0 items-center gap-2 border-b px-3"
+			className="grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b px-3"
 			onPointerDown={windowDrag.onPointerDown}
 			onDoubleClick={windowDrag.onDoubleClick}
 		>
-			{/* Eagle layout: back + position counter on the left, actions right. */}
-			<div className="flex flex-1 items-center gap-2">
+			{/* Eagle layout: back + position + filename on the left. */}
+			<div className="flex min-w-0 items-center gap-2">
 				<Button
 					variant="ghost"
 					size="icon"
@@ -160,15 +205,58 @@ function PreviewTopbar({
 				>
 					<IconChevronLeft className="size-4" />
 				</Button>
-				<span className="text-muted-foreground text-xs tabular-nums">
+				<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
 					{total > 0 ? T.preview.counter(index + 1, total) : ""}
 				</span>
+				<span className="min-w-0 truncate font-medium text-sm" title={title}>
+					{title}
+				</span>
 			</div>
-			<span className="min-w-0 flex-1 truncate text-center font-medium text-sm">
-				{title}
-			</span>
-			{/* Room reserved here for future actions (zoom / rotate / edit). */}
-			<div className="flex flex-1 items-center justify-end gap-0.5">
+
+			{/* Centered zoom group — only for zoomable (image) assets. */}
+			<div className="flex items-center gap-1">
+				{zoomPercent !== null && (
+					<>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="size-6 text-muted-foreground"
+							aria-label={T.preview.zoomOut}
+							onClick={() => viewerRef.current?.zoomOut()}
+						>
+							<IconMinus className="size-3.5" />
+						</Button>
+						<button
+							type="button"
+							className="min-w-12 text-center text-muted-foreground text-xs tabular-nums transition-colors hover:text-foreground"
+							title={T.preview.zoomFit}
+							onClick={() => viewerRef.current?.zoomToFit()}
+						>
+							{zoomPercent}%
+						</button>
+						<Button
+							variant="ghost"
+							size="icon"
+							className="size-6 text-muted-foreground"
+							aria-label={T.preview.zoomIn}
+							onClick={() => viewerRef.current?.zoomIn()}
+						>
+							<IconPlus className="size-3.5" />
+						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
+							className="h-6 px-1.5 text-[11px] text-muted-foreground"
+							title={T.preview.zoomActual}
+							onClick={() => viewerRef.current?.zoomToActual()}
+						>
+							1:1
+						</Button>
+					</>
+				)}
+			</div>
+
+			<div className="flex items-center justify-end gap-0.5">
 				<Button
 					variant="ghost"
 					size="icon"
@@ -194,11 +282,19 @@ function PreviewTopbar({
 	);
 }
 
-/** Thumbnail bridges instantly; the original swaps in once decoded. */
-function PreviewImage({
+/**
+ * Image assets get the pan/zoom canvas (thumbnail bridges instantly, the
+ * original swaps in once decoded — same geometry, no view reset). Everything
+ * else keeps the extension placeholder.
+ */
+function PreviewBody({
 	asset,
+	viewerRef,
+	onScaleChange,
 }: {
-	asset: { id: string; name: string; ext: string; has_thumb: boolean };
+	asset: AssetSummary;
+	viewerRef: React.RefObject<ViewerHandle | null>;
+	onScaleChange: (scale: number) => void;
 }) {
 	const [originalSrc, setOriginalSrc] = useState<string | null>(null);
 
@@ -212,19 +308,24 @@ function PreviewImage({
 		};
 	}, [asset.id, asset.has_thumb]);
 
-	if (!asset.has_thumb) {
+	if (!asset.has_thumb || asset.width == null || asset.height == null) {
 		return (
-			<span className="rounded-lg bg-muted px-6 py-4 font-medium text-2xl text-muted-foreground uppercase">
-				{asset.ext || "?"}
-			</span>
+			<div className="flex h-full items-center justify-center">
+				<span className="rounded-md bg-muted px-6 py-4 font-medium text-2xl text-muted-foreground uppercase">
+					{asset.ext || "?"}
+				</span>
+			</div>
 		);
 	}
+
 	return (
-		<img
+		<CanvasViewer
+			ref={viewerRef}
 			src={originalSrc ?? thumbUrl(asset.id)}
 			alt={asset.name}
-			className="max-h-full max-w-full object-contain"
-			draggable={false}
+			imageWidth={asset.width}
+			imageHeight={asset.height}
+			onScaleChange={onScaleChange}
 		/>
 	);
 }

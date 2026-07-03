@@ -163,6 +163,11 @@ Migrate `store` schemas and DB schemas with versioned migrations on startup; don
 - **Duplicate detection (layered):** L1 exact = blake3 content hash — an import hit is NOT silently skipped anymore: it lands in `ImportFinished.duplicates` and the frontend raises the Duplicate Alert (`import/duplicate-alert-dialog.tsx`; "keep both" re-imports with `keep_duplicates = true`, which disables the library-wide check only — batch-internal repeats always collapse). L2 visual = 64-bit dHash (`import/dhash.rs`, 9×8 grayscale difference hash) computed from thumbnail pixels, stored in `assets.dhash` (schema v3, backfilled on open); Hamming distance ≤ `SIMILAR_MAX_DISTANCE` (5) = visually-duplicate candidate — reserved for the find-similar surface.
 - **Clipboard paste import:** ⌘V on the grid calls `import_clipboard` (Rust, `clipboard-rs`): copied files first, else a clipboard bitmap is written to a temp PNG — either way it feeds the normal import pipeline (dedupe/thumbs/events included). "Nothing importable" is `AppError::Conflict`, which the frontend shows as a quiet info toast.
 
+### Phase 3 additions (consumption)
+
+- **`yasset://` supports HTTP Range** (`file/<id>` route): single-range forms (`start-end`, `start-`, `-suffix`) → 206 + `Content-Range`, invalid → 416, plus `Accept-Ranges`/`Content-Length`/HEAD. This is the streaming substrate for `<video>`/`<audio>`/large PDFs — ranged reads are seek+read_exact, so memory stays bounded. CSP `media-src` and `connect-src` list the yasset origins.
+- **Preview canvas** (`components/preview/canvas-viewer.tsx`): free pan/zoom for images — pinch = ctrlKey+wheel (WebKit) anchored at the cursor, plain wheel/drag pans, double-click toggles fit ↔ 100%, keys ±/0/1, zoom % + controls live in the preview topbar. The `<img>` is laid out at DB dimensions with translate+scale from origin 0,0, so `scale` IS the display ratio and the thumb→original swap keeps geometry. Wheel listeners are attached natively (non-passive) — React's synthetic onWheel can't preventDefault.
+
 ### Media/asset pipeline (implemented — phase 1)
 
 The standard three moves, as shipped:

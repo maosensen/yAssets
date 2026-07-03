@@ -32,7 +32,7 @@
 			}
 		],
 		"security": {
-			"csp": "default-src 'self'; img-src 'self' yasset: http://yasset.localhost data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1421 http://localhost:1420"
+			"csp": "default-src 'self'; img-src 'self' yasset: http://yasset.localhost data: blob:; media-src 'self' yasset: http://yasset.localhost; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1421 http://localhost:1420 yasset: http://yasset.localhost"
 		}
 	},
 	"bundle": {

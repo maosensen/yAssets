@@ -251,6 +251,10 @@ export const T = {
 		prev: "Previous",
 		next: "Next",
 		counter: (current: number, total: number) => `${current} / ${total}`,
+		zoomIn: "Zoom in",
+		zoomOut: "Zoom out",
+		zoomFit: "Fit to window",
+		zoomActual: "Actual size (100%)",
 	},
 	errorPage: {
 		title: "Something Went Wrong",
