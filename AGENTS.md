@@ -155,7 +155,7 @@ Migrate `store` schemas and DB schemas with versioned migrations on startup; don
 
 ### Phase 2.5 additions (UI polish)
 
-- **Icons:** Solar *Bold Duotone* via `unplugin-icons` (build-time SVG components, offline). Components import by semantic name from `src/components/icons.ts` ONLY — never from `~icons/*` directly. `lucide-react` stays installed solely so unused shadcn scaffolding under `ui/**` still typechecks; nothing that renders may import it.
+- **Icons:** Solar *Line Duotone* via `unplugin-icons` (build-time SVG components, offline). Components import by semantic name from `src/components/icons.ts` ONLY — never from `~icons/*` directly. `lucide-react` stays installed solely so unused shadcn scaffolding under `ui/**` still typechecks; nothing that renders may import it.
 - **Empty/error placeholders:** every "nothing here" moment renders `src/components/empty-state.tsx` (icon tile + title + hint + optional actions; `variant="page" | "panel"`, `tone="destructive"` for errors). Don't hand-roll centered-text placeholders.
 - **Inspector rhythm:** major modules are separated by `DashedDivider`, labels use `SectionLabel` (micro-caps) — both from `src/components/inspector/section.tsx` (also used for sidebar section headers).
 - **Window gestures:** chrome regions (column headers, whole sidebar) use `use-window-drag.ts` — press-and-move / long-press → `startDragging`, double-click empty header → `toggleMaximize`. Requires `core:window:allow-start-dragging` / `allow-toggle-maximize` capabilities. `data-tauri-drag-region` is not used.
