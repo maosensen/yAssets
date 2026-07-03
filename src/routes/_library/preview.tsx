@@ -23,10 +23,12 @@ import {
 	IconMinus,
 	IconPlus,
 } from "@/components/icons";
+import { AudioViewer } from "@/components/preview/audio-viewer";
 import {
 	CanvasViewer,
 	type ViewerHandle,
 } from "@/components/preview/canvas-viewer";
+import { TextViewer } from "@/components/preview/text-viewer";
 import { Button } from "@/components/ui/button";
 import { useWindowDrag } from "@/hooks/use-window-drag";
 import type { AssetSummary } from "@/lib/bindings";
@@ -36,6 +38,7 @@ import { assetListQueryOptions } from "@/lib/queries/assets";
 import { useSelectionStore } from "@/lib/stores/selection-store";
 import { useViewPrefsStore } from "@/lib/stores/view-prefs-store";
 import { T } from "@/lib/text";
+import { viewerKindFor } from "@/lib/viewer-registry";
 
 const previewSearchSchema = libraryViewSchema.extend({
 	id: z.string(),
@@ -78,8 +81,7 @@ function PreviewPage() {
 		(scale: number) => setZoomPercent(Math.round(scale * 100)),
 		[],
 	);
-	const zoomable =
-		asset?.has_thumb === true && asset.width != null && asset.height != null;
+	const zoomable = asset !== undefined && viewerKindFor(asset) === "image";
 	useEffect(() => {
 		if (!zoomable) setZoomPercent(null);
 	}, [zoomable]);
@@ -283,11 +285,50 @@ function PreviewTopbar({
 }
 
 /**
- * Image assets get the pan/zoom canvas (thumbnail bridges instantly, the
- * original swaps in once decoded — same geometry, no view reset). Everything
- * else keeps the extension placeholder.
+ * Viewer dispatch (see lib/viewer-registry): images get the pan/zoom canvas,
+ * audio gets native controls, markdown/text render inline; everything else
+ * keeps the extension placeholder.
  */
 function PreviewBody({
+	asset,
+	viewerRef,
+	onScaleChange,
+}: {
+	asset: AssetSummary;
+	viewerRef: React.RefObject<ViewerHandle | null>;
+	onScaleChange: (scale: number) => void;
+}) {
+	const kind = viewerKindFor(asset);
+	switch (kind) {
+		case "image":
+			return (
+				<ImageBody
+					asset={asset}
+					viewerRef={viewerRef}
+					onScaleChange={onScaleChange}
+				/>
+			);
+		case "audio":
+			return <AudioViewer assetId={asset.id} name={asset.name} />;
+		case "markdown":
+		case "text":
+			return <TextViewer assetId={asset.id} markdown={kind === "markdown"} />;
+		default:
+			return (
+				<div className="flex h-full items-center justify-center">
+					<span className="rounded-md bg-muted px-6 py-4 font-medium text-2xl text-muted-foreground uppercase">
+						{asset.ext || "?"}
+					</span>
+				</div>
+			);
+	}
+}
+
+/**
+ * Pan/zoom canvas host: the thumbnail bridges instantly, the original swaps
+ * in once decoded — same geometry, no view reset.
+ */
+function ImageBody({
 	asset,
 	viewerRef,
 	onScaleChange,
@@ -299,24 +340,16 @@ function PreviewBody({
 	const [originalSrc, setOriginalSrc] = useState<string | null>(null);
 
 	useEffect(() => {
-		if (!asset.has_thumb) return;
 		const image = new Image();
 		image.onload = () => setOriginalSrc(image.src);
 		image.src = fileUrl(asset.id);
 		return () => {
 			image.onload = null;
 		};
-	}, [asset.id, asset.has_thumb]);
+	}, [asset.id]);
 
-	if (!asset.has_thumb || asset.width == null || asset.height == null) {
-		return (
-			<div className="flex h-full items-center justify-center">
-				<span className="rounded-md bg-muted px-6 py-4 font-medium text-2xl text-muted-foreground uppercase">
-					{asset.ext || "?"}
-				</span>
-			</div>
-		);
-	}
+	// viewerKindFor guarantees dimensions for "image"; keep TS honest.
+	if (asset.width == null || asset.height == null) return null;
 
 	return (
 		<CanvasViewer

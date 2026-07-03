@@ -27,6 +27,7 @@ export { default as IconRecent } from "~icons/solar/clock-circle-line-duotone";
 export { default as IconClose } from "~icons/solar/close-circle-line-duotone";
 export { default as IconError } from "~icons/solar/danger-circle-line-duotone";
 export { default as IconWarning } from "~icons/solar/danger-triangle-line-duotone";
+export { default as IconFileText } from "~icons/solar/document-text-line-duotone";
 export { default as IconExport } from "~icons/solar/export-line-duotone";
 export { default as IconFilter } from "~icons/solar/filter-line-duotone";
 // Folders
@@ -46,6 +47,7 @@ export { default as IconMinus } from "~icons/solar/minus-circle-line-duotone";
 export { default as IconMonitor } from "~icons/solar/monitor-line-duotone";
 export { default as IconMoon } from "~icons/solar/moon-line-duotone";
 export { default as IconFolderImport } from "~icons/solar/move-to-folder-line-duotone";
+export { default as IconMusic } from "~icons/solar/music-note-2-line-duotone";
 export { default as IconPalette } from "~icons/solar/palette-line-duotone";
 export { default as IconRadio } from "~icons/solar/record-circle-line-duotone";
 export { default as IconReload } from "~icons/solar/restart-line-duotone";

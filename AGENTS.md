@@ -166,6 +166,7 @@ Migrate `store` schemas and DB schemas with versioned migrations on startup; don
 ### Phase 3 additions (consumption)
 
 - **`yasset://` supports HTTP Range** (`file/<id>` route): single-range forms (`start-end`, `start-`, `-suffix`) → 206 + `Content-Range`, invalid → 416, plus `Accept-Ranges`/`Content-Length`/HEAD. This is the streaming substrate for `<video>`/`<audio>`/large PDFs — ranged reads are seek+read_exact, so memory stays bounded. CSP `media-src` and `connect-src` list the yasset origins.
+- **Viewer dispatch** (`lib/viewer-registry.ts`): ext/mime → viewer kind, rendered by `PreviewBody` — image (canvas), audio (native `<audio>` over Range), markdown (react-markdown + GFM, `prose` styles), text (ranged first-1MB fetch with a truncation notice), fallback (ext tile). Adding a format = extend a set + add a case.
 - **Preview canvas** (`components/preview/canvas-viewer.tsx`): free pan/zoom for images — pinch = ctrlKey+wheel (WebKit) anchored at the cursor, plain wheel/drag pans, double-click toggles fit ↔ 100%, keys ±/0/1, zoom % + controls live in the preview topbar. The `<img>` is laid out at DB dimensions with translate+scale from origin 0,0, so `scale` IS the display ratio and the thumb→original swap keeps geometry. Wheel listeners are attached natively (non-passive) — React's synthetic onWheel can't preventDefault.
 
 ### Media/asset pipeline (implemented — phase 1)

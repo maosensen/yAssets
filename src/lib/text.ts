@@ -255,6 +255,8 @@ export const T = {
 		zoomOut: "Zoom out",
 		zoomFit: "Fit to window",
 		zoomActual: "Actual size (100%)",
+		textTruncated: "Showing the first 1 MB of this file.",
+		textError: "Couldn't read this file.",
 	},
 	errorPage: {
 		title: "Something Went Wrong",
