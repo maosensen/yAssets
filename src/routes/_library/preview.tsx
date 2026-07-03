@@ -16,11 +16,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
-import {
-	IconChevronLeft,
-	IconChevronRight,
-	IconClose,
-} from "@/components/icons";
+import { IconChevronLeft, IconChevronRight } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { useWindowDrag } from "@/hooks/use-window-drag";
 import { libraryViewSchema, scopeFromView } from "@/lib/library-view";
@@ -153,25 +149,30 @@ function PreviewTopbar({
 			onPointerDown={windowDrag.onPointerDown}
 			onDoubleClick={windowDrag.onDoubleClick}
 		>
-			<Button
-				variant="ghost"
-				size="icon"
-				aria-label={T.preview.close}
-				onClick={onBack}
-			>
-				<IconClose className="size-4" />
-			</Button>
-			<span className="min-w-0 flex-1 truncate font-medium text-sm">
-				{title}
-			</span>
-			{/* Room reserved here for future actions (zoom / rotate / edit). */}
-			<span className="text-muted-foreground text-xs tabular-nums">
-				{total > 0 ? T.preview.counter(index + 1, total) : ""}
-			</span>
-			<div className="flex items-center gap-1">
+			{/* Eagle layout: back + position counter on the left, actions right. */}
+			<div className="flex flex-1 items-center gap-2">
 				<Button
 					variant="ghost"
 					size="icon"
+					className="size-8"
+					aria-label={T.preview.close}
+					onClick={onBack}
+				>
+					<IconChevronLeft className="size-4" />
+				</Button>
+				<span className="text-muted-foreground text-xs tabular-nums">
+					{total > 0 ? T.preview.counter(index + 1, total) : ""}
+				</span>
+			</div>
+			<span className="min-w-0 flex-1 truncate text-center font-medium text-sm">
+				{title}
+			</span>
+			{/* Room reserved here for future actions (zoom / rotate / edit). */}
+			<div className="flex flex-1 items-center justify-end gap-0.5">
+				<Button
+					variant="ghost"
+					size="icon"
+					className="size-8"
 					aria-label={T.preview.prev}
 					disabled={index <= 0}
 					onClick={onPrev}
@@ -181,6 +182,7 @@ function PreviewTopbar({
 				<Button
 					variant="ghost"
 					size="icon"
+					className="size-8"
 					aria-label={T.preview.next}
 					disabled={index < 0 || index >= total - 1}
 					onClick={onNext}

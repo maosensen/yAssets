@@ -52,6 +52,7 @@ export function ColorFilter({ search }: { search: LibraryView }) {
 					<Button
 						variant="ghost"
 						size="icon"
+						className="size-8"
 						title={T.colorFilter.label}
 						aria-label={T.colorFilter.label}
 					/>

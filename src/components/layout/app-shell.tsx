@@ -16,6 +16,7 @@
 import { Outlet, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 import { DragGhost } from "@/components/grid/drag-ghost";
+import { IconFilter } from "@/components/icons";
 import { DropOverlay } from "@/components/import/drop-overlay";
 import { InspectorPanel } from "@/components/inspector/inspector-panel";
 import { FolderTree } from "@/components/sidebar/folder-tree";
@@ -89,17 +90,21 @@ function Sidebar() {
 			>
 				<LibrarySwitcher />
 			</header>
-			<div className="flex min-h-0 flex-1 flex-col gap-2 px-2">
+			<div className="flex min-h-0 flex-1 flex-col gap-3 px-2 pt-1">
 				<SmartViews />
 				<FolderTree filter={filter} />
 				<TagList />
 			</div>
 			<footer className="shrink-0 border-sidebar-border/60 border-t p-2">
-				<Input
-					placeholder={T.sidebar.filterPlaceholder}
-					value={filter}
-					onChange={(event) => setFilter(event.target.value)}
-				/>
+				<div className="relative">
+					<IconFilter className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground/70" />
+					<Input
+						className="h-8 pl-8"
+						placeholder={T.sidebar.filterPlaceholder}
+						value={filter}
+						onChange={(event) => setFilter(event.target.value)}
+					/>
+				</div>
 			</footer>
 		</aside>
 	);

@@ -50,6 +50,8 @@ export const T = {
 		forward: "Forward",
 		searchPlaceholder: "Search",
 		zoom: "Thumbnail size",
+		zoomIn: "Zoom in",
+		zoomOut: "Zoom out",
 	},
 	sidebar: {
 		all: "All",

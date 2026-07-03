@@ -105,7 +105,7 @@ function SmartViewRow({
 			to="/"
 			search={{ view }}
 			className={cn(
-				"flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-sidebar-accent",
+				"flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-sidebar-accent",
 				active
 					? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
 					: "text-sidebar-foreground/80",

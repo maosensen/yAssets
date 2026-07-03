@@ -28,6 +28,7 @@ export { default as IconClose } from "~icons/solar/close-circle-line-duotone";
 export { default as IconError } from "~icons/solar/danger-circle-line-duotone";
 export { default as IconWarning } from "~icons/solar/danger-triangle-line-duotone";
 export { default as IconExport } from "~icons/solar/export-line-duotone";
+export { default as IconFilter } from "~icons/solar/filter-line-duotone";
 // Folders
 export { default as IconFolder } from "~icons/solar/folder-line-duotone";
 export { default as IconFolderOpen } from "~icons/solar/folder-open-line-duotone";
@@ -40,6 +41,7 @@ export { default as IconInfo } from "~icons/solar/info-circle-line-duotone";
 export { default as IconMulti } from "~icons/solar/layers-line-duotone";
 export { default as IconLibrary } from "~icons/solar/library-line-duotone";
 export { default as IconSearch } from "~icons/solar/magnifer-line-duotone";
+export { default as IconMinus } from "~icons/solar/minus-circle-line-duotone";
 // Theme chips
 export { default as IconMonitor } from "~icons/solar/monitor-line-duotone";
 export { default as IconMoon } from "~icons/solar/moon-line-duotone";

@@ -12,7 +12,13 @@ import {
 	useSearch,
 } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { IconChevronLeft, IconChevronRight } from "@/components/icons";
+import {
+	IconChevronLeft,
+	IconChevronRight,
+	IconMinus,
+	IconPlus,
+	IconSearch,
+} from "@/components/icons";
 import { ColorFilter } from "@/components/layout/color-filter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,19 +93,30 @@ export function Toolbar() {
 		}
 	})();
 
+	const ZOOM_STEP = 16;
+	const stepZoom = (delta: number) =>
+		setTargetRowHeight(
+			Math.min(
+				MAX_ROW_HEIGHT,
+				Math.max(MIN_ROW_HEIGHT, targetRowHeight + delta),
+			),
+		);
+
 	return (
-		// The grid route's own header (center column) — Eagle-style anatomy.
-		// Doubles as a window drag strip; double-click zooms (no native titlebar).
+		// The grid route's own header (center column) — Eagle-style anatomy:
+		// nav + title | centered zoom group | filters + search. Doubles as a
+		// window drag strip; double-click zooms the window (no native titlebar).
 		// biome-ignore lint/a11y/noStaticElementInteractions: window-chrome drag/zoom gestures, not content interaction
 		<header
-			className="flex h-12 shrink-0 items-center gap-3 border-b px-3"
+			className="grid h-12 shrink-0 grid-cols-[1fr_auto_1fr] items-center gap-3 border-b px-3"
 			onPointerDown={windowDrag.onPointerDown}
 			onDoubleClick={windowDrag.onDoubleClick}
 		>
-			<div className="flex items-center gap-1">
+			<div className="flex min-w-0 items-center gap-0.5">
 				<Button
 					variant="ghost"
 					size="icon"
+					className="size-8"
 					aria-label={T.toolbar.back}
 					disabled={!canGoBack}
 					onClick={() => router.history.back()}
@@ -109,19 +126,31 @@ export function Toolbar() {
 				<Button
 					variant="ghost"
 					size="icon"
+					className="size-8"
 					aria-label={T.toolbar.forward}
 					// No "can go forward" API — forward on empty history is a no-op.
 					onClick={() => router.history.forward()}
 				>
 					<IconChevronRight className="size-4" />
 				</Button>
+				<span className="min-w-0 truncate pl-1.5 font-medium text-sm">
+					{title}
+				</span>
 			</div>
 
-			<div className="min-w-0 flex-1 truncate font-medium text-sm">{title}</div>
-
-			<ColorFilter search={search} />
-			<div className="flex w-32 items-center" title={T.toolbar.zoom}>
+			{/* Centered zoom group (Eagle layout): − slider + */}
+			<div className="flex items-center gap-1" title={T.toolbar.zoom}>
+				<Button
+					variant="ghost"
+					size="icon"
+					className="size-6 text-muted-foreground"
+					aria-label={T.toolbar.zoomOut}
+					onClick={() => stepZoom(-ZOOM_STEP)}
+				>
+					<IconMinus className="size-3.5" />
+				</Button>
 				<Slider
+					className="w-36"
 					value={targetRowHeight}
 					min={MIN_ROW_HEIGHT}
 					max={MAX_ROW_HEIGHT}
@@ -130,13 +159,29 @@ export function Toolbar() {
 						if (typeof value === "number") setTargetRowHeight(value);
 					}}
 				/>
+				<Button
+					variant="ghost"
+					size="icon"
+					className="size-6 text-muted-foreground"
+					aria-label={T.toolbar.zoomIn}
+					onClick={() => stepZoom(ZOOM_STEP)}
+				>
+					<IconPlus className="size-3.5" />
+				</Button>
 			</div>
-			<Input
-				className="w-52"
-				placeholder={T.toolbar.searchPlaceholder}
-				value={term}
-				onChange={(event) => setTerm(event.target.value)}
-			/>
+
+			<div className="flex items-center justify-end gap-1.5">
+				<ColorFilter search={search} />
+				<div className="relative">
+					<IconSearch className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground/70" />
+					<Input
+						className="h-8 w-48 pl-8"
+						placeholder={T.toolbar.searchPlaceholder}
+						value={term}
+						onChange={(event) => setTerm(event.target.value)}
+					/>
+				</div>
+			</div>
 		</header>
 	);
 }

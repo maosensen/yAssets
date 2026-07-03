@@ -38,9 +38,29 @@ export function useWindowDrag() {
 			// Primary button only; let dblclick (detail 2) reach onDoubleClick.
 			if (event.button !== 0 || event.detail > 1) return;
 			const target = event.target as HTMLElement;
+			// Classic scrollbars: a press beyond the client box is ON the
+			// scrollbar — dragging it must scroll, never move the window.
+			const { offsetX, offsetY } = event.nativeEvent;
+			if (
+				target.clientWidth > 0 &&
+				(offsetX >= target.clientWidth || offsetY >= target.clientHeight)
+			) {
+				return;
+			}
 			const interactive = target.closest(INTERACTIVE) !== null;
 			// Suppress text selection while holding empty chrome.
 			if (!interactive) event.preventDefault();
+
+			// macOS overlay scrollbars paint INSIDE the client box, so the
+			// offset check above can't see them — instead, any scrolling in
+			// the nearest scroll container during the gesture vetoes the drag.
+			const scroller = findScrollContainer(target);
+			const scrollStart = scroller
+				? scroller.scrollTop + scroller.scrollLeft
+				: 0;
+			const scrolledSince = () =>
+				scroller !== null &&
+				scroller.scrollTop + scroller.scrollLeft !== scrollStart;
 
 			const startX = event.clientX;
 			const startY = event.clientY;
@@ -55,6 +75,7 @@ export function useWindowDrag() {
 			};
 			const beginDrag = () => {
 				cleanup();
+				if (scrolledSince()) return;
 				getCurrentWindow()
 					.startDragging()
 					.catch((error) =>
@@ -93,4 +114,18 @@ export function useWindowDrag() {
 	}, []);
 
 	return { onPointerDown, onDoubleClick };
+}
+
+/** Nearest ancestor (incl. self) that actually scrolls vertically/horizontally. */
+function findScrollContainer(el: HTMLElement | null): HTMLElement | null {
+	for (let node = el; node; node = node.parentElement) {
+		if (
+			node.scrollHeight > node.clientHeight + 1 ||
+			node.scrollWidth > node.clientWidth + 1
+		) {
+			const { overflowX, overflowY } = getComputedStyle(node);
+			if (/(auto|scroll)/.test(overflowY + overflowX)) return node;
+		}
+	}
+	return null;
 }
