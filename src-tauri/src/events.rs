@@ -44,6 +44,22 @@ pub struct ImportFailure {
     pub reason: String,
 }
 
+/// An incoming file whose exact content (blake3) already exists in the
+/// library. Powers the interactive Duplicate Alert: "keep both" re-imports
+/// `src_path` with dedupe disabled; the existing asset's thumbnail stands in
+/// for both sides (identical bytes = identical pixels).
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct DuplicateItem {
+    /// Absolute source path of the incoming file.
+    pub src_path: String,
+    /// Incoming display name (file stem).
+    pub name: String,
+    /// Incoming file size in bytes.
+    pub size: f64,
+    /// Id of the already-cataloged asset with identical content.
+    pub existing_id: String,
+}
+
 /// Terminal event for an import job — exactly one per `job_id`, even on cancel.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
 pub struct ImportFinished {
@@ -53,6 +69,9 @@ pub struct ImportFinished {
     /// Duplicates (same blake3 hash) that were skipped.
     pub skipped: u32,
     pub failed: Vec<ImportFailure>,
+    /// Library-wide exact duplicates skipped this run (empty when the job ran
+    /// with dedupe disabled). Batch-internal repeats are not listed.
+    pub duplicates: Vec<DuplicateItem>,
     /// True when the job was cancelled before completing.
     pub cancelled: bool,
 }

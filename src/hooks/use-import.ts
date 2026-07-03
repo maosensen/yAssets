@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { commands, events } from "@/lib/bindings";
 import { describeError, isCommandError } from "@/lib/errors";
 import { assetKeys, folderKeys, libraryKeys } from "@/lib/queries/keys";
+import { useDuplicatesStore } from "@/lib/stores/duplicates-store";
 import { unwrap } from "@/lib/tauri";
 import { T } from "@/lib/text";
 
@@ -63,6 +64,13 @@ export function useImportEvents() {
 		track(
 			events.importFinished.listen((event) => {
 				const f = event.payload;
+				// Library-wide exact duplicates → raise the Duplicate Alert
+				// (mounted in AppShell); clean finishes drop the job mapping.
+				if (!f.cancelled && f.duplicates.length > 0) {
+					useDuplicatesStore.getState().raise(f.job_id, f.duplicates);
+				} else {
+					useDuplicatesStore.getState().forget(f.job_id);
+				}
 				if (f.cancelled) {
 					toast.info(T.import.cancelled(f.imported), {
 						id: f.job_id,
@@ -96,16 +104,42 @@ export function useImportEvents() {
 
 export function useImport() {
 	const mutation = useMutation({
-		mutationFn: async (input: { paths: string[]; folderId?: string | null }) =>
-			unwrap(await commands.importPaths(input.paths, input.folderId ?? null)),
-		onSuccess: (started) =>
-			toast.loading(T.import.started, { id: started.job_id }),
+		mutationFn: async (input: {
+			paths: string[];
+			folderId?: string | null;
+			keepDuplicates?: boolean;
+		}) =>
+			unwrap(
+				await commands.importPaths(
+					input.paths,
+					input.folderId ?? null,
+					input.keepDuplicates ?? false,
+				),
+			),
+		onSuccess: (started, input) => {
+			// The finish event doesn't echo the folder — remember it for the
+			// Duplicate Alert's "keep both" re-import.
+			useDuplicatesStore
+				.getState()
+				.registerJob(started.job_id, input.folderId ?? null);
+			toast.loading(T.import.started, { id: started.job_id });
+		},
 		onError: (error) => toast.error(describeError(error)),
 	});
 
 	return {
-		importPaths: (paths: string[], folderId?: string | null) => {
-			if (paths.length > 0) mutation.mutate({ paths, folderId });
+		importPaths: (
+			paths: string[],
+			folderId?: string | null,
+			options?: { keepDuplicates?: boolean },
+		) => {
+			if (paths.length > 0) {
+				mutation.mutate({
+					paths,
+					folderId,
+					keepDuplicates: options?.keepDuplicates,
+				});
+			}
 		},
 		isImporting: mutation.isPending,
 	};
@@ -120,8 +154,10 @@ export function useImportClipboard() {
 	const mutation = useMutation({
 		mutationFn: async (folderId: string | null) =>
 			unwrap(await commands.importClipboard(folderId)),
-		onSuccess: (started) =>
-			toast.loading(T.import.started, { id: started.job_id }),
+		onSuccess: (started, folderId) => {
+			useDuplicatesStore.getState().registerJob(started.job_id, folderId);
+			toast.loading(T.import.started, { id: started.job_id });
+		},
 		onError: (error) => {
 			if (isCommandError(error) && error.code === "Conflict") {
 				toast.info(T.import.pasteEmpty);

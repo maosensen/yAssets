@@ -88,6 +88,12 @@ CREATE TABLE asset_tags (
 ALTER TABLE assets ADD COLUMN hue INTEGER;
 CREATE INDEX idx_assets_hue ON assets (hue) WHERE deleted_at IS NULL;
 "#,
+    // v3 — perceptual duplicate detection. 64-bit dHash of the thumbnail
+    // pixels, bit-cast to INTEGER (i64); NULL = not analyzed yet (backfilled
+    // on library open). Similarity scans are full popcount sweeps — no index.
+    r#"
+ALTER TABLE assets ADD COLUMN dhash INTEGER;
+"#,
 ];
 
 /// Current schema version an up-to-date library sits at.

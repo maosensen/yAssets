@@ -208,6 +208,15 @@ export const T = {
 		importFolder: "Import Folder",
 		pasteEmpty: "Clipboard has nothing importable",
 	},
+	duplicates: {
+		title: (n: number) => `Duplicate Files (${n})`,
+		hint: "These files already exist in your library with identical content.",
+		existing: "Existing",
+		incoming: "Imported",
+		useExisting: "Use existing files",
+		keepBoth: "Keep both",
+		importAction: "Import",
+	},
 	inspector: {
 		emptyTitle: "No Selection",
 		emptyHint: "Select an asset to view and edit its details.",

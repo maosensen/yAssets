@@ -18,6 +18,7 @@ import { useState } from "react";
 import { DragGhost } from "@/components/grid/drag-ghost";
 import { IconFilter } from "@/components/icons";
 import { DropOverlay } from "@/components/import/drop-overlay";
+import { DuplicateAlertDialog } from "@/components/import/duplicate-alert-dialog";
 import { InspectorPanel } from "@/components/inspector/inspector-panel";
 import { FolderTree } from "@/components/sidebar/folder-tree";
 import { LibrarySwitcher } from "@/components/sidebar/library-switcher";
@@ -48,6 +49,7 @@ export function AppShell() {
 		<div className="flex h-screen flex-col">
 			<DropOverlay visible={isDragOver} />
 			<DragGhost />
+			<DuplicateAlertDialog />
 			<ResizablePanelGroup className="min-h-0 flex-1">
 				<ResizablePanel defaultSize="260px" minSize="200px" maxSize="420px">
 					<Sidebar />

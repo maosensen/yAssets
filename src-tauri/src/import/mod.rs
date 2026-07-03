@@ -19,6 +19,7 @@
 //! database until the cancel flag is observed.
 
 pub mod color;
+pub mod dhash;
 pub mod thumbs;
 
 use std::collections::HashSet;
@@ -32,7 +33,7 @@ use tauri::Manager;
 use tauri_specta::Event;
 use walkdir::WalkDir;
 
-use crate::events::{ImportFailure, ImportFinished, ImportPhase, ImportProgress};
+use crate::events::{DuplicateItem, ImportFailure, ImportFinished, ImportPhase, ImportProgress};
 use crate::library::{asset_rel_path, new_id, now_ms, Library};
 use crate::state::AppState;
 
@@ -50,6 +51,7 @@ pub fn spawn(
     job_id: String,
     paths: Vec<String>,
     folder_id: Option<String>,
+    keep_duplicates: bool,
 ) {
     tauri::async_runtime::spawn(async move {
         let ctx = Arc::new(JobCtx {
@@ -58,11 +60,13 @@ pub fn spawn(
             job_id,
             cancel,
             folder_id,
+            keep_duplicates,
             total: AtomicU32::new(0),
             done: AtomicU32::new(0),
             imported: AtomicU32::new(0),
             skipped: AtomicU32::new(0),
             failures: Mutex::new(Vec::new()),
+            duplicates: Mutex::new(Vec::new()),
             seen_hashes: Mutex::new(HashSet::new()),
             last_emit: Mutex::new(Instant::now()),
         });
@@ -81,11 +85,15 @@ struct JobCtx {
     job_id: String,
     cancel: Arc<AtomicBool>,
     folder_id: Option<String>,
+    /// "Keep both" mode: skip library-wide dedupe (batch-local still applies).
+    keep_duplicates: bool,
     total: AtomicU32,
     done: AtomicU32,
     imported: AtomicU32,
     skipped: AtomicU32,
     failures: Mutex<Vec<ImportFailure>>,
+    /// Library-wide exact duplicates found this run (drives the alert dialog).
+    duplicates: Mutex<Vec<DuplicateItem>>,
     seen_hashes: Mutex<HashSet<String>>,
     last_emit: Mutex<Instant>,
 }
@@ -140,18 +148,25 @@ impl JobCtx {
             .lock()
             .map(|mut f| std::mem::take(&mut *f))
             .unwrap_or_default();
+        let duplicates = self
+            .duplicates
+            .lock()
+            .map(|mut d| std::mem::take(&mut *d))
+            .unwrap_or_default();
         let event = ImportFinished {
             job_id: self.job_id.clone(),
             imported: self.imported.load(Ordering::Relaxed),
             skipped: self.skipped.load(Ordering::Relaxed),
             failed: failures,
+            duplicates,
             cancelled: self.cancelled(),
         };
         log::info!(
-            "import {} finished: imported={} skipped={} failed={} cancelled={}",
+            "import {} finished: imported={} skipped={} duplicates={} failed={} cancelled={}",
             self.job_id,
             event.imported,
             event.skipped,
+            event.duplicates.len(),
             event.failed.len(),
             event.cancelled
         );
@@ -194,12 +209,25 @@ fn run_job(ctx: &Arc<JobCtx>, paths: Vec<String>) {
                     path,
                     ctx.folder_id.as_deref(),
                     &ctx.seen_hashes,
+                    ctx.keep_duplicates,
                 ) {
                     Ok(FileOutcome::Imported) => {
                         ctx.imported.fetch_add(1, Ordering::Relaxed);
                     }
                     Ok(FileOutcome::Skipped) => {
                         ctx.skipped.fetch_add(1, Ordering::Relaxed);
+                    }
+                    Ok(FileOutcome::Duplicate { existing_id }) => {
+                        ctx.skipped.fetch_add(1, Ordering::Relaxed);
+                        let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+                        if let Ok(mut duplicates) = ctx.duplicates.lock() {
+                            duplicates.push(DuplicateItem {
+                                src_path: path.to_string_lossy().into_owned(),
+                                name: display_name(path),
+                                size: size as f64,
+                                existing_id,
+                            });
+                        }
                     }
                     Err(reason) => ctx.record_failure(path, reason),
                 }
@@ -287,7 +315,12 @@ pub(crate) fn is_junk(name: &std::ffi::OsStr) -> bool {
 #[derive(Debug)]
 pub(crate) enum FileOutcome {
     Imported,
+    /// Batch-internal repeat (same file twice in one drop) — silent.
     Skipped,
+    /// Exact content (blake3) already cataloged — surfaces in the alert.
+    Duplicate {
+        existing_id: String,
+    },
 }
 
 /// Hash → dedupe → copy → thumbnail → single-transaction insert.
@@ -297,6 +330,7 @@ pub(crate) fn process_file(
     path: &Path,
     folder_id: Option<&str>,
     seen_hashes: &Mutex<HashSet<String>>,
+    keep_duplicates: bool,
 ) -> Result<FileOutcome, String> {
     let hash = hash_file(path).map_err(|err| format!("hash failed: {err}"))?;
 
@@ -308,33 +342,36 @@ pub(crate) fn process_file(
         }
     }
 
-    // Library-wide dedupe: an alive asset with the same content wins; a
-    // targeted folder still gains membership of the existing asset.
-    let existing: Option<String> = library
-        .with_reader(|conn| {
-            Ok(conn
-                .query_row(
-                    "SELECT id FROM assets WHERE hash_blake3 = ?1 AND deleted_at IS NULL LIMIT 1",
-                    [&hash],
-                    |row| row.get(0),
-                )
-                .ok())
-        })
-        .map_err(|err| err.to_string())?;
-    if let Some(existing_id) = existing {
-        if let Some(folder) = folder_id {
-            library
-                .with_writer(|conn| {
-                    conn.execute(
-                        "INSERT OR IGNORE INTO asset_folders (asset_id, folder_id, added_at)
-                         VALUES (?1, ?2, ?3)",
-                        rusqlite::params![existing_id, folder, now_ms()],
-                    )?;
-                    Ok(())
-                })
-                .map_err(|err| err.to_string())?;
+    // Library-wide dedupe (L1 exact, blake3): an alive asset with the same
+    // content wins; a targeted folder still gains membership of the existing
+    // asset. "Keep both" jobs skip this check entirely.
+    if !keep_duplicates {
+        let existing: Option<String> = library
+            .with_reader(|conn| {
+                Ok(conn
+                    .query_row(
+                        "SELECT id FROM assets WHERE hash_blake3 = ?1 AND deleted_at IS NULL LIMIT 1",
+                        [&hash],
+                        |row| row.get(0),
+                    )
+                    .ok())
+            })
+            .map_err(|err| err.to_string())?;
+        if let Some(existing_id) = existing {
+            if let Some(folder) = folder_id {
+                library
+                    .with_writer(|conn| {
+                        conn.execute(
+                            "INSERT OR IGNORE INTO asset_folders (asset_id, folder_id, added_at)
+                             VALUES (?1, ?2, ?3)",
+                            rusqlite::params![existing_id, folder, now_ms()],
+                        )?;
+                        Ok(())
+                    })
+                    .map_err(|err| err.to_string())?;
+            }
+            return Ok(FileOutcome::Duplicate { existing_id });
         }
-        return Ok(FileOutcome::Skipped);
     }
 
     let metadata = std::fs::metadata(path).map_err(|err| format!("stat failed: {err}"))?;
@@ -364,6 +401,7 @@ pub(crate) fn process_file(
     let mut has_thumb = false;
     let mut hue: Option<u8> = None;
     let mut palette: Option<String> = None;
+    let mut dhash: Option<i64> = None;
     if thumbs::is_thumbable_ext(&ext_display) {
         match thumbs::generate(&dest, &library.thumb_path(&id), &ext_display) {
             Ok(outcome) => {
@@ -372,6 +410,7 @@ pub(crate) fn process_file(
                 has_thumb = true;
                 hue = outcome.hue;
                 palette = outcome.palette;
+                dhash = outcome.dhash;
             }
             Err(err) => {
                 log::warn!("thumbnail failed for {}: {err}", path.display());
@@ -386,10 +425,10 @@ pub(crate) fn process_file(
         tx.execute(
             "INSERT INTO assets (
                id, name, ext, mime, size, width, height, hash_blake3,
-               storage, src_path, rel_path, has_thumb, hue, palette,
+               storage, src_path, rel_path, has_thumb, hue, palette, dhash,
                imported_at, file_mtime, file_ctime, updated_at
              ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
-                       'managed', ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?14)",
+                       'managed', ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?15)",
             rusqlite::params![
                 id,
                 name,
@@ -404,6 +443,7 @@ pub(crate) fn process_file(
                 has_thumb,
                 hue,
                 palette,
+                dhash,
                 now,
                 system_time_ms(metadata.modified().ok()),
                 system_time_ms(metadata.created().ok()),
@@ -538,7 +578,7 @@ mod tests {
         write_png(&src, 800, 600, 1);
 
         let seen = Mutex::new(HashSet::new());
-        let outcome = process_file(&lib, &src, None, &seen).expect("import");
+        let outcome = process_file(&lib, &src, None, &seen, false).expect("import");
         assert!(matches!(outcome, FileOutcome::Imported));
 
         lib.with_reader(|conn| {
@@ -585,21 +625,29 @@ mod tests {
 
         let seen = Mutex::new(HashSet::new());
         assert!(matches!(
-            process_file(&lib, &src, None, &seen).expect("first"),
+            process_file(&lib, &src, None, &seen, false).expect("first"),
             FileOutcome::Imported
         ));
         // Same batch, identical bytes → batch-set skip.
         assert!(matches!(
-            process_file(&lib, &copy, None, &seen).expect("second"),
+            process_file(&lib, &copy, None, &seen, false).expect("second"),
             FileOutcome::Skipped
         ));
-        // New batch (fresh seen set) → DB-hash skip.
+        // New batch (fresh seen set) → DB-hash hit surfaces as a Duplicate.
         let seen2 = Mutex::new(HashSet::new());
         assert!(matches!(
-            process_file(&lib, &copy, None, &seen2).expect("third"),
-            FileOutcome::Skipped
+            process_file(&lib, &copy, None, &seen2, false).expect("third"),
+            FileOutcome::Duplicate { .. }
         ));
         assert_eq!(count_assets(&lib), 1);
+
+        // "Keep both" disables the library-wide check → a second row lands.
+        let seen3 = Mutex::new(HashSet::new());
+        assert!(matches!(
+            process_file(&lib, &copy, None, &seen3, true).expect("keep both"),
+            FileOutcome::Imported
+        ));
+        assert_eq!(count_assets(&lib), 2);
     }
 
     #[test]
@@ -619,12 +667,12 @@ mod tests {
         .expect("seed folder");
 
         let seen = Mutex::new(HashSet::new());
-        process_file(&lib, &src, None, &seen).expect("import plain");
+        process_file(&lib, &src, None, &seen, false).expect("import plain");
         // Re-import the same content targeted at a folder: skipped but attached.
         let seen2 = Mutex::new(HashSet::new());
         assert!(matches!(
-            process_file(&lib, &src, Some("f0000000000000000001"), &seen2).expect("re"),
-            FileOutcome::Skipped
+            process_file(&lib, &src, Some("f0000000000000000001"), &seen2, false).expect("re"),
+            FileOutcome::Duplicate { .. }
         ));
         let memberships: i64 = lib
             .with_reader(|conn| {
@@ -645,7 +693,7 @@ mod tests {
 
         let seen = Mutex::new(HashSet::new());
         assert!(matches!(
-            process_file(&lib, &src, None, &seen).expect("import"),
+            process_file(&lib, &src, None, &seen, false).expect("import"),
             FileOutcome::Imported
         ));
         lib.with_reader(|conn| {
@@ -670,7 +718,7 @@ mod tests {
 
         let seen = Mutex::new(HashSet::new());
         assert!(matches!(
-            process_file(&lib, &src, None, &seen).expect("import"),
+            process_file(&lib, &src, None, &seen, false).expect("import"),
             FileOutcome::Imported
         ));
         lib.with_reader(|conn| {
@@ -687,8 +735,8 @@ mod tests {
     fn process_file_errors_on_missing_source() {
         let (tmp, lib) = test_library();
         let seen = Mutex::new(HashSet::new());
-        let err =
-            process_file(&lib, &tmp.path().join("ghost.png"), None, &seen).expect_err("must fail");
+        let err = process_file(&lib, &tmp.path().join("ghost.png"), None, &seen, false)
+            .expect_err("must fail");
         assert!(err.contains("hash failed"));
         assert_eq!(count_assets(&lib), 0);
     }

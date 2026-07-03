@@ -180,7 +180,7 @@ mod tests {
         let img = image::RgbaImage::from_pixel(64, 48, image::Rgba([1, 2, 3, 255]));
         img.save(&src).expect("fixture");
         let seen = Mutex::new(HashSet::new());
-        crate::import::process_file(&lib, &src, None, &seen).expect("import");
+        crate::import::process_file(&lib, &src, None, &seen, false).expect("import");
         let id: String = lib
             .with_reader(|conn| {
                 Ok(conn

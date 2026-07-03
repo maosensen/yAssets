@@ -37,7 +37,8 @@ pub fn is_thumbable_ext(ext: &str) -> bool {
     is_bitmap_ext(ext) || ext == "svg"
 }
 
-/// Result of thumbnailing: oriented source dimensions + extracted color.
+/// Result of thumbnailing: oriented source dimensions + extracted color +
+/// perceptual fingerprint.
 #[derive(Debug, Clone)]
 pub struct ThumbOutcome {
     pub width: u32,
@@ -46,6 +47,8 @@ pub struct ThumbOutcome {
     pub hue: Option<u8>,
     /// JSON array of representative swatch hex strings.
     pub palette: Option<String>,
+    /// 64-bit dHash (see [`crate::import::dhash`]), bit-cast for storage.
+    pub dhash: Option<i64>,
 }
 
 /// Decode `src` (bitmap or SVG), resize to ≤ [`THUMB_LONG_EDGE`], write a
@@ -61,6 +64,7 @@ pub fn generate(src: &Path, dest: &Path, ext: &str) -> AppResult<ThumbOutcome> {
     };
 
     let (hue, palette) = crate::import::color::analyze_rgba(&resized);
+    let dhash = crate::import::dhash::compute(&resized, thumb_w, thumb_h).map(|v| v as i64);
 
     let encoded = webp::Encoder::from_rgba(&resized, thumb_w, thumb_h).encode(WEBP_QUALITY);
     if let Some(parent) = dest.parent() {
@@ -73,6 +77,7 @@ pub fn generate(src: &Path, dest: &Path, ext: &str) -> AppResult<ThumbOutcome> {
         height,
         hue,
         palette,
+        dhash,
     })
 }
 

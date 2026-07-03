@@ -55,8 +55,11 @@ export const commands = {
 	/**
 	 *  Start importing `paths` (files and/or directories, absolute) into the
 	 *  current library, optionally attaching every imported asset to `folder_id`.
+	 * 
+	 *  `keep_duplicates` disables the library-wide exact-dedupe (the Duplicate
+	 *  Alert's "keep both" path); batch-internal repeats are still collapsed.
 	 */
-	importPaths: (paths: string[], folderId: string | null) => typedError<ImportStarted, AppError>(__TAURI_INVOKE("import_paths", { paths, folderId })),
+	importPaths: (paths: string[], folderId: string | null, keepDuplicates: boolean) => typedError<ImportStarted, AppError>(__TAURI_INVOKE("import_paths", { paths, folderId, keepDuplicates })),
 	/**
 	 *  Signal cancellation for an in-flight import. Already-committed files stay;
 	 *  the job still emits its terminal `ImportFinished { cancelled: true }`.
@@ -221,6 +224,23 @@ export type AssetSummary = {
 	imported_at: number | null,
 };
 
+/**
+ *  An incoming file whose exact content (blake3) already exists in the
+ *  library. Powers the interactive Duplicate Alert: "keep both" re-imports
+ *  `src_path` with dedupe disabled; the existing asset's thumbnail stands in
+ *  for both sides (identical bytes = identical pixels).
+ */
+export type DuplicateItem = {
+	/**  Absolute source path of the incoming file. */
+	src_path: string,
+	/**  Incoming display name (file stem). */
+	name: string,
+	/**  Incoming file size in bytes. */
+	size: number | null,
+	/**  Id of the already-cataloged asset with identical content. */
+	existing_id: string,
+};
+
 export type Folder = {
 	id: string,
 	parent_id: string | null,
@@ -247,6 +267,11 @@ export type ImportFinished = {
 	/**  Duplicates (same blake3 hash) that were skipped. */
 	skipped: number,
 	failed: ImportFailure[],
+	/**
+	 *  Library-wide exact duplicates skipped this run (empty when the job ran
+	 *  with dedupe disabled). Batch-internal repeats are not listed.
+	 */
+	duplicates: DuplicateItem[],
 	/**  True when the job was cancelled before completing. */
 	cancelled: boolean,
 };

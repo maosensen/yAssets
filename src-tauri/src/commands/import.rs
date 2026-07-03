@@ -20,11 +20,15 @@ pub struct ImportStarted {
 
 /// Start importing `paths` (files and/or directories, absolute) into the
 /// current library, optionally attaching every imported asset to `folder_id`.
+///
+/// `keep_duplicates` disables the library-wide exact-dedupe (the Duplicate
+/// Alert's "keep both" path); batch-internal repeats are still collapsed.
 #[tauri::command]
 #[specta::specta]
 pub async fn import_paths(
     paths: Vec<String>,
     folder_id: Option<String>,
+    keep_duplicates: bool,
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<ImportStarted> {
@@ -34,7 +38,15 @@ pub async fn import_paths(
     let library = state.current_library()?;
     let job_id = import::new_job_id();
     let cancel = state.register_import(&job_id);
-    import::spawn(app, library, cancel, job_id.clone(), paths, folder_id);
+    import::spawn(
+        app,
+        library,
+        cancel,
+        job_id.clone(),
+        paths,
+        folder_id,
+        keep_duplicates,
+    );
     Ok(ImportStarted { job_id })
 }
 
@@ -71,7 +83,15 @@ pub async fn import_clipboard(
         })??;
     let job_id = import::new_job_id();
     let cancel = state.register_import(&job_id);
-    import::spawn(app, library, cancel, job_id.clone(), paths, folder_id);
+    import::spawn(
+        app,
+        library,
+        cancel,
+        job_id.clone(),
+        paths,
+        folder_id,
+        false,
+    );
     Ok(ImportStarted { job_id })
 }
 

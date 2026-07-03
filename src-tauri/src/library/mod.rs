@@ -389,7 +389,8 @@ pub fn spawn_backfill(library: Arc<Library>) {
         let pending = library.with_reader(|conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, ext, rel_path FROM assets
-                 WHERE deleted_at IS NULL AND (has_thumb = 0 OR hue IS NULL)",
+                 WHERE deleted_at IS NULL
+                   AND (has_thumb = 0 OR hue IS NULL OR dhash IS NULL)",
             )?;
             let rows = stmt
                 .query_map([], |row| {
@@ -421,7 +422,7 @@ pub fn spawn_backfill(library: Arc<Library>) {
                         conn.execute(
                             "UPDATE assets
                              SET has_thumb = 1, width = ?2, height = ?3,
-                                 hue = ?4, palette = ?5
+                                 hue = ?4, palette = ?5, dhash = ?6
                              WHERE id = ?1",
                             rusqlite::params![
                                 id,
@@ -429,6 +430,7 @@ pub fn spawn_backfill(library: Arc<Library>) {
                                 outcome.height,
                                 outcome.hue,
                                 outcome.palette,
+                                outcome.dhash,
                             ],
                         )?;
                         Ok(())
