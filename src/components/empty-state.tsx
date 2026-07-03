@@ -48,7 +48,7 @@ export function EmptyState({
 			<div
 				className={cn(
 					"flex items-center justify-center border border-dashed",
-					page ? "size-16 rounded-2xl" : "size-12 rounded-xl",
+					page ? "size-16 rounded-lg" : "size-12 rounded-md",
 					tone === "destructive"
 						? "border-destructive/30 bg-destructive/10 text-destructive"
 						: "border-border/70 bg-muted/40 text-muted-foreground/70",

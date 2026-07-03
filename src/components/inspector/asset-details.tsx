@@ -1,10 +1,10 @@
 /**
- * Inspector for the selected asset: preview, rename, rating, debounced note
- * autosave, folder membership chips, info table, reveal/export actions.
+ * Inspector for the selected asset — Eagle-style anatomy, top to bottom:
+ * badged preview → extracted-color dots → name + notes fields → tags /
+ * folders → properties table (rating lives in its first row) → action footer.
  *
- * Layout rhythm: major modules (identity / organization / note / properties)
- * are separated by dashed dividers, properties keep generous row spacing —
- * see `section.tsx` for the shared primitives.
+ * Layout rhythm: major modules are separated by dashed dividers, properties
+ * keep generous row spacing — see `section.tsx` for the shared primitives.
  *
  * Plain controlled state + mutations — no form library: these are
  * independent, instantly-committing fields (react-hook-form would be pure
@@ -57,43 +57,26 @@ export function AssetDetails({ assetId }: { assetId: string }) {
 }
 
 function DetailsBody({ detail }: { detail: AssetDetail }) {
-	const update = useUpdateAsset();
 	const { exportAssets, isExporting } = useExport();
 
 	return (
 		// Inspector column anatomy: scrollable main + fixed action footer.
 		<div className="flex h-full flex-col">
 			<div className="min-h-0 flex-1 overflow-y-auto p-4">
-				{/* Identity: preview + name + rating */}
+				{/* Identity: badged preview + colors + name + notes */}
 				<section className="flex flex-col gap-3">
 					<PreviewBox detail={detail} />
+					{detail.palette.length > 0 && <PaletteDots colors={detail.palette} />}
 					<NameField detail={detail} />
-					<div className="flex items-center justify-between">
-						<SectionLabel>{T.inspector.ratingLabel}</SectionLabel>
-						<RatingStars
-							value={detail.rating ?? 0}
-							onChange={(rating) =>
-								update.mutate({ id: detail.id, patch: { rating } })
-							}
-						/>
-					</div>
+					<NoteField detail={detail} />
 				</section>
 
 				<DashedDivider />
 
-				{/* Organization: tags + folders + extracted colors */}
+				{/* Organization: tags + folders */}
 				<section className="flex flex-col gap-4">
 					<TagChips assetIds={[detail.id]} tags={detail.tags} />
 					<FolderChips detail={detail} />
-					{detail.palette.length > 0 && <PaletteRow colors={detail.palette} />}
-				</section>
-
-				<DashedDivider />
-
-				{/* Note */}
-				<section className="flex flex-col gap-2">
-					<SectionLabel>{T.inspector.noteLabel}</SectionLabel>
-					<NoteField detail={detail} />
 				</section>
 
 				<DashedDivider />
@@ -126,21 +109,46 @@ function DetailsBody({ detail }: { detail: AssetDetail }) {
 
 function PreviewBox({ detail }: { detail: AssetDetail }) {
 	const [broken, setBroken] = useState(false);
+	const showImage = detail.has_thumb && !broken;
 	return (
-		<div className="flex max-h-48 min-h-24 items-center justify-center overflow-hidden rounded-md bg-muted">
-			{detail.has_thumb && !broken ? (
-				<img
-					src={thumbUrl(detail.id)}
-					alt={detail.name}
-					className="max-h-48 max-w-full object-contain"
-					draggable={false}
-					onError={() => setBroken(true)}
-				/>
+		<div className="relative flex max-h-48 min-h-24 items-center justify-center overflow-hidden rounded-md bg-muted">
+			{showImage ? (
+				<>
+					<img
+						src={thumbUrl(detail.id)}
+						alt={detail.name}
+						className="max-h-48 max-w-full object-contain"
+						draggable={false}
+						onError={() => setBroken(true)}
+					/>
+					{detail.ext && (
+						// Eagle-style format badge in the preview corner.
+						<span className="absolute top-1.5 left-1.5 rounded-sm bg-black/55 px-1.5 py-0.5 font-medium text-[10px] text-white uppercase tracking-wide">
+							{detail.ext}
+						</span>
+					)}
+				</>
 			) : (
-				<span className="rounded bg-background/70 px-3 py-1.5 font-medium text-muted-foreground text-sm uppercase">
+				<span className="rounded-sm bg-background/70 px-3 py-1.5 font-medium text-muted-foreground text-sm uppercase">
 					{detail.ext || "?"}
 				</span>
 			)}
+		</div>
+	);
+}
+
+/** Extracted dominant colors as a centered row of dots (Eagle-style). */
+function PaletteDots({ colors }: { colors: string[] }) {
+	return (
+		<div className="flex items-center justify-center gap-2">
+			{colors.map((color) => (
+				<span
+					key={color}
+					className="size-6 rounded-full border border-foreground/10"
+					style={{ backgroundColor: color }}
+					title={color}
+				/>
+			))}
 		</div>
 	);
 }
@@ -250,14 +258,14 @@ function FolderChips({ detail }: { detail: AssetDetail }) {
 					<DropdownMenuTrigger
 						render={
 							<Button
-								variant="outline"
-								size="sm"
-								className="h-6 px-2 text-xs"
+								variant="ghost"
+								size="icon"
+								className="size-6 text-muted-foreground"
+								aria-label={T.inspector.addToFolder}
 							/>
 						}
 					>
-						<IconPlus className="size-3" />
-						{T.inspector.addToFolder}
+						<IconPlus className="size-4" />
 					</DropdownMenuTrigger>
 					<DropdownMenuContent align="start">
 						{candidates.length === 0 ? (
@@ -287,26 +295,8 @@ function FolderChips({ detail }: { detail: AssetDetail }) {
 	);
 }
 
-/** Extracted swatches from the thumbnail's dominant colors. */
-function PaletteRow({ colors }: { colors: string[] }) {
-	return (
-		<div className="flex flex-col gap-2">
-			<SectionLabel>{T.inspector.paletteLabel}</SectionLabel>
-			<div className="flex items-center gap-1.5">
-				{colors.map((color) => (
-					<span
-						key={color}
-						className="size-5 rounded-md border border-foreground/10"
-						style={{ backgroundColor: color }}
-						title={color}
-					/>
-				))}
-			</div>
-		</div>
-	);
-}
-
 function InfoTable({ detail }: { detail: AssetDetail }) {
+	const update = useUpdateAsset();
 	const rows: Array<[string, string]> = [
 		[
 			T.inspector.infoDimensions,
@@ -325,7 +315,19 @@ function InfoTable({ detail }: { detail: AssetDetail }) {
 	return (
 		<div className="flex flex-col gap-2.5">
 			<SectionLabel>{T.inspector.infoTitle}</SectionLabel>
-			<dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-xs">
+			<dl className="grid grid-cols-[auto_1fr] items-center gap-x-6 gap-y-2 text-xs">
+				{/* Rating leads the properties table (Eagle layout). */}
+				<div className="contents">
+					<dt className="text-muted-foreground">{T.inspector.ratingLabel}</dt>
+					<dd className="flex justify-end">
+						<RatingStars
+							value={detail.rating ?? 0}
+							onChange={(rating) =>
+								update.mutate({ id: detail.id, patch: { rating } })
+							}
+						/>
+					</dd>
+				</div>
 				{rows.map(([label, value]) => (
 					<div key={label} className="contents">
 						<dt className="text-muted-foreground">{label}</dt>

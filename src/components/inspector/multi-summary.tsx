@@ -50,7 +50,7 @@ export function MultiSummary({ ids }: { ids: string[] }) {
 	return (
 		<div className="flex h-full flex-col overflow-y-auto p-4">
 			<div className="flex flex-col items-center gap-1.5 pt-6 pb-2">
-				<div className="flex size-12 items-center justify-center rounded-xl border border-border/70 border-dashed bg-muted/40">
+				<div className="flex size-12 items-center justify-center rounded-md border border-border/70 border-dashed bg-muted/40">
 					<IconMulti className="size-5 text-muted-foreground/70" />
 				</div>
 				<p className="font-medium text-sm">{T.multi.title(ids.length)}</p>

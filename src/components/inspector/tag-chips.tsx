@@ -97,17 +97,34 @@ export function TagChips({ assetIds, tags = [] }: TagChipsProps) {
 				))}
 
 				<Popover open={open} onOpenChange={setOpen}>
+					{/* No tags yet → full-width dashed "New Tag" row (Eagle-style);
+					    otherwise a compact "+" next to the chips. */}
 					<PopoverTrigger
 						render={
-							<Button
-								variant="outline"
-								size="sm"
-								className="h-6 px-2 text-xs"
-							/>
+							tags.length > 0 ? (
+								<Button
+									variant="ghost"
+									size="icon"
+									className="size-6 text-muted-foreground"
+									aria-label={T.tags.newTag}
+								/>
+							) : (
+								<Button
+									variant="outline"
+									size="sm"
+									className="h-8 w-full border-dashed text-muted-foreground text-xs"
+								/>
+							)
 						}
 					>
-						<IconPlus className="size-3" />
-						{T.sidebar.tagsTitle}
+						{tags.length > 0 ? (
+							<IconPlus className="size-4" />
+						) : (
+							<>
+								<IconPlus className="size-3.5" />
+								{T.tags.newTag}
+							</>
+						)}
 					</PopoverTrigger>
 					<PopoverContent className="w-56 p-0" align="start">
 						<Command>
