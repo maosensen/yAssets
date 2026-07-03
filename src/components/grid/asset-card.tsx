@@ -11,6 +11,13 @@ import { thumbUrl } from "@/lib/media";
 import { useSelectionStore } from "@/lib/stores/selection-store";
 import { cn } from "@/lib/utils";
 
+export type SelectModifiers = {
+	/** Cmd/Ctrl — toggle membership. */
+	toggle: boolean;
+	/** Shift — range from the anchor. */
+	range: boolean;
+};
+
 type AssetCardProps = {
 	id: string;
 	name: string;
@@ -22,8 +29,12 @@ type AssetCardProps = {
 	captionHeight: number;
 	/** Pre-formatted secondary line (dimensions or file size). */
 	meta: string;
-	onSelect: (id: string) => void;
+	onSelect: (id: string, mods: SelectModifiers) => void;
+	/** Right-click: keep an existing multi-selection, else select this. */
+	onContextSelect: (id: string) => void;
 	onOpen: (id: string) => void;
+	/** Pointer-drag source handler (in-app drag to folder/trash). */
+	onPointerDown: (event: React.PointerEvent) => void;
 };
 
 export const AssetCard = memo(function AssetCard({
@@ -36,7 +47,9 @@ export const AssetCard = memo(function AssetCard({
 	captionHeight,
 	meta,
 	onSelect,
+	onContextSelect,
 	onOpen,
+	onPointerDown,
 }: AssetCardProps) {
 	const selected = useSelectionStore((state) => state.selectedIds.has(id));
 	const [broken, setBroken] = useState(false);
@@ -46,10 +59,16 @@ export const AssetCard = memo(function AssetCard({
 			type="button"
 			aria-label={name}
 			className="flex h-full w-full flex-col text-left outline-none"
-			onClick={() => onSelect(id)}
+			onPointerDown={onPointerDown}
+			onClick={(event) =>
+				onSelect(id, {
+					toggle: event.metaKey || event.ctrlKey,
+					range: event.shiftKey,
+				})
+			}
 			onDoubleClick={() => onOpen(id)}
-			// Right-click also selects — the context menu acts on this card.
-			onContextMenu={() => onSelect(id)}
+			// Right-click selects too — the context menu acts on the selection.
+			onContextMenu={() => onContextSelect(id)}
 		>
 			<div
 				className={cn(

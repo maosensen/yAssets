@@ -10,10 +10,13 @@ import {
 	Folder as FolderIcon,
 	Images,
 	Inbox,
+	Tag as TagIcon,
+	Tags,
 	Trash2,
 } from "lucide-react";
 import { foldersQueryOptions } from "@/lib/queries/folders";
 import { libraryStatsQueryOptions } from "@/lib/queries/library";
+import { tagsQueryOptions } from "@/lib/queries/tags";
 import { T } from "@/lib/text";
 
 export function FolderSummary() {
@@ -21,6 +24,7 @@ export function FolderSummary() {
 	const search = useSearch({ from: "/_library/", shouldThrow: false });
 	const { data: stats } = useQuery(libraryStatsQueryOptions());
 	const { data: folders } = useQuery(foldersQueryOptions());
+	const { data: tags } = useQuery(tagsQueryOptions());
 
 	const {
 		icon: Icon,
@@ -36,11 +40,25 @@ export function FolderSummary() {
 					count: folder?.asset_count,
 				};
 			}
+			case "tag": {
+				const tag = tags?.find((t) => t.id === search?.tagId);
+				return {
+					icon: TagIcon,
+					title: tag?.name ?? T.viewTitles.tagFallback,
+					count: tag?.asset_count,
+				};
+			}
 			case "uncategorized":
 				return {
 					icon: Inbox,
 					title: T.viewTitles.uncategorized,
 					count: stats?.uncategorized,
+				};
+			case "untagged":
+				return {
+					icon: Tags,
+					title: T.viewTitles.untagged,
+					count: stats?.untagged,
 				};
 			case "recent":
 				return { icon: Clock, title: T.viewTitles.recent, count: undefined };

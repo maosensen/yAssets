@@ -92,6 +92,25 @@ export const commands = {
 	deleteAssetsForever: (ids: string[]) => typedError<number, AppError>(__TAURI_INVOKE("delete_assets_forever", { ids })),
 	/**  Permanently delete everything in the trash. */
 	emptyTrash: () => typedError<number, AppError>(__TAURI_INVOKE("empty_trash")),
+	/**  All tags with usage counts, name-ordered. */
+	listTags: () => typedError<Tag[], AppError>(__TAURI_INVOKE("list_tags")),
+	/**
+	 *  Create-or-get by (case-insensitive) name. An existing tag is returned
+	 *  as-is; `color` only applies when the tag is newly created.
+	 */
+	createTag: (name: string, color: string | null) => typedError<Tag, AppError>(__TAURI_INVOKE("create_tag", { name, color })),
+	/**
+	 *  Rename and/or recolor. Renaming onto another existing tag is rejected
+	 *  (merge semantics are a later feature, not an accident).
+	 */
+	updateTag: (id: string, name: string | null, color: string | null) => typedError<Tag, AppError>(__TAURI_INVOKE("update_tag", { id, name, color })),
+	/**  Delete a tag; memberships cascade away, assets are untouched. */
+	deleteTag: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_tag", { id })),
+	/**  Attach every tag to every asset (cartesian, INSERT OR IGNORE). */
+	addTagsToAssets: (assetIds: string[], tagIds: string[]) => typedError<number, AppError>(__TAURI_INVOKE("add_tags_to_assets", { assetIds, tagIds })),
+	removeTagsFromAssets: (assetIds: string[], tagIds: string[]) => typedError<number, AppError>(__TAURI_INVOKE("remove_tags_from_assets", { assetIds, tagIds })),
+	/**  Copy `ids` into `dest_dir`. Returns the number of files written. */
+	exportAssets: (ids: string[], destDir: string) => typedError<number, AppError>(__TAURI_INVOKE("export_assets", { ids, destDir })),
 };
 
 /** Events */
@@ -133,6 +152,9 @@ export type AssetDetail = {
 	/**  Original path at import time (provenance display only). */
 	src_path: string | null,
 	folder_ids: string[],
+	tags: TagRef[],
+	/**  Representative swatch hexes (JSON-decoded from the DB), for display. */
+	palette: string[],
 	imported_at: number | null,
 	file_mtime: number | null,
 	file_ctime: number | null,
@@ -171,7 +193,7 @@ export type AssetPatch = {
  *  Which slice of the catalog a list query targets. Exported to TS as a
  *  discriminated union on `kind`.
  */
-export type AssetScope = { kind: "all" } | { kind: "uncategorized" } | { kind: "recent"; days: number } | { kind: "folder"; folder_id: string } | { kind: "trash" };
+export type AssetScope = { kind: "all" } | { kind: "uncategorized" } | { kind: "untagged" } | { kind: "recent"; days: number } | { kind: "folder"; folder_id: string } | { kind: "tag"; tag_id: string } | { kind: "color"; hue: number } | { kind: "trash" };
 
 /**  Everything the grid card needs — ~200 bytes/row over IPC. */
 export type AssetSummary = {
@@ -262,6 +284,8 @@ export type LibraryStats = {
 	total: number,
 	/**  Alive assets that belong to no folder. */
 	uncategorized: number,
+	/**  Alive assets carrying no tag. */
+	untagged: number,
 	/**  Trashed assets. */
 	trash: number,
 	/**  Total size of alive assets, in bytes. */
@@ -283,6 +307,24 @@ export type RecentLibrary = {
 export type SortDir = "Asc" | "Desc";
 
 export type SortKey = "ImportedAt" | "Name" | "Size" | "Rating" | "UpdatedAt";
+
+export type Tag = {
+	id: string,
+	name: string,
+	/**  Optional display color (hex like `#3b82f6`); None → neutral dot. */
+	color: string | null,
+	/**  Alive (non-trashed) assets carrying this tag. */
+	asset_count: number,
+	/**  Unix ms. */
+	created_at: number | null,
+};
+
+/**  A tag as carried on an asset detail (no usage count needed here). */
+export type TagRef = {
+	id: string,
+	name: string,
+	color: string | null,
+};
 
 /* Tauri Specta runtime */
 async function typedError<T, E>(result: Promise<T>): Promise<{ status: "ok"; data: T } | { status: "error"; error: E }> {

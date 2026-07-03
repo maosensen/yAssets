@@ -80,6 +80,14 @@ CREATE TABLE asset_tags (
   PRIMARY KEY (asset_id, tag_id)
 ) WITHOUT ROWID;
 "#,
+    // v2 — color filtering. `hue` is the dominant-color bucket (0-11 =
+    // 30°-wide hue slices, 12 = neutral/greyscale, NULL = not analyzed yet).
+    // `palette` already exists (v1, reserved) and now holds the JSON swatch
+    // list. The partial index keeps color-scope queries index-backed.
+    r#"
+ALTER TABLE assets ADD COLUMN hue INTEGER;
+CREATE INDEX idx_assets_hue ON assets (hue) WHERE deleted_at IS NULL;
+"#,
 ];
 
 /// Current schema version an up-to-date library sits at.

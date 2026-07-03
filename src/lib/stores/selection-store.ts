@@ -13,6 +13,8 @@ type SelectionState = {
 	anchorId: string | null;
 	selectOnly: (id: string) => void;
 	toggle: (id: string) => void;
+	/** Replace the whole selection (shift-range, marquee, Cmd+A). */
+	selectMany: (ids: readonly string[], anchorId?: string | null) => void;
 	clear: () => void;
 };
 
@@ -26,5 +28,12 @@ export const useSelectionStore = create<SelectionState>()((set) => ({
 			if (!next.delete(id)) next.add(id);
 			return { selectedIds: next, anchorId: id };
 		}),
+	selectMany: (ids, anchorId) =>
+		set((state) => ({
+			selectedIds: new Set(ids),
+			// Range selection keeps the original anchor so successive
+			// shift-clicks re-pivot around it (Finder behavior).
+			anchorId: anchorId !== undefined ? anchorId : state.anchorId,
+		})),
 	clear: () => set({ selectedIds: new Set<string>(), anchorId: null }),
 }));

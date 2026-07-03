@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { RatingStars } from "@/components/inspector/rating-stars";
+import { TagChips } from "@/components/inspector/tag-chips";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -26,6 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useExport } from "@/hooks/use-export";
 import type { AssetDetail } from "@/lib/bindings";
 import { buildFolderTree, flattenFolderTree } from "@/lib/folder-tree";
 import { formatBytes, formatDateTime, formatDimensions } from "@/lib/format";
@@ -51,6 +53,7 @@ export function AssetDetails({ assetId }: { assetId: string }) {
 
 function DetailsBody({ detail }: { detail: AssetDetail }) {
 	const update = useUpdateAsset();
+	const { exportAssets, isExporting } = useExport();
 
 	return (
 		// Inspector column anatomy: scrollable main + fixed action footer.
@@ -70,9 +73,10 @@ function DetailsBody({ detail }: { detail: AssetDetail }) {
 					/>
 				</div>
 				<NoteField detail={detail} />
+				{detail.palette.length > 0 && <PaletteRow colors={detail.palette} />}
+				<TagChips assetIds={[detail.id]} tags={detail.tags} />
 				<FolderChips detail={detail} />
 				<InfoTable detail={detail} />
-				{/* 标签区（二阶段）：tags/asset_tags 表已在 schema v1 预留 */}
 			</div>
 			<footer className="flex shrink-0 gap-2 border-t p-3">
 				<Button
@@ -88,8 +92,8 @@ function DetailsBody({ detail }: { detail: AssetDetail }) {
 					variant="outline"
 					size="sm"
 					className="flex-1"
-					disabled
-					title={T.inspector.exportSoon}
+					disabled={isExporting}
+					onClick={() => void exportAssets([detail.id])}
 				>
 					{T.inspector.exportAction}
 				</Button>
@@ -259,6 +263,22 @@ function FolderChips({ detail }: { detail: AssetDetail }) {
 					</DropdownMenuContent>
 				</DropdownMenu>
 			</div>
+		</div>
+	);
+}
+
+/** Extracted swatches — clicking one filters the library by that hue-ish. */
+function PaletteRow({ colors }: { colors: string[] }) {
+	return (
+		<div className="flex items-center gap-1.5">
+			{colors.map((color) => (
+				<span
+					key={color}
+					className="size-5 rounded-md border border-foreground/10"
+					style={{ backgroundColor: color }}
+					title={color}
+				/>
+			))}
 		</div>
 	);
 }

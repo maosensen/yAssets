@@ -6,23 +6,38 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "@tanstack/react-router";
-import { Clock, Images, Inbox, Trash2 } from "lucide-react";
+import { Clock, Images, Inbox, Tags, Trash2 } from "lucide-react";
+import { useDropTarget } from "@/hooks/use-drop-target";
+import type { LibraryView } from "@/lib/library-view";
 import { libraryStatsQueryOptions } from "@/lib/queries/library";
 import { T } from "@/lib/text";
 import { cn } from "@/lib/utils";
+
+type SmartView = LibraryView["view"];
 
 export function SmartViews() {
 	// Also rendered under /preview (same layout) — no throw, just no active view.
 	const search = useSearch({ from: "/_library/", shouldThrow: false });
 	const { data: stats } = useQuery(libraryStatsQueryOptions());
 
-	const items = [
+	const items: Array<{
+		view: SmartView;
+		label: string;
+		icon: typeof Images;
+		count: number | undefined;
+	}> = [
 		{ view: "all", label: T.sidebar.all, icon: Images, count: stats?.total },
 		{
 			view: "uncategorized",
 			label: T.sidebar.uncategorized,
 			icon: Inbox,
 			count: stats?.uncategorized,
+		},
+		{
+			view: "untagged",
+			label: T.sidebar.untagged,
+			icon: Tags,
+			count: stats?.untagged,
 		},
 		{
 			view: "recent",
@@ -41,26 +56,63 @@ export function SmartViews() {
 	return (
 		<nav className="flex flex-col gap-0.5">
 			{items.map(({ view, label, icon: Icon, count }) => (
-				<Link
+				<SmartViewRow
 					key={view}
-					to="/"
-					search={{ view }}
-					className={cn(
-						"flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-sidebar-accent",
-						search?.view === view
-							? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-							: "text-sidebar-foreground/80",
-					)}
-				>
-					<Icon className="size-4 shrink-0" />
-					<span className="min-w-0 flex-1 truncate">{label}</span>
-					{count !== undefined && count > 0 && (
-						<span className="text-muted-foreground text-xs tabular-nums">
-							{count}
-						</span>
-					)}
-				</Link>
+					view={view}
+					label={label}
+					Icon={Icon}
+					count={count}
+					active={search?.view === view}
+				/>
 			))}
 		</nav>
+	);
+}
+
+function SmartViewRow({
+	view,
+	label,
+	Icon,
+	count,
+	active,
+}: {
+	view: SmartView;
+	label: string;
+	Icon: typeof Images;
+	count: number | undefined;
+	active: boolean;
+}) {
+	// Only the trash row is a drop target (drag assets here to soft-delete).
+	const drop = useDropTarget({ kind: "trash" });
+	const dropProps =
+		view === "trash"
+			? {
+					onPointerEnter: drop.onPointerEnter,
+					onPointerLeave: drop.onPointerLeave,
+					onPointerUp: drop.onPointerUp,
+				}
+			: {};
+
+	return (
+		<Link
+			to="/"
+			search={{ view }}
+			className={cn(
+				"flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-sidebar-accent",
+				active
+					? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+					: "text-sidebar-foreground/80",
+				view === "trash" && drop.isOver && "ring-2 ring-primary ring-inset",
+			)}
+			{...dropProps}
+		>
+			<Icon className="size-4 shrink-0" />
+			<span className="min-w-0 flex-1 truncate">{label}</span>
+			{count !== undefined && count > 0 && (
+				<span className="text-muted-foreground text-xs tabular-nums">
+					{count}
+				</span>
+			)}
+		</Link>
 	);
 }

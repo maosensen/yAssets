@@ -13,11 +13,13 @@ import {
 } from "@tanstack/react-router";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState } from "react";
+import { ColorFilter } from "@/components/layout/color-filter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { foldersQueryOptions } from "@/lib/queries/folders";
+import { tagsQueryOptions } from "@/lib/queries/tags";
 import {
 	MAX_ROW_HEIGHT,
 	MIN_ROW_HEIGHT,
@@ -31,6 +33,7 @@ export function Toolbar() {
 	const search = useSearch({ from: "/_library/" });
 	const navigate = useNavigate();
 	const { data: folders } = useQuery(foldersQueryOptions());
+	const { data: tags } = useQuery(tagsQueryOptions());
 
 	const targetRowHeight = useViewPrefsStore((state) => state.targetRowHeight);
 	const setTargetRowHeight = useViewPrefsStore(
@@ -62,8 +65,17 @@ export function Toolbar() {
 					folders?.find((folder) => folder.id === search.folderId)?.name ??
 					T.viewTitles.folderFallback
 				);
+			case "tag":
+				return (
+					tags?.find((tag) => tag.id === search.tagId)?.name ??
+					T.viewTitles.tagFallback
+				);
+			case "color":
+				return T.viewTitles.color;
 			case "uncategorized":
 				return T.viewTitles.uncategorized;
+			case "untagged":
+				return T.viewTitles.untagged;
 			case "recent":
 				return T.viewTitles.recent;
 			case "trash":
@@ -103,6 +115,7 @@ export function Toolbar() {
 
 			<div className="min-w-0 flex-1 truncate font-medium text-sm">{title}</div>
 
+			<ColorFilter search={search} />
 			<div className="flex w-32 items-center" title={T.toolbar.zoom}>
 				<Slider
 					value={targetRowHeight}

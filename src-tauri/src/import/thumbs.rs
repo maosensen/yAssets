@@ -27,24 +27,58 @@ const WEBP_QUALITY: f32 = 80.0;
 const MAX_DECODE_EDGE: u32 = 20_000;
 const MAX_DECODE_ALLOC: u64 = 512 * 1024 * 1024;
 
-/// Extensions we attempt real thumbnails for (phase 1 bitmap set).
-pub fn is_thumbable_ext(ext: &str) -> bool {
+/// Bitmap formats decoded by the `image` crate.
+fn is_bitmap_ext(ext: &str) -> bool {
     matches!(ext, "jpg" | "jpeg" | "png" | "webp" | "gif" | "bmp")
 }
 
-/// Post-orientation pixel dimensions of the source image.
-#[derive(Debug, Clone, Copy)]
+/// Extensions we can generate a real thumbnail for (bitmaps + SVG).
+pub fn is_thumbable_ext(ext: &str) -> bool {
+    is_bitmap_ext(ext) || ext == "svg"
+}
+
+/// Result of thumbnailing: oriented source dimensions + extracted color.
+#[derive(Debug, Clone)]
 pub struct ThumbOutcome {
     pub width: u32,
     pub height: u32,
+    /// Dominant-hue bucket (see [`crate::import::color`]); None if undetermined.
+    pub hue: Option<u8>,
+    /// JSON array of representative swatch hex strings.
+    pub palette: Option<String>,
 }
 
-/// Decode `src`, orient, resize to ≤ [`THUMB_LONG_EDGE`], and write a WebP
-/// to `dest` (parent dirs created). Returns oriented source dimensions.
+/// Decode `src` (bitmap or SVG), resize to ≤ [`THUMB_LONG_EDGE`], write a
+/// WebP to `dest`, and extract the dominant color from the downscaled pixels.
 ///
-/// Any error here is per-file and non-fatal to the import — callers downgrade
-/// to `has_thumb = false` and keep the asset.
-pub fn generate(src: &Path, dest: &Path) -> AppResult<ThumbOutcome> {
+/// Any error here is per-file and non-fatal to import — callers downgrade to
+/// `has_thumb = false` and keep the asset.
+pub fn generate(src: &Path, dest: &Path, ext: &str) -> AppResult<ThumbOutcome> {
+    let (width, height, thumb_w, thumb_h, resized) = if ext == "svg" {
+        rasterize_svg(src)?
+    } else {
+        decode_bitmap(src)?
+    };
+
+    let (hue, palette) = crate::import::color::analyze_rgba(&resized);
+
+    let encoded = webp::Encoder::from_rgba(&resized, thumb_w, thumb_h).encode(WEBP_QUALITY);
+    if let Some(parent) = dest.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(dest, &*encoded)?;
+
+    Ok(ThumbOutcome {
+        width,
+        height,
+        hue,
+        palette,
+    })
+}
+
+/// Bitmap path: decode via `image` (EXIF-oriented, bomb-limited) → RGBA →
+/// SIMD downscale. Returns (src_w, src_h, thumb_w, thumb_h, thumb_rgba).
+fn decode_bitmap(src: &Path) -> AppResult<(u32, u32, u32, u32, Vec<u8>)> {
     let mut limits = image::Limits::default();
     limits.max_image_width = Some(MAX_DECODE_EDGE);
     limits.max_image_height = Some(MAX_DECODE_EDGE);
@@ -60,22 +94,44 @@ pub fn generate(src: &Path, dest: &Path) -> AppResult<ThumbOutcome> {
 
     let (width, height) = (img.width(), img.height());
     let (thumb_w, thumb_h) = fit_long_edge(width, height, THUMB_LONG_EDGE);
-
-    let rgba = img.into_rgba8();
+    let rgba = img.into_rgba8().into_raw();
     let resized = if (thumb_w, thumb_h) == (width, height) {
-        rgba.into_raw()
+        rgba
     } else {
-        resize_rgba(rgba.into_raw(), width, height, thumb_w, thumb_h)?
+        resize_rgba(rgba, width, height, thumb_w, thumb_h)?
     };
+    Ok((width, height, thumb_w, thumb_h, resized))
+}
 
-    let encoded = webp::Encoder::from_rgba(&resized, thumb_w, thumb_h).encode(WEBP_QUALITY);
+/// SVG path: parse with usvg, render at the thumbnail size with resvg/tiny-skia.
+/// Reported dimensions are the SVG's intrinsic size; the raster is already the
+/// thumbnail (no separate resize step).
+fn rasterize_svg(src: &Path) -> AppResult<(u32, u32, u32, u32, Vec<u8>)> {
+    let data = std::fs::read(src)?;
+    let tree = resvg::usvg::Tree::from_data(&data, &resvg::usvg::Options::default())
+        .map_err(|err| AppError::Io(format!("svg parse failed: {err}")))?;
 
-    if let Some(parent) = dest.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-    std::fs::write(dest, &*encoded)?;
+    let size = tree.size();
+    let (src_w, src_h) = (size.width().max(1.0), size.height().max(1.0));
+    let (thumb_w, thumb_h) =
+        fit_long_edge(src_w.ceil() as u32, src_h.ceil() as u32, THUMB_LONG_EDGE);
 
-    Ok(ThumbOutcome { width, height })
+    let mut pixmap = resvg::tiny_skia::Pixmap::new(thumb_w.max(1), thumb_h.max(1))
+        .ok_or_else(|| AppError::Io("svg pixmap alloc failed".into()))?;
+    let scale = thumb_w as f32 / src_w;
+    resvg::render(
+        &tree,
+        resvg::tiny_skia::Transform::from_scale(scale, scale),
+        &mut pixmap.as_mut(),
+    );
+
+    Ok((
+        src_w.ceil() as u32,
+        src_h.ceil() as u32,
+        thumb_w,
+        thumb_h,
+        pixmap.data().to_vec(),
+    ))
 }
 
 /// SIMD resize via fast_image_resize (Lanczos3, alpha-aware mul/div).
@@ -141,8 +197,9 @@ mod tests {
         });
         img.save(&src).expect("write fixture png");
 
-        let outcome = generate(&src, &dest).expect("generate");
+        let outcome = generate(&src, &dest, "png").expect("generate");
         assert_eq!((outcome.width, outcome.height), (800, 600));
+        assert!(outcome.hue.is_some());
         assert!(dest.is_file());
 
         // Round-trip: the written file decodes as a ≤512 long-edge image.
@@ -159,7 +216,7 @@ mod tests {
             .save(&src)
             .expect("fixture");
 
-        let outcome = generate(&src, &dest).expect("generate");
+        let outcome = generate(&src, &dest, "png").expect("generate");
         assert_eq!((outcome.width, outcome.height), (120, 80));
         let thumb = image::open(&dest).expect("decode thumb");
         assert_eq!((thumb.width(), thumb.height()), (120, 80));
@@ -172,7 +229,24 @@ mod tests {
         let dest = tmp.path().join("th.webp");
         std::fs::write(&src, b"definitely not an image").expect("fixture");
 
-        assert!(generate(&src, &dest).is_err());
+        assert!(generate(&src, &dest, "png").is_err());
         assert!(!dest.exists());
+    }
+
+    #[test]
+    fn generate_rasterizes_svg() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let src = tmp.path().join("icon.svg");
+        let dest = tmp.path().join("th.webp");
+        std::fs::write(
+            &src,
+            br##"<svg xmlns="http://www.w3.org/2000/svg" width="200" height="100"><rect width="200" height="100" fill="#2244cc"/></svg>"##,
+        )
+        .expect("fixture");
+
+        let outcome = generate(&src, &dest, "svg").expect("generate svg");
+        assert_eq!((outcome.width, outcome.height), (200, 100));
+        assert!(dest.is_file());
+        assert_eq!(outcome.hue, Some(7)); // #2244cc ≈ 228° → blue slice
     }
 }

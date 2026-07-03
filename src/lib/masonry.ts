@@ -124,3 +124,29 @@ export function computeJustifiedLayout(
 
 	return { rows, totalHeight: top - gap, rowIndexOf };
 }
+
+export type Rect = {
+	left: number;
+	top: number;
+	right: number;
+	bottom: number;
+};
+
+/**
+ * Ids of all items whose card box (image + caption) intersects `rect`, in
+ * content coordinates. Pure math over the layout — the marquee selection
+ * never touches the DOM (virtualized rows may not even be mounted).
+ */
+export function itemsInRect(layout: MasonryLayout, rect: Rect): string[] {
+	const hits: string[] = [];
+	for (const row of layout.rows) {
+		if (row.top > rect.bottom) break; // rows are top-sorted
+		if (row.top + row.height < rect.top) continue;
+		for (const item of row.items) {
+			if (item.left <= rect.right && item.left + item.width >= rect.left) {
+				hits.push(item.id);
+			}
+		}
+	}
+	return hits;
+}

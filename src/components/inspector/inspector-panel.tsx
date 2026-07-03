@@ -6,16 +6,22 @@
 import { useSelectionStore } from "@/lib/stores/selection-store";
 import { AssetDetails } from "./asset-details";
 import { FolderSummary } from "./folder-summary";
+import { MultiSummary } from "./multi-summary";
 
 export function InspectorPanel() {
 	const selectedIds = useSelectionStore((state) => state.selectedIds);
-	const singleId = selectedIds.size === 1 ? [...selectedIds][0] : undefined;
 
 	return (
 		// Translucent over the native vibrancy, matching the sidebar chrome.
 		// No border-l: the ResizableHandle already draws the 1px divider.
 		<aside className="h-full bg-sidebar/50">
-			{singleId ? <AssetDetails assetId={singleId} /> : <FolderSummary />}
+			{selectedIds.size === 1 ? (
+				<AssetDetails assetId={[...selectedIds][0]} />
+			) : selectedIds.size > 1 ? (
+				<MultiSummary ids={[...selectedIds]} />
+			) : (
+				<FolderSummary />
+			)}
 		</aside>
 	);
 }

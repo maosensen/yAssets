@@ -42,7 +42,14 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::trash::trash_assets,
             commands::trash::restore_assets,
             commands::trash::delete_assets_forever,
-            commands::trash::empty_trash
+            commands::trash::empty_trash,
+            commands::tags::list_tags,
+            commands::tags::create_tag,
+            commands::tags::update_tag,
+            commands::tags::delete_tag,
+            commands::tags::add_tags_to_assets,
+            commands::tags::remove_tags_from_assets,
+            commands::export::export_assets
         ])
         .events(collect_events![
             events::ImportProgress,

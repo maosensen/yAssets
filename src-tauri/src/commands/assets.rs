@@ -17,8 +17,11 @@ use crate::state::AppState;
 pub enum AssetScope {
     All,
     Uncategorized,
+    Untagged,
     Recent { days: u32 },
     Folder { folder_id: String },
+    Tag { tag_id: String },
+    Color { hue: u8 },
     Trash,
 }
 
@@ -74,6 +77,14 @@ pub struct AssetListResult {
     pub total: u32,
 }
 
+/// A tag as carried on an asset detail (no usage count needed here).
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct TagRef {
+    pub id: String,
+    pub name: String,
+    pub color: Option<String>,
+}
+
 /// Inspector payload — summary plus the heavier/editable fields.
 #[derive(Debug, Serialize, specta::Type)]
 pub struct AssetDetail {
@@ -91,6 +102,9 @@ pub struct AssetDetail {
     /// Original path at import time (provenance display only).
     pub src_path: Option<String>,
     pub folder_ids: Vec<String>,
+    pub tags: Vec<TagRef>,
+    /// Representative swatch hexes (JSON-decoded from the DB), for display.
+    pub palette: Vec<String>,
     pub imported_at: f64,
     pub file_mtime: Option<f64>,
     pub file_ctime: Option<f64>,
@@ -133,6 +147,25 @@ fn scope_sql(scope: &AssetScope) -> (String, Vec<rusqlite::types::Value>) {
              )"
             .into(),
             vec![],
+        ),
+        AssetScope::Untagged => (
+            "deleted_at IS NULL AND NOT EXISTS (
+               SELECT 1 FROM asset_tags at WHERE at.asset_id = assets.id
+             )"
+            .into(),
+            vec![],
+        ),
+        AssetScope::Tag { tag_id } => (
+            "deleted_at IS NULL AND EXISTS (
+               SELECT 1 FROM asset_tags at
+               WHERE at.asset_id = assets.id AND at.tag_id = ?
+             )"
+            .into(),
+            vec![rusqlite::types::Value::Text(tag_id.clone())],
+        ),
+        AssetScope::Color { hue } => (
+            "deleted_at IS NULL AND hue = ?".into(),
+            vec![rusqlite::types::Value::Integer(i64::from(*hue))],
         ),
         AssetScope::Recent { days } => (
             "deleted_at IS NULL AND imported_at >= ?".into(),
@@ -227,10 +260,14 @@ fn detail_by_id(conn: &rusqlite::Connection, id: &str) -> AppResult<AssetDetail>
         .query_row(
             "SELECT id, name, ext, mime, size, width, height, has_thumb, rating,
                     note, hash_blake3, src_path, imported_at, file_mtime,
-                    file_ctime, updated_at, deleted_at
+                    file_ctime, updated_at, deleted_at, palette
              FROM assets WHERE id = ?1",
             [id],
             |row| {
+                let palette = row
+                    .get::<_, Option<String>>(17)?
+                    .and_then(|json| serde_json::from_str::<Vec<String>>(&json).ok())
+                    .unwrap_or_default();
                 Ok(AssetDetail {
                     id: row.get(0)?,
                     name: row.get(1)?,
@@ -245,6 +282,8 @@ fn detail_by_id(conn: &rusqlite::Connection, id: &str) -> AppResult<AssetDetail>
                     hash_blake3: row.get(10)?,
                     src_path: row.get(11)?,
                     folder_ids: Vec::new(),
+                    tags: Vec::new(),
+                    palette,
                     imported_at: row.get::<_, i64>(12)? as f64,
                     file_mtime: row.get::<_, Option<i64>>(13)?.map(|v| v as f64),
                     file_ctime: row.get::<_, Option<i64>>(14)?.map(|v| v as f64),
@@ -262,6 +301,22 @@ fn detail_by_id(conn: &rusqlite::Connection, id: &str) -> AppResult<AssetDetail>
     detail.folder_ids = stmt
         .query_map([id], |row| row.get(0))?
         .collect::<rusqlite::Result<Vec<String>>>()?;
+
+    let mut tag_stmt = conn.prepare(
+        "SELECT t.id, t.name, t.color FROM asset_tags at
+         JOIN tags t ON t.id = at.tag_id
+         WHERE at.asset_id = ?1
+         ORDER BY t.name COLLATE NOCASE",
+    )?;
+    detail.tags = tag_stmt
+        .query_map([id], |row| {
+            Ok(TagRef {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                color: row.get(2)?,
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
     Ok(detail)
 }
 

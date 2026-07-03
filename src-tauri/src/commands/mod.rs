@@ -12,7 +12,9 @@
 //! - One file per domain.
 
 pub mod assets;
+pub mod export;
 pub mod folders;
 pub mod import;
 pub mod library;
+pub mod tags;
 pub mod trash;

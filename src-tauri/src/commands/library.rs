@@ -59,7 +59,8 @@ fn install_library(
     *state.library.write().map_err(|_| AppError::Internal)? = Some(Arc::clone(&library));
     recent::remember(app, &info)?;
     recent::set_last_library(app, Some(&info.path))?;
-    crate::library::spawn_orphan_sweep(library);
+    crate::library::spawn_orphan_sweep(Arc::clone(&library));
+    crate::library::spawn_backfill(library);
     Ok(info)
 }
 
@@ -148,6 +149,8 @@ pub struct LibraryStats {
     pub total: u32,
     /// Alive assets that belong to no folder.
     pub uncategorized: u32,
+    /// Alive assets carrying no tag.
+    pub untagged: u32,
     /// Trashed assets.
     pub trash: u32,
     /// Total size of alive assets, in bytes.
@@ -168,6 +171,9 @@ pub async fn get_library_stats(state: tauri::State<'_, AppState>) -> AppResult<L
                    COUNT(*) FILTER (WHERE deleted_at IS NULL AND NOT EXISTS (
                      SELECT 1 FROM asset_folders af WHERE af.asset_id = assets.id
                    )),
+                   COUNT(*) FILTER (WHERE deleted_at IS NULL AND NOT EXISTS (
+                     SELECT 1 FROM asset_tags at WHERE at.asset_id = assets.id
+                   )),
                    COUNT(*) FILTER (WHERE deleted_at IS NOT NULL),
                    COALESCE(SUM(size) FILTER (WHERE deleted_at IS NULL), 0)
                  FROM assets",
@@ -176,8 +182,9 @@ pub async fn get_library_stats(state: tauri::State<'_, AppState>) -> AppResult<L
                     Ok(LibraryStats {
                         total: row.get::<_, i64>(0)? as u32,
                         uncategorized: row.get::<_, i64>(1)? as u32,
-                        trash: row.get::<_, i64>(2)? as u32,
-                        total_size: row.get::<_, i64>(3)? as f64,
+                        untagged: row.get::<_, i64>(2)? as u32,
+                        trash: row.get::<_, i64>(3)? as u32,
+                        total_size: row.get::<_, i64>(4)? as f64,
                     })
                 },
             )?;

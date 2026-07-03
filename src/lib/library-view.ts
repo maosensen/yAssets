@@ -10,9 +10,21 @@ import type { AssetScope } from "@/lib/bindings";
 
 export const libraryViewSchema = z.object({
 	view: z
-		.enum(["all", "uncategorized", "recent", "trash", "folder"])
+		.enum([
+			"all",
+			"uncategorized",
+			"untagged",
+			"recent",
+			"trash",
+			"folder",
+			"tag",
+			"color",
+		])
 		.catch("all"),
 	folderId: z.string().optional(),
+	tagId: z.string().optional(),
+	/** Hue bucket for view=color (0-11 chromatic, 12 neutral). */
+	hue: z.coerce.number().int().min(0).max(12).optional(),
 	q: z.string().optional(),
 });
 
@@ -27,8 +39,16 @@ export function scopeFromView(view: LibraryView): AssetScope {
 			return view.folderId
 				? { kind: "folder", folder_id: view.folderId }
 				: { kind: "all" };
+		case "tag":
+			return view.tagId ? { kind: "tag", tag_id: view.tagId } : { kind: "all" };
+		case "color":
+			return view.hue !== undefined
+				? { kind: "color", hue: view.hue }
+				: { kind: "all" };
 		case "uncategorized":
 			return { kind: "uncategorized" };
+		case "untagged":
+			return { kind: "untagged" };
 		case "recent":
 			return { kind: "recent", days: RECENT_DAYS };
 		case "trash":

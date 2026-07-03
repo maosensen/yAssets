@@ -8,7 +8,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AssetGrid } from "@/components/grid/asset-grid";
 import { GridEmptyState } from "@/components/grid/grid-empty-state";
 import { Toolbar } from "@/components/layout/toolbar";
@@ -52,13 +52,18 @@ function LibraryHome() {
 	const { data } = useQuery(
 		assetListQueryOptions({ scope, search: search.q, sort, dir }),
 	);
+	// Latest list for the stable-deps keyboard handler (Cmd+A).
+	const dataRef = useRef(data);
+	dataRef.current = data;
 
 	const { importPaths, isImporting } = useImport();
 	const trashMutation = useTrashAssets();
 	const deleteForeverMutation = useDeleteAssetsForever();
 	const emptyTrashMutation = useEmptyTrash();
 	const clearSelection = useSelectionStore((state) => state.clear);
-	const [deleteForeverId, setDeleteForeverId] = useState<string | null>(null);
+	const [deleteForeverIds, setDeleteForeverIds] = useState<string[] | null>(
+		null,
+	);
 	const [confirmEmptyTrash, setConfirmEmptyTrash] = useState(false);
 
 	const inTrash = search.view === "trash";
@@ -96,6 +101,17 @@ function LibraryHome() {
 				clearSelection();
 				return;
 			}
+			// Cmd/Ctrl+A — select everything in the current view.
+			if ((event.metaKey || event.ctrlKey) && event.key === "a") {
+				event.preventDefault();
+				const current = dataRef.current;
+				if (current && current.items.length > 0) {
+					useSelectionStore
+						.getState()
+						.selectMany(current.items.map((asset) => asset.id));
+				}
+				return;
+			}
 			if (event.key === "Delete" || event.key === "Backspace") {
 				const { selectedIds } = useSelectionStore.getState();
 				if (selectedIds.size === 0 || inTrash) return;
@@ -125,8 +141,14 @@ function LibraryHome() {
 				return T.trashUi.emptyState;
 			case "folder":
 				return T.gridEmpty.folderEmpty;
+			case "tag":
+				return T.gridEmpty.tagEmpty;
+			case "color":
+				return T.gridEmpty.colorEmpty;
 			case "uncategorized":
 				return T.gridEmpty.uncategorizedEmpty;
+			case "untagged":
+				return T.gridEmpty.untaggedEmpty;
 			case "recent":
 				return T.gridEmpty.recentEmpty;
 			default:
@@ -174,30 +196,31 @@ function LibraryHome() {
 						onOpen={openPreview}
 						inTrash={inTrash}
 						currentFolderId={currentFolderId}
-						onRequestDeleteForever={setDeleteForeverId}
+						onRequestDeleteForever={setDeleteForeverIds}
 					/>
 				)}
 			</div>
 
 			<AlertDialog
-				open={deleteForeverId !== null}
-				onOpenChange={(open) => !open && setDeleteForeverId(null)}
+				open={deleteForeverIds !== null}
+				onOpenChange={(open) => !open && setDeleteForeverIds(null)}
 			>
 				<AlertDialogContent>
 					<AlertDialogHeader>
 						<AlertDialogTitle>{T.trashUi.confirmDeleteTitle}</AlertDialogTitle>
 						<AlertDialogDescription>
-							{T.trashUi.confirmDeleteDesc}
+							{T.trashUi.confirmDeleteDesc(deleteForeverIds?.length ?? 1)}
 						</AlertDialogDescription>
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>{T.common.cancel}</AlertDialogCancel>
 						<AlertDialogAction
 							onClick={() => {
-								if (deleteForeverId) {
-									deleteForeverMutation.mutate([deleteForeverId]);
+								if (deleteForeverIds && deleteForeverIds.length > 0) {
+									deleteForeverMutation.mutate(deleteForeverIds);
+									clearSelection();
 								}
-								setDeleteForeverId(null);
+								setDeleteForeverIds(null);
 							}}
 						>
 							{T.trashUi.confirmAction}

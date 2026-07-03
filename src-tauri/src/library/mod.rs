@@ -381,6 +381,67 @@ pub fn spawn_orphan_sweep(library: Arc<Library>) {
     });
 }
 
+/// Background backfill for assets missing a thumbnail or color analysis —
+/// e.g. existing libraries after the SVG-thumbnail / color-extraction
+/// features landed. Idempotent, best-effort, log-only; runs on library open.
+pub fn spawn_backfill(library: Arc<Library>) {
+    tauri::async_runtime::spawn_blocking(move || {
+        let pending = library.with_reader(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, ext, rel_path FROM assets
+                 WHERE deleted_at IS NULL AND (has_thumb = 0 OR hue IS NULL)",
+            )?;
+            let rows = stmt
+                .query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, String>(1)?,
+                        row.get::<_, String>(2)?,
+                    ))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
+        });
+        let Ok(pending) = pending else { return };
+        let todo: Vec<_> = pending
+            .into_iter()
+            .filter(|(_, ext, _)| crate::import::thumbs::is_thumbable_ext(ext))
+            .collect();
+        if todo.is_empty() {
+            return;
+        }
+        log::info!("backfill: {} asset(s) need thumbnail/color", todo.len());
+
+        let mut done = 0u32;
+        for (id, ext, rel_path) in todo {
+            let src = library.resolve_rel(&rel_path);
+            match crate::import::thumbs::generate(&src, &library.thumb_path(&id), &ext) {
+                Ok(outcome) => {
+                    let _ = library.with_writer(|conn| {
+                        conn.execute(
+                            "UPDATE assets
+                             SET has_thumb = 1, width = ?2, height = ?3,
+                                 hue = ?4, palette = ?5
+                             WHERE id = ?1",
+                            rusqlite::params![
+                                id,
+                                outcome.width,
+                                outcome.height,
+                                outcome.hue,
+                                outcome.palette,
+                            ],
+                        )?;
+                        Ok(())
+                    });
+                    done += 1;
+                }
+                Err(err) => log::warn!("backfill failed for {id}: {err}"),
+            }
+        }
+        log::info!("backfill: completed {done} asset(s)");
+    });
+}
+
 fn folder_display_name(root: &Path) -> String {
     root.file_name()
         .map(|name| name.to_string_lossy().into_owned())

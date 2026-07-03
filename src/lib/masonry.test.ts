@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	clampRatio,
 	computeJustifiedLayout,
+	itemsInRect,
 	MAX_RATIO,
 	type MasonryOptions,
 	MIN_RATIO,
@@ -139,6 +140,56 @@ describe("computeJustifiedLayout", () => {
 		expect(item).toBeDefined();
 		if (!item) return;
 		expect(item.width).toBeCloseTo(item.imageHeight, 6);
+	});
+
+	it("itemsInRect hit-tests card boxes without touching the DOM", () => {
+		// 8 squares → two rows at 1000px width.
+		const layout = computeJustifiedLayout(items(1, 1, 1, 1, 1, 1, 1, 1), OPTS);
+		const [first, second] = layout.rows;
+		expect(first).toBeDefined();
+		expect(second).toBeDefined();
+		if (!first || !second) return;
+
+		// A rect fully inside the first row's first card.
+		const firstItem = first.items[0];
+		const single = itemsInRect(layout, {
+			left: firstItem.left + 1,
+			top: first.top + 1,
+			right: firstItem.left + 2,
+			bottom: first.top + 2,
+		});
+		expect(single).toEqual([firstItem.id]);
+
+		// A rect spanning both rows horizontally across everything.
+		const all = itemsInRect(layout, {
+			left: 0,
+			top: 0,
+			right: OPTS.containerWidth,
+			bottom: layout.totalHeight,
+		});
+		expect(all).toHaveLength(8);
+
+		// A rect in the vertical gap between rows hits nothing… but a rect
+		// over row 2 only hits row-2 items.
+		const rowTwoOnly = itemsInRect(layout, {
+			left: 0,
+			top: second.top + 1,
+			right: OPTS.containerWidth,
+			bottom: second.top + 2,
+		});
+		expect(rowTwoOnly.every((id) => layout.rowIndexOf.get(id) === 1)).toBe(
+			true,
+		);
+
+		// Degenerate rect far below everything.
+		expect(
+			itemsInRect(layout, {
+				left: 0,
+				top: layout.totalHeight + 100,
+				right: 10,
+				bottom: layout.totalHeight + 110,
+			}),
+		).toHaveLength(0);
 	});
 
 	it("lays out 10k items in O(n) time without pathologies", () => {

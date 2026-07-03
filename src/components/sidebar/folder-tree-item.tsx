@@ -12,6 +12,7 @@ import {
 	ContextMenuSeparator,
 	ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { useDropTarget } from "@/hooks/use-drop-target";
 import type { FolderNode } from "@/lib/folder-tree";
 import { T } from "@/lib/text";
 import { cn } from "@/lib/utils";
@@ -40,13 +41,20 @@ export function FolderTreeItem(props: FolderTreeItemProps) {
 	} = props;
 	const expanded = isExpanded(node.id);
 	const active = activeFolderId === node.id;
+	const drop = useDropTarget({ kind: "folder", id: node.id });
 
 	return (
 		<>
 			<ContextMenu>
 				<ContextMenuTrigger
-					className="flex items-center"
+					className={cn(
+						"flex items-center rounded-md",
+						drop.isOver && "ring-2 ring-primary ring-inset",
+					)}
 					style={{ paddingLeft: depth * 12 }}
+					onPointerEnter={drop.onPointerEnter}
+					onPointerLeave={drop.onPointerLeave}
+					onPointerUp={drop.onPointerUp}
 				>
 					{node.children.length > 0 ? (
 						<button

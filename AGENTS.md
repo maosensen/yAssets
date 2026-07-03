@@ -144,6 +144,15 @@ Migrate `store` schemas and DB schemas with versioned migrations on startup; don
 - Use the generated `commands.*` for full type safety, or the logging `invoke<T>` wrapper in `@/lib/tauri`. `src/lib/errors.ts` re-exports the generated `AppError`.
 - `tauri-specta`/`specta` v2 are RC and tightly coupled — versions are pinned with `=` in `Cargo.toml`; bump all three together. specta refuses to export 64-bit ints (precision) — use `f64`/`String`, or a 32-bit type.
 
+### Phase 2 additions
+
+- **Tags:** `tags` / `asset_tags` (schema v1). Names are UNIQUE `COLLATE NOCASE`, so `create_tag` is create-or-get. Batch endpoints take `Vec<asset_id> × Vec<tag_id>`; `AssetScope` gained `Untagged` and `Tag { tag_id }`.
+- **Color (schema v2):** import extracts a dominant-hue bucket (`assets.hue`, 0–11 chromatic + 12 neutral, partial index `idx_assets_hue`) and a swatch `palette` JSON, both from the thumbnail RGBA (`import::color`). `AssetScope::Color { hue }` filters by it; the toolbar color popover drives `view=color&hue=N`.
+- **SVG thumbnails:** `import::thumbs::generate(src, dest, ext)` dispatches on ext — bitmaps via `image`, SVG via `resvg`/`usvg`/`tiny-skia` → same resize/WebP/color path. `is_thumbable_ext` = bitmaps + `svg`.
+- **Backfill:** `library::spawn_backfill` runs on open (alongside the orphan sweep) and regenerates thumbnails/color for alive assets missing them (`has_thumb = 0 OR hue IS NULL`) — this is how existing libraries gain SVG thumbnails/color after the feature ships. Per-file failures are non-fatal (logged, skipped).
+- **Export:** `export_assets(ids, dest_dir)` copies managed files back out under their original name+ext, de-duplicating collisions ` (n)`-style; wired to inspector / grid context menu / multi-select panel.
+- **Multi-select & in-app drag:** selection is a Set in `stores/selection-store` (Cmd toggle, Shift range via ordered ids, marquee via `masonry.itemsInRect`, Cmd+A). In-app card→folder/trash dragging is POINTER-based (`stores/drag-store` + `use-card-drag`/`use-drop-target`) — HTML5 DnD is unusable here (native drag-drop is claimed for OS file imports).
+
 ### Media/asset pipeline (implemented — phase 1)
 
 The standard three moves, as shipped:

@@ -45,6 +45,8 @@ blake3 = "1"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif", "bmp"] }
 fast_image_resize = "5"
 webp = "0.3"
+# SVG rasterization for thumbnails (pure Rust, no system deps).
+resvg = "0.45"
 # CPU parallelism for the import pipeline (hash/decode/resize).
 rayon = "1"
 # Recursive directory discovery on import (does not follow symlinks).

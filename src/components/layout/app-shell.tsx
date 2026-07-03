@@ -15,11 +15,13 @@
 
 import { Outlet, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
+import { DragGhost } from "@/components/grid/drag-ghost";
 import { DropOverlay } from "@/components/import/drop-overlay";
 import { InspectorPanel } from "@/components/inspector/inspector-panel";
 import { FolderTree } from "@/components/sidebar/folder-tree";
 import { LibrarySwitcher } from "@/components/sidebar/library-switcher";
 import { SmartViews } from "@/components/sidebar/smart-views";
+import { TagList } from "@/components/sidebar/tag-list";
 import { Input } from "@/components/ui/input";
 import {
 	ResizableHandle,
@@ -43,6 +45,7 @@ export function AppShell() {
 	return (
 		<div className="flex h-screen flex-col">
 			<DropOverlay visible={isDragOver} />
+			<DragGhost />
 			<ResizablePanelGroup className="min-h-0 flex-1">
 				<ResizablePanel defaultSize="260px" minSize="200px" maxSize="420px">
 					<Sidebar />
@@ -79,6 +82,7 @@ function Sidebar() {
 			<div className="flex min-h-0 flex-1 flex-col gap-2 px-2">
 				<SmartViews />
 				<FolderTree filter={filter} />
+				<TagList />
 			</div>
 			<footer className="shrink-0 border-sidebar-border/60 border-t p-2">
 				<Input

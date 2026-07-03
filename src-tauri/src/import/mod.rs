@@ -18,6 +18,7 @@
 //! switch mid-import stays correct: remaining commits land in the *old*
 //! database until the cancel flag is observed.
 
+pub mod color;
 pub mod thumbs;
 
 use std::collections::HashSet;
@@ -361,12 +362,16 @@ pub(crate) fn process_file(
     let mut width: Option<u32> = None;
     let mut height: Option<u32> = None;
     let mut has_thumb = false;
+    let mut hue: Option<u8> = None;
+    let mut palette: Option<String> = None;
     if thumbs::is_thumbable_ext(&ext_display) {
-        match thumbs::generate(&dest, &library.thumb_path(&id)) {
+        match thumbs::generate(&dest, &library.thumb_path(&id), &ext_display) {
             Ok(outcome) => {
                 width = Some(outcome.width);
                 height = Some(outcome.height);
                 has_thumb = true;
+                hue = outcome.hue;
+                palette = outcome.palette;
             }
             Err(err) => {
                 log::warn!("thumbnail failed for {}: {err}", path.display());
@@ -381,10 +386,10 @@ pub(crate) fn process_file(
         tx.execute(
             "INSERT INTO assets (
                id, name, ext, mime, size, width, height, hash_blake3,
-               storage, src_path, rel_path, has_thumb,
+               storage, src_path, rel_path, has_thumb, hue, palette,
                imported_at, file_mtime, file_ctime, updated_at
              ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
-                       'managed', ?9, ?10, ?11, ?12, ?13, ?14, ?12)",
+                       'managed', ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?14)",
             rusqlite::params![
                 id,
                 name,
@@ -397,6 +402,8 @@ pub(crate) fn process_file(
                 path.to_string_lossy(),
                 rel_path,
                 has_thumb,
+                hue,
+                palette,
                 now,
                 system_time_ms(metadata.modified().ok()),
                 system_time_ms(metadata.created().ok()),

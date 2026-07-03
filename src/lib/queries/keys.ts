@@ -19,6 +19,7 @@ export const assetKeys = {
 	list: (params: {
 		view: string;
 		folderId?: string;
+		tagId?: string;
 		q?: string;
 		sortBy: string;
 		sortDir: string;
@@ -28,4 +29,8 @@ export const assetKeys = {
 
 export const folderKeys = {
 	all: ["folders"] as const,
+};
+
+export const tagKeys = {
+	all: ["tags"] as const,
 };

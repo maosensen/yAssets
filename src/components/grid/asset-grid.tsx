@@ -8,24 +8,27 @@
  */
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useLayoutEffect, useMemo, useRef } from "react";
-import { AssetCard } from "@/components/grid/asset-card";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { AssetCard, type SelectModifiers } from "@/components/grid/asset-card";
 import { AssetContextItems } from "@/components/grid/asset-context-items";
 import {
 	ContextMenu,
 	ContextMenuContent,
 	ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import { useCardDrag } from "@/hooks/use-card-drag";
 import { useElementWidth } from "@/hooks/use-element-width";
 import type { AssetSummary } from "@/lib/bindings";
 import { formatBytes, formatDimensions } from "@/lib/format";
-import { computeJustifiedLayout } from "@/lib/masonry";
+import { computeJustifiedLayout, itemsInRect, type Rect } from "@/lib/masonry";
 import { useSelectionStore } from "@/lib/stores/selection-store";
 import { useViewPrefsStore } from "@/lib/stores/view-prefs-store";
 
 const GAP = 8;
 const CAPTION_HEIGHT = 36;
 const PADDING = 12;
+/** Pointer must travel this far before a blank-drag becomes a marquee. */
+const MARQUEE_THRESHOLD = 4;
 
 type AssetGridProps = {
 	assets: AssetSummary[];
@@ -34,7 +37,7 @@ type AssetGridProps = {
 	inTrash: boolean;
 	/** Set when the grid shows a folder view (enables remove-from-folder). */
 	currentFolderId: string | null;
-	onRequestDeleteForever: (id: string) => void;
+	onRequestDeleteForever: (ids: string[]) => void;
 };
 
 export function AssetGrid({
@@ -48,6 +51,7 @@ export function AssetGrid({
 	const width = useElementWidth(scrollRef);
 	const targetRowHeight = useViewPrefsStore((state) => state.targetRowHeight);
 	const selectOnly = useSelectionStore((state) => state.selectOnly);
+	const cardDrag = useCardDrag();
 
 	const contentWidth = Math.max(0, width - PADDING * 2);
 	const layout = useMemo(
@@ -108,21 +112,129 @@ export function AssetGrid({
 		() => new Map(assets.map((asset) => [asset.id, asset])),
 		[assets],
 	);
+	const orderedIds = useMemo(() => assets.map((asset) => asset.id), [assets]);
+
+	// Click: plain = select-only · Cmd/Ctrl = toggle · Shift = anchor range.
 	const handleSelect = useCallback(
-		(id: string) => selectOnly(id),
+		(id: string, mods: SelectModifiers) => {
+			// A drag just ended — swallow the trailing click so it doesn't
+			// collapse the selection we just dragged.
+			if (cardDrag.draggedRef.current) return;
+			const store = useSelectionStore.getState();
+			if (mods.range && store.anchorId) {
+				const from = orderedIds.indexOf(store.anchorId);
+				const to = orderedIds.indexOf(id);
+				if (from >= 0 && to >= 0) {
+					const [start, end] = from <= to ? [from, to] : [to, from];
+					store.selectMany(orderedIds.slice(start, end + 1), store.anchorId);
+					return;
+				}
+			}
+			if (mods.toggle) {
+				store.toggle(id);
+				return;
+			}
+			selectOnly(id);
+		},
+		[orderedIds, selectOnly, cardDrag.draggedRef],
+	);
+
+	// Right-click keeps an existing multi-selection (menu acts on it),
+	// otherwise selects just this card.
+	const handleContextSelect = useCallback(
+		(id: string) => {
+			const { selectedIds } = useSelectionStore.getState();
+			if (!selectedIds.has(id)) selectOnly(id);
+		},
 		[selectOnly],
 	);
+
+	// --- Marquee (rubber-band) selection over blank space -----------------
+	// Coordinates live in content space (scroll-compensated); hits come from
+	// pure layout math (virtualized cards may not even be mounted).
+	const [marquee, setMarquee] = useState<Rect | null>(null);
+	const marqueeStart = useRef<{ x: number; y: number } | null>(null);
+	const marqueeActive = useRef(false);
+
+	const toContentPoint = (event: React.PointerEvent) => {
+		const el = scrollRef.current;
+		if (!el) return null;
+		const rect = el.getBoundingClientRect();
+		return {
+			x: event.clientX - rect.left - PADDING,
+			y: event.clientY - rect.top + el.scrollTop - PADDING,
+		};
+	};
+
+	const onPointerDown = (event: React.PointerEvent) => {
+		if (event.button !== 0) return;
+		// Cards (and anything interactive) own their own clicks.
+		if ((event.target as HTMLElement).closest("button")) return;
+		const point = toContentPoint(event);
+		if (!point) return;
+		marqueeStart.current = point;
+		marqueeActive.current = false;
+		(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+	};
+
+	const onPointerMove = (event: React.PointerEvent) => {
+		const start = marqueeStart.current;
+		if (!start) return;
+		const point = toContentPoint(event);
+		if (!point) return;
+		if (
+			!marqueeActive.current &&
+			Math.hypot(point.x - start.x, point.y - start.y) < MARQUEE_THRESHOLD
+		) {
+			return;
+		}
+		marqueeActive.current = true;
+		event.preventDefault();
+		const rect: Rect = {
+			left: Math.min(start.x, point.x),
+			top: Math.min(start.y, point.y),
+			right: Math.max(start.x, point.x),
+			bottom: Math.max(start.y, point.y),
+		};
+		setMarquee(rect);
+		useSelectionStore.getState().selectMany(itemsInRect(layout, rect), null);
+	};
+
+	const onPointerUp = () => {
+		if (marqueeStart.current && !marqueeActive.current) {
+			// A plain click on blank space clears the selection.
+			useSelectionStore.getState().clear();
+		}
+		marqueeStart.current = null;
+		marqueeActive.current = false;
+		setMarquee(null);
+	};
 
 	return (
 		<div
 			ref={scrollRef}
-			className="h-full overflow-y-auto"
+			className="h-full select-none overflow-y-auto"
 			style={{ padding: PADDING }}
+			onPointerDown={onPointerDown}
+			onPointerMove={onPointerMove}
+			onPointerUp={onPointerUp}
+			onPointerCancel={onPointerUp}
 		>
 			<div
 				className="relative"
 				style={{ height: layout.totalHeight, width: contentWidth }}
 			>
+				{marquee && (
+					<div
+						className="pointer-events-none absolute z-10 rounded-sm border border-primary bg-primary/10"
+						style={{
+							left: marquee.left,
+							top: marquee.top,
+							width: marquee.right - marquee.left,
+							height: marquee.bottom - marquee.top,
+						}}
+					/>
+				)}
 				{virtualizer.getVirtualItems().map((virtualRow) => {
 					const row = layout.rows[virtualRow.index];
 					if (!row) return null;
@@ -161,7 +273,9 @@ export function AssetGrid({
 													formatBytes(asset.size ?? 0)
 												}
 												onSelect={handleSelect}
+												onContextSelect={handleContextSelect}
 												onOpen={onOpen}
+												onPointerDown={cardDrag.onPointerDown(item.id)}
 											/>
 										</ContextMenuTrigger>
 										<ContextMenuContent>

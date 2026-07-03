@@ -35,19 +35,29 @@ export type AssetListParams = {
 	dir: SortDir;
 };
 
-function scopeKeyPart(scope: AssetScope): { view: string; folderId?: string } {
-	return scope.kind === "folder"
-		? { view: "folder", folderId: scope.folder_id }
-		: { view: scope.kind };
+function scopeKeyPart(scope: AssetScope): {
+	view: string;
+	folderId?: string;
+	tagId?: string;
+} {
+	switch (scope.kind) {
+		case "folder":
+			return { view: "folder", folderId: scope.folder_id };
+		case "tag":
+			return { view: "tag", tagId: scope.tag_id };
+		default:
+			return { view: scope.kind };
+	}
 }
 
 export function assetListQueryOptions(params: AssetListParams) {
-	const { view, folderId } = scopeKeyPart(params.scope);
+	const { view, folderId, tagId } = scopeKeyPart(params.scope);
 	const search = params.search?.trim() || undefined;
 	return queryOptions({
 		queryKey: assetKeys.list({
 			view,
 			folderId,
+			tagId,
 			q: search,
 			sortBy: params.sort,
 			sortDir: params.dir,
