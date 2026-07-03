@@ -59,6 +59,19 @@ test("audio, markdown and text map by extension (case-insensitive)", () => {
 	expect(viewerKindFor({ ...base, ext: "json" })).toBe("text");
 });
 
+test("pdf maps to the inline pdf viewer", () => {
+	expect(viewerKindFor({ ...base, ext: "pdf" })).toBe("pdf");
+	expect(
+		viewerKindFor({
+			...base,
+			ext: "pdf",
+			has_thumb: true,
+			width: 600,
+			height: 800,
+		}),
+	).toBe("pdf");
+});
+
 test("unknown extensions fall back — unless the mime says text", () => {
 	expect(viewerKindFor({ ...base, ext: "blend" })).toBe("fallback");
 	expect(

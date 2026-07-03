@@ -20,6 +20,7 @@ export type ViewerKind =
 	| "image"
 	| "video"
 	| "audio"
+	| "pdf"
 	| "markdown"
 	| "text"
 	| "fallback";
@@ -90,9 +91,10 @@ const TEXT_EXTS = new Set([
 
 export function viewerKindFor(asset: ViewerAsset): ViewerKind {
 	const ext = asset.ext.toLowerCase();
-	// Video wins over the thumb check — captured covers set has_thumb, and
-	// those must keep playing, not open in the image canvas.
+	// Video/PDF win over the thumb check — captured covers set has_thumb,
+	// and those must keep their own viewers, not the image canvas.
 	if (VIDEO_EXTS.has(ext)) return "video";
+	if (ext === "pdf") return "pdf";
 	// Pan/zoom canvas needs real dimensions for its coordinate system.
 	if (asset.has_thumb && asset.width != null && asset.height != null) {
 		return "image";
