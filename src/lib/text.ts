@@ -94,6 +94,7 @@ export const T = {
 		noFolders: "No folders yet",
 		removeFromFolder: "Remove from This Folder",
 		reveal: "Reveal in Finder",
+		findSimilar: "Find Similar",
 		export: "Export",
 		trash: "Move to Trash",
 		restore: "Restore",
@@ -121,6 +122,7 @@ export const T = {
 		folderFallback: "Folder",
 		tagFallback: "Tag",
 		color: "By Color",
+		similar: "Similar Assets",
 		searchPrefix: (q: string) => `Search: ${q}`,
 	},
 	tags: {
@@ -174,6 +176,10 @@ export const T = {
 		trashEmpty: {
 			title: "Trash is Empty",
 			hint: "Deleted assets are kept here until you empty the trash.",
+		},
+		similarEmpty: {
+			title: "No Similar Assets",
+			hint: "Nothing else looks like this yet — or its visual fingerprint hasn't been computed.",
 		},
 	},
 	grid: {

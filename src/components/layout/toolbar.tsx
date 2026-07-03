@@ -80,6 +80,8 @@ export function Toolbar() {
 				);
 			case "color":
 				return T.viewTitles.color;
+			case "similar":
+				return T.viewTitles.similar;
 			case "uncategorized":
 				return T.viewTitles.uncategorized;
 			case "untagged":

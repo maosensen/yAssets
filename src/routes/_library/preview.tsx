@@ -9,7 +9,6 @@
  * same cached list backs prev/next; `id` is the current asset.
  */
 
-import { useQuery } from "@tanstack/react-query";
 import {
 	createFileRoute,
 	useNavigate,
@@ -34,9 +33,9 @@ import { VideoViewer } from "@/components/preview/video-viewer";
 import { Button } from "@/components/ui/button";
 import { useWindowDrag } from "@/hooks/use-window-drag";
 import type { AssetSummary } from "@/lib/bindings";
-import { libraryViewSchema, scopeFromView } from "@/lib/library-view";
+import { libraryViewSchema } from "@/lib/library-view";
 import { fileUrl, thumbUrl } from "@/lib/media";
-import { assetListQueryOptions } from "@/lib/queries/assets";
+import { useLibraryAssetList } from "@/lib/queries/assets";
 import { useSelectionStore } from "@/lib/stores/selection-store";
 import { useViewPrefsStore } from "@/lib/stores/view-prefs-store";
 import { T } from "@/lib/text";
@@ -59,18 +58,27 @@ function PreviewPage() {
 	const dir = useViewPrefsStore((state) => state.dir);
 	const selectOnly = useSelectionStore((state) => state.selectOnly);
 
+	// Carry EVERY scope field — prev/next must walk the same cached list the
+	// grid showed (folder/tag/color/similar views included).
 	const view = useMemo(
-		() => ({ view: search.view, folderId: search.folderId, q: search.q }),
-		[search.view, search.folderId, search.q],
-	);
-	const { data } = useQuery(
-		assetListQueryOptions({
-			scope: scopeFromView(view),
-			search: view.q,
-			sort,
-			dir,
+		() => ({
+			view: search.view,
+			folderId: search.folderId,
+			tagId: search.tagId,
+			hue: search.hue,
+			similarTo: search.similarTo,
+			q: search.q,
 		}),
+		[
+			search.view,
+			search.folderId,
+			search.tagId,
+			search.hue,
+			search.similarTo,
+			search.q,
+		],
 	);
+	const { data } = useLibraryAssetList(view, sort, dir);
 
 	const items = data?.items ?? [];
 	const index = items.findIndex((asset) => asset.id === search.id);

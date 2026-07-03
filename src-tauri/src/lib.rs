@@ -35,6 +35,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::assets::reveal_asset,
             commands::assets::list_video_thumb_candidates,
             commands::assets::set_video_thumbnail,
+            commands::assets::find_similar_assets,
             commands::folders::list_folders,
             commands::folders::create_folder,
             commands::folders::rename_folder,

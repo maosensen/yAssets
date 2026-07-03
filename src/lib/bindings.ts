@@ -96,6 +96,14 @@ export const commands = {
 	 *  imports; `video_*`/`duration_ms` describe the SOURCE video, not the frame.
 	 */
 	setVideoThumbnail: (assetId: string, frameBase64: string, videoWidth: number, videoHeight: number, durationMs: number | null) => typedError<null, AppError>(__TAURI_INVOKE("set_video_thumbnail", { assetId, frameBase64, videoWidth, videoHeight, durationMs })),
+	/**
+	 *  Visual similarity search (dHash, layer L2 of the duplicate strategy):
+	 *  popcount the target's fingerprint against every alive asset, return
+	 *  summaries ordered by distance (the target itself leads at distance 0).
+	 *  Capped at 200 hits — also keeps the follow-up IN() under SQLite's
+	 *  parameter limit.
+	 */
+	findSimilarAssets: (assetId: string, maxDistance: number) => typedError<AssetSummary[], AppError>(__TAURI_INVOKE("find_similar_assets", { assetId, maxDistance })),
 	/**  Flat folder list, siblings ordered by manual position then name. */
 	listFolders: () => typedError<Folder[], AppError>(__TAURI_INVOKE("list_folders")),
 	createFolder: (name: string, parentId: string | null) => typedError<Folder, AppError>(__TAURI_INVOKE("create_folder", { name, parentId })),

@@ -65,7 +65,6 @@ pub fn compute(rgba: &[u8], w: u32, h: u32) -> Option<u64> {
 }
 
 /// Hamming distance between two dHashes.
-#[allow(dead_code)] // consumed by the upcoming find-similar surface
 pub fn distance(a: u64, b: u64) -> u32 {
     (a ^ b).count_ones()
 }

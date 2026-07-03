@@ -25,6 +25,8 @@ export const assetKeys = {
 		sortDir: string;
 	}) => ["assets", "list", params] as const,
 	detail: (id: string) => ["assets", "detail", id] as const,
+	/** dHash neighborhood of one asset (view=similar). */
+	similar: (id: string) => ["assets", "similar", id] as const,
 };
 
 export const folderKeys = {

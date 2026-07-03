@@ -11,6 +11,7 @@ import {
 	type QueryClient,
 	queryOptions,
 	useMutation,
+	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -23,6 +24,7 @@ import {
 	type SortKey,
 } from "@/lib/bindings";
 import { describeError } from "@/lib/errors";
+import { type LibraryView, scopeFromView } from "@/lib/library-view";
 import { unwrap } from "@/lib/tauri";
 import { assetKeys, folderKeys, libraryKeys } from "./keys";
 
@@ -81,6 +83,53 @@ export function assetDetailQueryOptions(id: string) {
 		queryKey: assetKeys.detail(id),
 		queryFn: async () => unwrap(await commands.getAsset(id)),
 	});
+}
+
+/** Hamming distance ceiling for "looks similar" (find-similar view). */
+const SIMILAR_DISTANCE = 10;
+
+/**
+ * dHash neighborhood of `id`, ranked by distance (the reference asset leads
+ * at distance 0). Shares the AssetListResult shape so the grid renders it
+ * exactly like any other list.
+ */
+export function similarAssetsQueryOptions(id: string) {
+	return queryOptions({
+		queryKey: assetKeys.similar(id),
+		queryFn: async () => {
+			const items = unwrap(
+				await commands.findSimilarAssets(id, SIMILAR_DISTANCE),
+			);
+			return { items, total: items.length } satisfies AssetListResult;
+		},
+	});
+}
+
+/**
+ * The one list the current view renders — regular scoped list for most
+ * views, the ranked dHash neighborhood for view=similar. Grid AND preview
+ * both resolve through here so prev/next always walks what the user saw.
+ */
+export function useLibraryAssetList(
+	view: LibraryView,
+	sort: SortKey,
+	dir: SortDir,
+) {
+	const similarId = view.view === "similar" ? view.similarTo : undefined;
+	const similar = useQuery({
+		...similarAssetsQueryOptions(similarId ?? ""),
+		enabled: similarId !== undefined,
+	});
+	const regular = useQuery({
+		...assetListQueryOptions({
+			scope: scopeFromView(view),
+			search: view.q,
+			sort,
+			dir,
+		}),
+		enabled: similarId === undefined,
+	});
+	return similarId !== undefined ? similar : regular;
 }
 
 // ---------------------------------------------------------------------------

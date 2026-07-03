@@ -19,12 +19,15 @@ export const libraryViewSchema = z.object({
 			"folder",
 			"tag",
 			"color",
+			"similar",
 		])
 		.catch("all"),
 	folderId: z.string().optional(),
 	tagId: z.string().optional(),
 	/** Hue bucket for view=color (0-11 chromatic, 12 neutral). */
 	hue: z.coerce.number().int().min(0).max(12).optional(),
+	/** Reference asset for view=similar (dHash neighborhood). */
+	similarTo: z.string().optional(),
 	q: z.string().optional(),
 });
 
@@ -53,6 +56,10 @@ export function scopeFromView(view: LibraryView): AssetScope {
 			return { kind: "recent", days: RECENT_DAYS };
 		case "trash":
 			return { kind: "trash" };
+		// view=similar bypasses list_assets entirely (its own ranked query —
+		// see similarAssetsQueryOptions); this mapping is never consulted.
+		case "similar":
+			return { kind: "all" };
 		default:
 			return { kind: "all" };
 	}

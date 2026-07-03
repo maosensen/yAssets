@@ -5,15 +5,15 @@
  * source of truth.
  */
 
-import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { AssetGrid } from "@/components/grid/asset-grid";
 import { GridEmptyState } from "@/components/grid/grid-empty-state";
 import {
 	type IconComponent,
 	IconFolderOpen,
+	IconMulti,
 	IconPalette,
 	IconRecent,
 	IconSearch,
@@ -35,11 +35,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { useImport, useImportClipboard } from "@/hooks/use-import";
 import { pickDirectory, pickFiles } from "@/lib/dialogs";
-import { libraryViewSchema, scopeFromView } from "@/lib/library-view";
+import { libraryViewSchema } from "@/lib/library-view";
 import {
-	assetListQueryOptions,
 	useDeleteAssetsForever,
 	useEmptyTrash,
+	useLibraryAssetList,
 	useTrashAssets,
 } from "@/lib/queries/assets";
 import { useSelectionStore } from "@/lib/stores/selection-store";
@@ -56,12 +56,9 @@ function LibraryHome() {
 	const navigate = useNavigate();
 	const sort = useViewPrefsStore((state) => state.sort);
 	const dir = useViewPrefsStore((state) => state.dir);
-	// scopeFromView only reads view/folderId, but depend on the whole
-	// (immutable) search object to keep exhaustive-deps honest.
-	const scope = useMemo(() => scopeFromView(search), [search]);
-	const { data } = useQuery(
-		assetListQueryOptions({ scope, search: search.q, sort, dir }),
-	);
+	// One shared hook resolves the view's list (regular scopes AND the
+	// ranked similar view) — preview walks the exact same cache entry.
+	const { data } = useLibraryAssetList(search, sort, dir);
 	// Latest list for the stable-deps keyboard handler (Cmd+A).
 	const dataRef = useRef(data);
 	dataRef.current = data;
@@ -183,6 +180,8 @@ function LibraryHome() {
 				return { icon: IconTag, copy: T.gridEmpty.untaggedEmpty };
 			case "recent":
 				return { icon: IconRecent, copy: T.gridEmpty.recentEmpty };
+			case "similar":
+				return { icon: IconMulti, copy: T.gridEmpty.similarEmpty };
 			default:
 				return null;
 		}

@@ -6,6 +6,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { useMemo } from "react";
 import {
 	ContextMenuItem,
@@ -56,6 +57,7 @@ export function AssetContextItems({
 	currentFolderId,
 	onRequestDeleteForever,
 }: AssetContextItemsProps) {
+	const navigate = useNavigate();
 	const trashMutation = useTrashAssets();
 	const restoreMutation = useRestoreAssets();
 	const addMutation = useAddAssetsToFolder();
@@ -134,9 +136,21 @@ export function AssetContextItems({
 				{withCount(T.assetMenu.export, count)}
 			</ContextMenuItem>
 			{count === 1 && (
-				<ContextMenuItem onClick={() => revealAsset(assetId)}>
-					{T.assetMenu.reveal}
-				</ContextMenuItem>
+				<>
+					<ContextMenuItem
+						onClick={() =>
+							void navigate({
+								to: "/",
+								search: { view: "similar", similarTo: assetId },
+							})
+						}
+					>
+						{T.assetMenu.findSimilar}
+					</ContextMenuItem>
+					<ContextMenuItem onClick={() => revealAsset(assetId)}>
+						{T.assetMenu.reveal}
+					</ContextMenuItem>
+				</>
 			)}
 			<ContextMenuSeparator />
 			<ContextMenuItem onClick={() => trashMutation.mutate(targetIds(assetId))}>
