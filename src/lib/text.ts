@@ -31,6 +31,11 @@ export const T = {
 		themeLight: "Light",
 		themeDark: "Dark",
 		themeSystem: "System",
+		sectionUpdates: "Updates",
+		checkUpdates: "Check for Updates",
+		checkingUpdates: "Checking…",
+		upToDate: "You're on the latest version",
+		updateFailed: "Update check failed",
 	},
 	welcome: {
 		tagline: "Local-first asset library",

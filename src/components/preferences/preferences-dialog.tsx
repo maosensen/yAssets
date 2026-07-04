@@ -8,16 +8,21 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
 	type IconComponent,
 	IconMonitor,
 	IconMoon,
+	IconReload,
 	IconSettings,
 	IconSun,
 } from "@/components/icons";
 import { useTheme } from "@/components/theme-provider";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { logger } from "@/lib/logger";
 import { T } from "@/lib/text";
+import { checkAndInstall } from "@/lib/updater";
 import { cn } from "@/lib/utils";
 
 type PreferencesDialogProps = {
@@ -76,6 +81,20 @@ export function PreferencesDialog({
 
 function GeneralPane() {
 	const { theme, setTheme } = useTheme();
+	const [checking, setChecking] = useState(false);
+
+	const checkUpdates = async () => {
+		setChecking(true);
+		try {
+			const outcome = await checkAndInstall();
+			if (outcome === "none") toast.info(T.preferences.upToDate);
+		} catch (error) {
+			logger.warn({ error }, "update check failed");
+			toast.error(T.preferences.updateFailed);
+		} finally {
+			setChecking(false);
+		}
+	};
 
 	return (
 		<div className="flex flex-col gap-5">
@@ -101,6 +120,22 @@ function GeneralPane() {
 							onClick={() => setTheme("system")}
 						/>
 					</div>
+				</Row>
+			</Section>
+
+			<Section title={T.preferences.sectionUpdates}>
+				<Row label={T.app.name}>
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={checking}
+						onClick={() => void checkUpdates()}
+					>
+						<IconReload className="size-3.5" />
+						{checking
+							? T.preferences.checkingUpdates
+							: T.preferences.checkUpdates}
+					</Button>
 				</Row>
 			</Section>
 		</div>

@@ -177,6 +177,13 @@ Migrate `store` schemas and DB schemas with versioned migrations on startup; don
 - **Duplicates center** (`scan_duplicates`, Library menu): exact groups (blake3, SQL GROUP BY) + visual clusters (union-find over one dHash representative per hash, Hamming ≤5). Exact groups clean mechanically (keep earliest, trash rest); visual clusters only link into the similar view.
 - **Smart folders** (schema v4 `smart_folders`, `commands::smart_folders`): rules stored as JSON `{match_any, conditions[]}` — conditions are a serde/specta discriminated union on `field` (ext / name_contains / rating_at_least / hue / has_tag / added_within_days). `rules_to_predicate` translates to a parameterized WHERE at list time; `AssetScope::SmartFolder` is resolved inside `list_assets` (needs the connection), and `scope_sql`'s own arm is a defensive `0 = 1`. No membership rows — always live. Sidebar section + rule-editor dialog under `components/sidebar/smart-folder-*`.
 
+### Phase 4 additions (engineering)
+
+- **Keyboard**: arrows walk the masonry geometry inside AssetGrid (↑/↓ = nearest-x in the adjacent row); Space = Quick Look overlay for images (content follows the live selection) or full preview for other kinds; Enter/F2 bumps `ui-store.renameSignal`, which the inspector name field answers by grabbing focus. Every global key handler must skip inputs AND `[role="dialog"]` ancestors.
+- **Source URL** (`assets.url`, schema v5): editable link in the inspector; `AssetPatch.url` with `Some("")` clearing. External links open ONLY through `lib/opener.ts`.
+- **Self-update**: tauri-plugin-updater + process (desktop-only plugins), pubkey + GitHub-Releases endpoint in tauri.conf `plugins.updater`, `bundle.createUpdaterArtifacts`, capabilities `updater:default`/`process:allow-restart`. Frontend flow lives in `lib/updater.ts` (check → downloadAndInstall → relaunch), surfaced as Preferences ▸ Updates. The signing PRIVATE key lives OUTSIDE the repo at `~/.tauri/yassets.key` (password empty); CI reads it from the `TAURI_SIGNING_PRIVATE_KEY(_PASSWORD)` secrets consumed by `.github/workflows/release.yml` (tag `v*` → draft Release + latest.json).
+- **Deferred by choice**: keyset pagination for 50k+ libraries — the paged IPC contract already exists; revisit when a real library approaches the full-fetch limit.
+
 ### Media/asset pipeline (implemented — phase 1)
 
 The standard three moves, as shipped:

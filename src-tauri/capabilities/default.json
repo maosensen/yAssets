@@ -12,6 +12,8 @@
 		"opener:allow-open-url",
 		"store:default",
 		"log:default",
+		"updater:default",
+		"process:allow-restart",
 		{
 			"identifier": "fs:scope",
 			"allow": [{ "path": "$APPDATA/**" }, { "path": "$APPCACHE/**" }]

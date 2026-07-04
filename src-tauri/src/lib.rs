@@ -93,7 +93,11 @@ pub fn run() {
                     let _ = window.set_focus();
                 }
             }))
-            .plugin(tauri_plugin_window_state::Builder::new().build());
+            .plugin(tauri_plugin_window_state::Builder::new().build())
+            // Self-update: signed artifacts from GitHub Releases (see
+            // .github/workflows/release.yml); `process` powers the relaunch.
+            .plugin(tauri_plugin_updater::Builder::new().build())
+            .plugin(tauri_plugin_process::init());
     }
 
     builder

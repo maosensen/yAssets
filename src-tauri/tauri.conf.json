@@ -35,9 +35,18 @@
 			"csp": "default-src 'self'; img-src 'self' yasset: http://yasset.localhost data: blob:; media-src 'self' yasset: http://yasset.localhost; frame-src 'self' yasset: http://yasset.localhost; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost ws://localhost:1421 http://localhost:1420 yasset: http://yasset.localhost"
 		}
 	},
+	"plugins": {
+		"updater": {
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZFOEMxQTE5MTI5N0I3OTgKUldTWXQ1Y1NHUnFNYnNSaExJYkhaSDM4dXJ1bGt6YWhFTTZrV1lBRTFaSStwL0JUaEQzRDVuMXkK",
+			"endpoints": [
+				"https://github.com/maosensen/yAssets/releases/latest/download/latest.json"
+			]
+		}
+	},
 	"bundle": {
 		"active": true,
 		"targets": "all",
+		"createUpdaterArtifacts": true,
 		"category": "Productivity",
 		"copyright": "© 2026 maosensen",
 		"shortDescription": "Cross-platform media/asset manager.",
