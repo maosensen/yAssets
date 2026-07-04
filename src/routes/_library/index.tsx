@@ -13,6 +13,7 @@ import { GridEmptyState } from "@/components/grid/grid-empty-state";
 import {
 	type IconComponent,
 	IconFolderOpen,
+	IconMagic,
 	IconMulti,
 	IconPalette,
 	IconRecent,
@@ -182,6 +183,8 @@ function LibraryHome() {
 				return { icon: IconRecent, copy: T.gridEmpty.recentEmpty };
 			case "similar":
 				return { icon: IconMulti, copy: T.gridEmpty.similarEmpty };
+			case "smart":
+				return { icon: IconMagic, copy: T.gridEmpty.smartEmpty };
 			default:
 				return null;
 		}

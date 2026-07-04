@@ -33,6 +33,10 @@ export const folderKeys = {
 	all: ["folders"] as const,
 };
 
+export const smartFolderKeys = {
+	all: ["smart-folders"] as const,
+};
+
 export const tagKeys = {
 	all: ["tags"] as const,
 };

@@ -94,6 +94,18 @@ CREATE INDEX idx_assets_hue ON assets (hue) WHERE deleted_at IS NULL;
     r#"
 ALTER TABLE assets ADD COLUMN dhash INTEGER;
 "#,
+    // v4 — smart folders: saved rule sets (JSON, see commands::smart_folders)
+    // that materialize as live queries at list time. No membership rows.
+    r#"
+CREATE TABLE smart_folders (
+  id         TEXT PRIMARY KEY,
+  name       TEXT NOT NULL,
+  rules      TEXT NOT NULL,
+  position   INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+"#,
 ];
 
 /// Current schema version an up-to-date library sits at.

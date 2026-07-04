@@ -106,6 +106,14 @@ export const commands = {
 	findSimilarAssets: (assetId: string, maxDistance: number) => typedError<AssetSummary[], AppError>(__TAURI_INVOKE("find_similar_assets", { assetId, maxDistance })),
 	/**  Scan the whole library for exact and visual duplicates. */
 	scanDuplicates: () => typedError<DuplicateScan, AppError>(__TAURI_INVOKE("scan_duplicates")),
+	listSmartFolders: () => typedError<SmartFolder[], AppError>(__TAURI_INVOKE("list_smart_folders")),
+	createSmartFolder: (name: string, rules: SmartRules) => typedError<SmartFolder, AppError>(__TAURI_INVOKE("create_smart_folder", { name, rules })),
+	updateSmartFolder: (id: string, name: string | null, rules: {
+	/**  `false` = every condition must hold (AND); `true` = any may (OR). */
+	match_any: boolean,
+	conditions: SmartCondition[],
+} | null) => typedError<null, AppError>(__TAURI_INVOKE("update_smart_folder", { id, name, rules })),
+	deleteSmartFolder: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_smart_folder", { id })),
 	/**  Flat folder list, siblings ordered by manual position then name. */
 	listFolders: () => typedError<Folder[], AppError>(__TAURI_INVOKE("list_folders")),
 	createFolder: (name: string, parentId: string | null) => typedError<Folder, AppError>(__TAURI_INVOKE("create_folder", { name, parentId })),
@@ -229,7 +237,9 @@ export type AssetPatch = {
  *  Which slice of the catalog a list query targets. Exported to TS as a
  *  discriminated union on `kind`.
  */
-export type AssetScope = { kind: "all" } | { kind: "uncategorized" } | { kind: "untagged" } | { kind: "recent"; days: number } | { kind: "folder"; folder_id: string } | { kind: "tag"; tag_id: string } | { kind: "color"; hue: number } | { kind: "trash" };
+export type AssetScope = { kind: "all" } | { kind: "uncategorized" } | { kind: "untagged" } | { kind: "recent"; days: number } | { kind: "folder"; folder_id: string } | { kind: "tag"; tag_id: string } | { kind: "color"; hue: number } | 
+/**  Saved rule set (see `commands::smart_folders`) resolved at list time. */
+{ kind: "smart_folder"; smart_folder_id: string } | { kind: "trash" };
 
 /**  Everything the grid card needs — ~200 bytes/row over IPC. */
 export type AssetSummary = {
@@ -367,6 +377,28 @@ export type RecentLibrary = {
 	/**  Unix ms. */
 	last_opened_at: number | null,
 	missing: boolean,
+};
+
+/**  One rule row. Exported to TS as a discriminated union on `field`. */
+export type SmartCondition = 
+/**  Extension is one of `values` (compared lowercased). */
+{ field: "ext"; values: string[] } | 
+/**  Filename contains `value` (case-insensitive via NOCASE-ish LIKE). */
+{ field: "name_contains"; value: string } | { field: "rating_at_least"; min: number } | 
+/**  Dominant-hue bucket equals `value` (0-11 chromatic, 12 neutral). */
+{ field: "hue"; value: number } | { field: "has_tag"; tag_id: string } | { field: "added_within_days"; days: number };
+
+export type SmartFolder = {
+	id: string,
+	name: string,
+	rules: SmartRules,
+	position: number,
+};
+
+export type SmartRules = {
+	/**  `false` = every condition must hold (AND); `true` = any may (OR). */
+	match_any: boolean,
+	conditions: SmartCondition[],
 };
 
 export type SortDir = "Asc" | "Desc";

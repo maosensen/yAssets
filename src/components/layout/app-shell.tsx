@@ -22,6 +22,7 @@ import { DuplicateAlertDialog } from "@/components/import/duplicate-alert-dialog
 import { InspectorPanel } from "@/components/inspector/inspector-panel";
 import { FolderTree } from "@/components/sidebar/folder-tree";
 import { LibrarySwitcher } from "@/components/sidebar/library-switcher";
+import { SmartFolderList } from "@/components/sidebar/smart-folder-list";
 import { SmartViews } from "@/components/sidebar/smart-views";
 import { TagList } from "@/components/sidebar/tag-list";
 import { Input } from "@/components/ui/input";
@@ -96,6 +97,7 @@ function Sidebar() {
 			</header>
 			<div className="flex min-h-0 flex-1 flex-col gap-3 px-2 pt-1">
 				<SmartViews />
+				<SmartFolderList />
 				<FolderTree filter={filter} />
 				<TagList />
 			</div>

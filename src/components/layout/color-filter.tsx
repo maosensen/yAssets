@@ -17,7 +17,7 @@ import { T } from "@/lib/text";
 import { cn } from "@/lib/utils";
 
 /** Representative color per hue bucket (bucket center ≈ i*30°+15°). */
-const HUE_SWATCHES: { hue: number; color: string }[] = [
+export const HUE_SWATCHES: { hue: number; color: string }[] = [
 	{ hue: 0, color: "#e5484d" },
 	{ hue: 1, color: "#e5731d" },
 	{ hue: 2, color: "#d9a400" },
@@ -31,7 +31,7 @@ const HUE_SWATCHES: { hue: number; color: string }[] = [
 	{ hue: 10, color: "#a034c9" },
 	{ hue: 11, color: "#d23197" },
 ];
-const NEUTRAL_HUE = 12;
+export const NEUTRAL_HUE = 12;
 
 export function ColorFilter({ search }: { search: LibraryView }) {
 	const navigate = useNavigate();

@@ -26,6 +26,7 @@ import { Slider } from "@/components/ui/slider";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useWindowDrag } from "@/hooks/use-window-drag";
 import { foldersQueryOptions } from "@/lib/queries/folders";
+import { smartFoldersQueryOptions } from "@/lib/queries/smart-folders";
 import { tagsQueryOptions } from "@/lib/queries/tags";
 import {
 	MAX_ROW_HEIGHT,
@@ -42,6 +43,7 @@ export function Toolbar() {
 	const navigate = useNavigate();
 	const { data: folders } = useQuery(foldersQueryOptions());
 	const { data: tags } = useQuery(tagsQueryOptions());
+	const { data: smartFolders } = useQuery(smartFoldersQueryOptions());
 
 	const targetRowHeight = useViewPrefsStore((state) => state.targetRowHeight);
 	const setTargetRowHeight = useViewPrefsStore(
@@ -82,6 +84,11 @@ export function Toolbar() {
 				return T.viewTitles.color;
 			case "similar":
 				return T.viewTitles.similar;
+			case "smart":
+				return (
+					smartFolders?.find((sf) => sf.id === search.smartId)?.name ??
+					T.viewTitles.smartFallback
+				);
 			case "uncategorized":
 				return T.viewTitles.uncategorized;
 			case "untagged":

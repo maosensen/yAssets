@@ -20,6 +20,7 @@ export const libraryViewSchema = z.object({
 			"tag",
 			"color",
 			"similar",
+			"smart",
 		])
 		.catch("all"),
 	folderId: z.string().optional(),
@@ -28,6 +29,8 @@ export const libraryViewSchema = z.object({
 	hue: z.coerce.number().int().min(0).max(12).optional(),
 	/** Reference asset for view=similar (dHash neighborhood). */
 	similarTo: z.string().optional(),
+	/** Smart folder id for view=smart. */
+	smartId: z.string().optional(),
 	q: z.string().optional(),
 });
 
@@ -56,6 +59,10 @@ export function scopeFromView(view: LibraryView): AssetScope {
 			return { kind: "recent", days: RECENT_DAYS };
 		case "trash":
 			return { kind: "trash" };
+		case "smart":
+			return view.smartId
+				? { kind: "smart_folder", smart_folder_id: view.smartId }
+				: { kind: "all" };
 		// view=similar bypasses list_assets entirely (its own ranked query —
 		// see similarAssetsQueryOptions); this mapping is never consulted.
 		case "similar":

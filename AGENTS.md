@@ -171,6 +171,12 @@ Migrate `store` schemas and DB schemas with versioned migrations on startup; don
 - **Viewer dispatch** (`lib/viewer-registry.ts`): ext/mime → viewer kind, rendered by `PreviewBody` — image (canvas), audio (native `<audio>` over Range), markdown (react-markdown + GFM, `prose` styles), text (ranged first-1MB fetch with a truncation notice), fallback (ext tile). Adding a format = extend a set + add a case.
 - **Preview canvas** (`components/preview/canvas-viewer.tsx`): free pan/zoom for images — pinch = ctrlKey+wheel (WebKit) anchored at the cursor, plain wheel/drag pans, double-click toggles fit ↔ 100%, keys ±/0/1, zoom % + controls live in the preview topbar. The `<img>` is laid out at DB dimensions with translate+scale from origin 0,0, so `scale` IS the display ratio and the thumb→original swap keeps geometry. Wheel listeners are attached natively (non-passive) — React's synthetic onWheel can't preventDefault.
 
+### Phase 3.5 additions (organization)
+
+- **Find Similar** (`find_similar_assets`): whole-library dHash popcount vs one target, ranked by distance (cap 200), rendered as `view=similar`. Grid and preview both resolve lists through `useLibraryAssetList` — the ONE hook that maps a LibraryView to its query (regular scopes vs the ranked similar query); never call `assetListQueryOptions` directly from routes.
+- **Duplicates center** (`scan_duplicates`, Library menu): exact groups (blake3, SQL GROUP BY) + visual clusters (union-find over one dHash representative per hash, Hamming ≤5). Exact groups clean mechanically (keep earliest, trash rest); visual clusters only link into the similar view.
+- **Smart folders** (schema v4 `smart_folders`, `commands::smart_folders`): rules stored as JSON `{match_any, conditions[]}` — conditions are a serde/specta discriminated union on `field` (ext / name_contains / rating_at_least / hue / has_tag / added_within_days). `rules_to_predicate` translates to a parameterized WHERE at list time; `AssetScope::SmartFolder` is resolved inside `list_assets` (needs the connection), and `scope_sql`'s own arm is a defensive `0 = 1`. No membership rows — always live. Sidebar section + rule-editor dialog under `components/sidebar/smart-folder-*`.
+
 ### Media/asset pipeline (implemented — phase 1)
 
 The standard three moves, as shipped:

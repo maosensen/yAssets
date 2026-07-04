@@ -18,10 +18,22 @@ pub enum AssetScope {
     All,
     Uncategorized,
     Untagged,
-    Recent { days: u32 },
-    Folder { folder_id: String },
-    Tag { tag_id: String },
-    Color { hue: u8 },
+    Recent {
+        days: u32,
+    },
+    Folder {
+        folder_id: String,
+    },
+    Tag {
+        tag_id: String,
+    },
+    Color {
+        hue: u8,
+    },
+    /// Saved rule set (see `commands::smart_folders`) resolved at list time.
+    SmartFolder {
+        smart_folder_id: String,
+    },
     Trash,
 }
 
@@ -183,11 +195,14 @@ fn scope_sql(scope: &AssetScope) -> (String, Vec<rusqlite::types::Value>) {
             vec![rusqlite::types::Value::Text(folder_id.clone())],
         ),
         AssetScope::Trash => ("deleted_at IS NOT NULL".into(), vec![]),
+        // Resolved in list_assets (needs a connection to load the rules);
+        // defensive dead-end if it ever reaches here directly.
+        AssetScope::SmartFolder { .. } => ("0 = 1".into(), vec![]),
     }
 }
 
 /// Escape `%`/`_`/`\` for a LIKE … ESCAPE '\' pattern.
-fn escape_like(term: &str) -> String {
+pub(crate) fn escape_like(term: &str) -> String {
     term.replace('\\', "\\\\")
         .replace('%', "\\%")
         .replace('_', "\\_")
@@ -218,7 +233,23 @@ pub async fn list_assets(
     let library = state.current_library()?;
     library
         .read(move |conn| {
-            let (predicate, mut params) = scope_sql(&query.scope);
+            let (predicate, mut params) = match &query.scope {
+                // Smart folders need the connection: load rules, translate.
+                AssetScope::SmartFolder { smart_folder_id } => {
+                    let rules_json: String = conn
+                        .query_row(
+                            "SELECT rules FROM smart_folders WHERE id = ?1",
+                            [smart_folder_id.as_str()],
+                            |row| row.get(0),
+                        )
+                        .map_err(|_| AppError::NotFound("smart folder not found".into()))?;
+                    let rules: crate::commands::smart_folders::SmartRules =
+                        serde_json::from_str(&rules_json)
+                            .map_err(|_| AppError::Conflict("invalid smart folder rules".into()))?;
+                    crate::commands::smart_folders::rules_to_predicate(&rules)
+                }
+                other => scope_sql(other),
+            };
             let mut where_clause = predicate;
             if let Some(term) = query
                 .search
