@@ -8,7 +8,14 @@
  */
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 import { AssetCard, type SelectModifiers } from "@/components/grid/asset-card";
 import { AssetContextItems } from "@/components/grid/asset-context-items";
 import {
@@ -113,6 +120,75 @@ export function AssetGrid({
 		[assets],
 	);
 	const orderedIds = useMemo(() => assets.map((asset) => asset.id), [assets]);
+
+	// Arrow-key navigation over the layout geometry: ←/→ walk reading order,
+	// ↑/↓ jump to the nearest-x card in the adjacent masonry row.
+	useEffect(() => {
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (
+				!["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)
+			) {
+				return;
+			}
+			const target = event.target as HTMLElement | null;
+			if (
+				target &&
+				(target.tagName === "INPUT" ||
+					target.tagName === "TEXTAREA" ||
+					target.isContentEditable ||
+					target.closest('[role="dialog"]'))
+			) {
+				return;
+			}
+			if (orderedIds.length === 0) return;
+			event.preventDefault();
+
+			const store = useSelectionStore.getState();
+			const current = store.anchorId;
+			let nextId: string | undefined;
+			if (!current || !layout.rowIndexOf.has(current)) {
+				nextId = orderedIds[0];
+			} else if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+				const index = orderedIds.indexOf(current);
+				const step = event.key === "ArrowLeft" ? -1 : 1;
+				nextId =
+					orderedIds[
+						Math.min(orderedIds.length - 1, Math.max(0, index + step))
+					];
+			} else {
+				const rowIndex = layout.rowIndexOf.get(current);
+				if (rowIndex === undefined) return;
+				const targetRow =
+					layout.rows[rowIndex + (event.key === "ArrowUp" ? -1 : 1)];
+				if (!targetRow) return; // top/bottom edge — stay put
+				const currentItem = layout.rows[rowIndex]?.items.find(
+					(item) => item.id === current,
+				);
+				const centerX = currentItem
+					? currentItem.left + currentItem.width / 2
+					: 0;
+				let best = targetRow.items[0];
+				let bestDistance = Number.POSITIVE_INFINITY;
+				for (const item of targetRow.items) {
+					const distance = Math.abs(item.left + item.width / 2 - centerX);
+					if (distance < bestDistance) {
+						bestDistance = distance;
+						best = item;
+					}
+				}
+				nextId = best?.id;
+			}
+
+			if (!nextId) return;
+			store.selectOnly(nextId);
+			const rowIndex = layout.rowIndexOf.get(nextId);
+			if (rowIndex !== undefined) {
+				virtualizer.scrollToIndex(rowIndex, { align: "auto" });
+			}
+		};
+		window.addEventListener("keydown", onKeyDown);
+		return () => window.removeEventListener("keydown", onKeyDown);
+	}, [layout, orderedIds, virtualizer]);
 
 	// Click: plain = select-only · Cmd/Ctrl = toggle · Shift = anchor range.
 	const handleSelect = useCallback(

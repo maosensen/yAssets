@@ -23,6 +23,7 @@ import {
 	IconUncategorized,
 } from "@/components/icons";
 import { Toolbar } from "@/components/layout/toolbar";
+import { QuickLook } from "@/components/preview/quick-look";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -44,8 +45,10 @@ import {
 	useTrashAssets,
 } from "@/lib/queries/assets";
 import { useSelectionStore } from "@/lib/stores/selection-store";
+import { useUiStore } from "@/lib/stores/ui-store";
 import { useViewPrefsStore } from "@/lib/stores/view-prefs-store";
 import { T } from "@/lib/text";
+import { viewerKindFor } from "@/lib/viewer-registry";
 
 export const Route = createFileRoute("/_library/")({
 	validateSearch: libraryViewSchema,
@@ -79,6 +82,22 @@ function LibraryHome() {
 	const currentFolderId =
 		search.view === "folder" ? (search.folderId ?? null) : null;
 
+	// Quick Look (Space): image assets get the overlay, following the grid
+	// selection live; other kinds route straight to the full preview.
+	const [quickLook, setQuickLook] = useState(false);
+	const quickLookRef = useRef(quickLook);
+	quickLookRef.current = quickLook;
+	const anchorId = useSelectionStore((state) => state.anchorId);
+	const quickAsset = quickLook
+		? data?.items.find((asset) => asset.id === anchorId)
+		: undefined;
+	useEffect(() => {
+		// Selection moved off-image / got cleared → drop the overlay.
+		if (quickLook && (!quickAsset || viewerKindFor(quickAsset) !== "image")) {
+			setQuickLook(false);
+		}
+	}, [quickLook, quickAsset]);
+
 	// Double-click → full-pane preview route, carrying the view context so
 	// prev/next walk the same list.
 	const openPreview = useCallback(
@@ -87,6 +106,9 @@ function LibraryHome() {
 		},
 		[navigate, search],
 	);
+	// Latest for the stable-deps keyboard handler (Space on non-images).
+	const openPreviewRef = useRef(openPreview);
+	openPreviewRef.current = openPreview;
 
 	// View switch: reset selection (ids may not exist in the new slice).
 	useEffect(() => {
@@ -94,7 +116,9 @@ function LibraryHome() {
 	}, [clearSelection]);
 
 	// Keyboard: Delete/Backspace trashes the selection (outside trash view);
-	// Esc clears it; ⌘V imports from the clipboard. Skipped while typing.
+	// Esc clears it (or closes Quick Look); Space toggles Quick Look;
+	// Enter/F2 focuses rename; ⌘V imports from the clipboard. Skipped while
+	// typing or inside dialogs.
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {
 			const target = event.target as HTMLElement | null;
@@ -102,12 +126,36 @@ function LibraryHome() {
 				target &&
 				(target.tagName === "INPUT" ||
 					target.tagName === "TEXTAREA" ||
-					target.isContentEditable)
+					target.isContentEditable ||
+					target.closest('[role="dialog"]'))
 			) {
 				return;
 			}
 			if (event.key === "Escape") {
-				clearSelection();
+				if (quickLookRef.current) setQuickLook(false);
+				else clearSelection();
+				return;
+			}
+			// Space — Quick Look for images, full preview for everything else.
+			if (event.key === " ") {
+				event.preventDefault();
+				if (quickLookRef.current) {
+					setQuickLook(false);
+					return;
+				}
+				const { anchorId: anchor } = useSelectionStore.getState();
+				const asset = dataRef.current?.items.find((a) => a.id === anchor);
+				if (!asset) return;
+				if (viewerKindFor(asset) === "image") setQuickLook(true);
+				else openPreviewRef.current(asset.id);
+				return;
+			}
+			// Enter / F2 — rename the single selected asset (Finder semantics).
+			if (event.key === "Enter" || event.key === "F2") {
+				const { selectedIds } = useSelectionStore.getState();
+				if (selectedIds.size !== 1) return;
+				event.preventDefault();
+				useUiStore.getState().requestRename();
 				return;
 			}
 			// Cmd/Ctrl+A — select everything in the current view.
@@ -236,6 +284,10 @@ function LibraryHome() {
 					/>
 				)}
 			</div>
+
+			{quickAsset && (
+				<QuickLook asset={quickAsset} onClose={() => setQuickLook(false)} />
+			)}
 
 			<AlertDialog
 				open={deleteForeverIds !== null}

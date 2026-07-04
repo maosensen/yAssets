@@ -12,7 +12,7 @@
  */
 
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
 	IconClose,
 	IconFolder,
@@ -47,6 +47,7 @@ import {
 	useAddAssetsToFolder,
 	useRemoveAssetsFromFolder,
 } from "@/lib/queries/folders";
+import { useUiStore } from "@/lib/stores/ui-store";
 import { T } from "@/lib/text";
 
 export function AssetDetails({ assetId }: { assetId: string }) {
@@ -158,6 +159,17 @@ function NameField({ detail }: { detail: AssetDetail }) {
 	const [name, setName] = useState(detail.name);
 	useEffect(() => setName(detail.name), [detail.name]);
 
+	// Enter/F2 on a selected card bumps the rename signal → grab focus.
+	const renameSignal = useUiStore((state) => state.renameSignal);
+	const inputRef = useRef<HTMLInputElement | null>(null);
+	const seenSignal = useRef(renameSignal);
+	useEffect(() => {
+		if (renameSignal === seenSignal.current) return;
+		seenSignal.current = renameSignal;
+		inputRef.current?.focus();
+		inputRef.current?.select();
+	}, [renameSignal]);
+
 	const commit = () => {
 		const trimmed = name.trim();
 		if (!trimmed || trimmed === detail.name) {
@@ -169,6 +181,7 @@ function NameField({ detail }: { detail: AssetDetail }) {
 
 	return (
 		<Input
+			ref={inputRef}
 			value={name}
 			onChange={(event) => setName(event.target.value)}
 			onBlur={commit}
