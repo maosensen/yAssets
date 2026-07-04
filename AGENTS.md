@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Project conventions for AI coding agents (Claude Code, Cursor, etc.). Read this before making changes.
+Project conventions for AI coding agents (Claude Code, Cursor, etc.). Read this before making changes. For the working process (milestone flow, definition-of-done, debugging methodology, gotcha index, release runbook), also load the **`dev-playbook` skill** (`.claude/skills/dev-playbook/`) before substantive work — this file covers conventions, the playbook covers how to work.
 
 yAssets is a **cross-platform media/asset manager** desktop app: Tauri 2 (Rust backend) + a Vite/React/TS frontend in the WebView. Performance and a tight, type-safe Rust↔WebView boundary are first-class concerns.
 
@@ -181,7 +181,7 @@ Migrate `store` schemas and DB schemas with versioned migrations on startup; don
 
 - **Keyboard**: arrows walk the masonry geometry inside AssetGrid (↑/↓ = nearest-x in the adjacent row); Space = Quick Look overlay for images (content follows the live selection) or full preview for other kinds; Enter/F2 bumps `ui-store.renameSignal`, which the inspector name field answers by grabbing focus. Every global key handler must skip inputs AND `[role="dialog"]` ancestors.
 - **Source URL** (`assets.url`, schema v5): editable link in the inspector; `AssetPatch.url` with `Some("")` clearing. External links open ONLY through `lib/opener.ts`.
-- **Self-update**: tauri-plugin-updater + process (desktop-only plugins), pubkey + GitHub-Releases endpoint in tauri.conf `plugins.updater`, `bundle.createUpdaterArtifacts`, capabilities `updater:default`/`process:allow-restart`. Frontend flow lives in `lib/updater.ts` (check → downloadAndInstall → relaunch), surfaced as Preferences ▸ Updates. The signing PRIVATE key lives OUTSIDE the repo at `~/.tauri/yassets.key` (password empty); CI reads it from the `TAURI_SIGNING_PRIVATE_KEY(_PASSWORD)` secrets consumed by `.github/workflows/release.yml` (tag `v*` → draft Release + latest.json).
+- **Self-update**: tauri-plugin-updater + process (desktop-only plugins), pubkey + GitHub-Releases endpoint in tauri.conf `plugins.updater`, `bundle.createUpdaterArtifacts`, capabilities `updater:default`/`process:allow-restart`. Frontend flow lives in `lib/updater.ts` (check → downloadAndInstall → relaunch), surfaced as Preferences ▸ Updates plus a startup toast (`use-update-check.ts`, mounted in `__root.tsx`, since 0.1.1). The signing PRIVATE key lives OUTSIDE the repo at `~/.tauri/yassets.key` and is **password-protected** — the password is never committed anywhere (it exists only in the GitHub Actions secret and the user's own records). CI reads key + password from the `TAURI_SIGNING_PRIVATE_KEY(_PASSWORD)` secrets consumed by `.github/workflows/release.yml` (tag `v*` → draft Release + latest.json). Losing the key **or** the password permanently breaks updates for shipped versions. Full runbook: `.claude/skills/dev-playbook/release.md`.
 - **Deferred by choice**: keyset pagination for 50k+ libraries — the paged IPC contract already exists; revisit when a real library approaches the full-fetch limit.
 
 ### Media/asset pipeline (implemented — phase 1)

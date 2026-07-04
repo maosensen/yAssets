@@ -31,5 +31,6 @@ coverage
 *.sln
 *.sw?
 
-# Local Claude Code workspace config
-.claude/
+# Local Claude Code workspace config (skills are shared and committed)
+.claude/*
+!.claude/skills/
