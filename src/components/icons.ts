@@ -25,6 +25,7 @@ export {
 } from "~icons/solar/check-circle-line-duotone";
 export { default as IconRecent } from "~icons/solar/clock-circle-line-duotone";
 export { default as IconClose } from "~icons/solar/close-circle-line-duotone";
+export { default as IconCopy } from "~icons/solar/copy-line-duotone";
 export { default as IconError } from "~icons/solar/danger-circle-line-duotone";
 export { default as IconWarning } from "~icons/solar/danger-triangle-line-duotone";
 export { default as IconFileText } from "~icons/solar/document-text-line-duotone";

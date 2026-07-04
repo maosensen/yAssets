@@ -120,9 +120,10 @@ pub struct AssetPatch {
     pub rating: Option<u8>,
 }
 
-const SUMMARY_COLS: &str = "id, name, ext, size, width, height, has_thumb, rating, imported_at";
+pub(crate) const SUMMARY_COLS: &str =
+    "id, name, ext, size, width, height, has_thumb, rating, imported_at";
 
-fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<AssetSummary> {
+pub(crate) fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<AssetSummary> {
     Ok(AssetSummary {
         id: row.get(0)?,
         name: row.get(1)?,

@@ -5,8 +5,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { DuplicatesDialog } from "@/components/duplicates/duplicates-dialog";
 import {
 	IconClose,
+	IconCopy,
 	IconFolderAdd,
 	IconFolderOpen,
 	IconLibrary,
@@ -36,6 +38,7 @@ export function LibrarySwitcher() {
 	const { data: recents } = useQuery(recentLibrariesQueryOptions());
 	const actions = useLibraryActions();
 	const [prefsOpen, setPrefsOpen] = useState(false);
+	const [duplicatesOpen, setDuplicatesOpen] = useState(false);
 
 	const otherRecents = (recents ?? []).filter(
 		(entry) => entry.path !== library?.path,
@@ -97,6 +100,10 @@ export function LibrarySwitcher() {
 						{T.sidebar.switcher.createNew}
 					</DropdownMenuItem>
 					<DropdownMenuSeparator />
+					<DropdownMenuItem onClick={() => setDuplicatesOpen(true)}>
+						<IconCopy className="size-4" />
+						{T.duplicatesCenter.open}
+					</DropdownMenuItem>
 					<DropdownMenuItem onClick={() => setPrefsOpen(true)}>
 						<IconSettings className="size-4" />
 						{T.preferences.open}
@@ -108,6 +115,10 @@ export function LibrarySwitcher() {
 				</DropdownMenuContent>
 			</DropdownMenu>
 			<PreferencesDialog open={prefsOpen} onOpenChange={setPrefsOpen} />
+			<DuplicatesDialog
+				open={duplicatesOpen}
+				onOpenChange={setDuplicatesOpen}
+			/>
 		</>
 	);
 }

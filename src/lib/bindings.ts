@@ -104,6 +104,8 @@ export const commands = {
 	 *  parameter limit.
 	 */
 	findSimilarAssets: (assetId: string, maxDistance: number) => typedError<AssetSummary[], AppError>(__TAURI_INVOKE("find_similar_assets", { assetId, maxDistance })),
+	/**  Scan the whole library for exact and visual duplicates. */
+	scanDuplicates: () => typedError<DuplicateScan, AppError>(__TAURI_INVOKE("scan_duplicates")),
 	/**  Flat folder list, siblings ordered by manual position then name. */
 	listFolders: () => typedError<Folder[], AppError>(__TAURI_INVOKE("list_folders")),
 	createFolder: (name: string, parentId: string | null) => typedError<Folder, AppError>(__TAURI_INVOKE("create_folder", { name, parentId })),
@@ -260,6 +262,13 @@ export type DuplicateItem = {
 	size: number | null,
 	/**  Id of the already-cataloged asset with identical content. */
 	existing_id: string,
+};
+
+export type DuplicateScan = {
+	/**  Groups of byte-identical assets (each group ≥ 2, ordered oldest-first). */
+	exact: AssetSummary[][],
+	/**  Clusters of visually-similar assets (across different hashes). */
+	visual: AssetSummary[][],
 };
 
 export type Folder = {

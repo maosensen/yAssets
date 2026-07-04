@@ -214,6 +214,25 @@ export const T = {
 		importFolder: "Import Folder",
 		pasteEmpty: "Clipboard has nothing importable",
 	},
+	duplicatesCenter: {
+		open: "Find Duplicates…",
+		title: "Duplicates",
+		scanning: "Scanning library…",
+		empty: {
+			title: "No Duplicates",
+			hint: "Every asset in this library is unique — nice and tidy.",
+		},
+		exactSection: (n: number) => `Exact duplicates · ${counted(n, "group")}`,
+		exactHint:
+			"Byte-identical files. Cleaning keeps the earliest import and trashes the rest.",
+		visualSection: (n: number) => `Visually similar · ${counted(n, "group")}`,
+		visualHint: "Look-alikes across different files — compare before deciding.",
+		filesMeta: (n: number, size: string) => `${counted(n, "file")} · ${size}`,
+		trashOthers: (n: number) => `Trash ${counted(n, "duplicate")}`,
+		trashAll: (n: number) => `Trash all ${counted(n, "duplicate")}`,
+		compare: "Compare",
+		rescan: "Rescan",
+	},
 	duplicates: {
 		title: (n: number) => `Duplicate Files (${n})`,
 		hint: "These files already exist in your library with identical content.",

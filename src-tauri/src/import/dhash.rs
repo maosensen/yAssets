@@ -13,7 +13,6 @@
 //! scans are a popcount loop — microseconds at any realistic library size.
 
 /// Hamming distance at or below this counts as a visual-duplicate candidate.
-#[allow(dead_code)] // consumed by the upcoming find-similar surface
 pub const SIMILAR_MAX_DISTANCE: u32 = 5;
 
 /// Downsample grid: 9 columns × 8 rows → 8 comparisons × 8 rows = 64 bits.
