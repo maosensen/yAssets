@@ -79,3 +79,15 @@ before distributing. The updater keypair lives at `~/.tauri/yassets.key` (passwo
 public key baked into `tauri.conf.json`) — set its contents as the
 `TAURI_SIGNING_PRIVATE_KEY` repository secret and the key password as
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. In-app updates: Preferences ▸ Updates ▸ Check for Updates.
+
+> **Installing unnotarized builds (macOS):** without an Apple Developer ID the downloaded
+> app carries the browser's quarantine flag and Gatekeeper shows a misleading *"yAssets is
+> damaged"* dialog. Clear it once after copying to Applications:
+>
+> ```bash
+> xattr -cr /Applications/yAssets.app
+> ```
+>
+> In-app updates are unaffected (no quarantine, minisign-verified). Proper fix: join the
+> Apple Developer Program and fill the `APPLE_*` secrets already stubbed in
+> `.github/workflows/release.yml`.
