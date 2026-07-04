@@ -37,7 +37,7 @@
 	},
 	"plugins": {
 		"updater": {
-			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZFOEMxQTE5MTI5N0I3OTgKUldTWXQ1Y1NHUnFNYnNSaExJYkhaSDM4dXJ1bGt6YWhFTTZrV1lBRTFaSStwL0JUaEQzRDVuMXkK",
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDNCRTJBQUQ1N0Y3MUFENDgKUldSSXJYRi8xYXJpT3cxaG1DbkpDSW1SemNKRHQrOFdrNHo3eS9PVjNyTlgraTE2TXMzRE9lN20K",
 			"endpoints": [
 				"https://github.com/maosensen/yAssets/releases/latest/download/latest.json"
 			]

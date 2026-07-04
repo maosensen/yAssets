@@ -75,7 +75,7 @@ git tag v0.1.0 && git push --tags
 ```
 
 Configure the updater + code-signing secrets referenced in `.github/workflows/release.yml`
-before distributing. The updater keypair already exists at `~/.tauri/yassets.key` (generated
-via `pnpm tauri signer generate --write-keys ~/.tauri/yassets.key`; public key baked into
-`tauri.conf.json`) — set its contents as the `TAURI_SIGNING_PRIVATE_KEY` repository secret
-(password secret: empty string). In-app updates: Preferences ▸ Updates ▸ Check for Updates.
+before distributing. The updater keypair lives at `~/.tauri/yassets.key` (password-protected;
+public key baked into `tauri.conf.json`) — set its contents as the
+`TAURI_SIGNING_PRIVATE_KEY` repository secret and the key password as
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. In-app updates: Preferences ▸ Updates ▸ Check for Updates.
