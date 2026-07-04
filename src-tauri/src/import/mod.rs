@@ -191,6 +191,15 @@ fn run_job(ctx: &Arc<JobCtx>, paths: Vec<String>) {
     ctx.total.store(files.len() as u32, Ordering::Relaxed);
     ctx.emit_progress(ImportPhase::Processing, None, true);
 
+    // Mirror the dropped directory structure as library folders — one writer
+    // transaction before the parallel phase (folder counts are tiny). On
+    // failure we degrade gracefully: files land in the drop target instead.
+    let folder_map = build_folder_map(&ctx.library, ctx.folder_id.as_deref(), &files)
+        .unwrap_or_else(|err| {
+            log::error!("failed to prepare import folders: {err}");
+            std::collections::HashMap::new()
+        });
+
     // Phase B — parallel processing.
     let workers = std::thread::available_parallelism()
         .map(|n| n.get())
@@ -200,14 +209,25 @@ fn run_job(ctx: &Arc<JobCtx>, paths: Vec<String>) {
     match pool {
         Ok(pool) => pool.install(|| {
             use rayon::prelude::*;
-            files.par_iter().for_each(|path| {
+            files.par_iter().for_each(|file| {
                 if ctx.cancelled() {
                     return;
                 }
+                let path = &file.path;
+                // Nested files attach to their mirrored folder; loose files
+                // (and map misses) keep the drop target.
+                let target_folder = if file.folder_components.is_empty() {
+                    ctx.folder_id.as_deref()
+                } else {
+                    folder_map
+                        .get(&file.folder_components.join("/"))
+                        .map(String::as_str)
+                        .or(ctx.folder_id.as_deref())
+                };
                 match process_file(
                     &ctx.library,
                     path,
-                    ctx.folder_id.as_deref(),
+                    target_folder,
                     &ctx.seen_hashes,
                     ctx.keep_duplicates,
                 ) {
@@ -248,7 +268,17 @@ fn run_job(ctx: &Arc<JobCtx>, paths: Vec<String>) {
     ctx.finish();
 }
 
-/// Expand user-dropped paths into a flat file list.
+/// One discovered file plus the directory chain to recreate in the library.
+#[derive(Debug)]
+pub(crate) struct DiscoveredFile {
+    pub path: PathBuf,
+    /// Folder chain relative to the drop — leads with the dropped directory's
+    /// own name (`X/sub/a.png` → `["X", "sub"]`); empty for loose files.
+    pub folder_components: Vec<String>,
+}
+
+/// Expand user-dropped paths into a file list, remembering each file's
+/// directory chain so imports can mirror nested folder structures.
 ///
 /// Rules: explicitly listed files are always included (user intent); directory
 /// walks skip hidden entries and `Thumbs.db`, never follow symlinks, and
@@ -259,7 +289,7 @@ pub(crate) fn discover(
     library_root: &Path,
     mut on_progress: impl FnMut(u32),
     cancelled: impl Fn() -> bool,
-) -> Vec<PathBuf> {
+) -> Vec<DiscoveredFile> {
     let mut files = Vec::new();
     for input in inputs {
         if cancelled() {
@@ -273,8 +303,17 @@ pub(crate) fn discover(
             continue;
         }
         if input.is_file() {
-            files.push(input);
+            files.push(DiscoveredFile {
+                path: input,
+                folder_components: Vec::new(),
+            });
         } else if input.is_dir() {
+            // Chains are measured from the drop's PARENT, so the dropped
+            // directory itself becomes the top of the recreated tree.
+            let base = input
+                .parent()
+                .map(Path::to_path_buf)
+                .unwrap_or_else(|| input.clone());
             let walker = WalkDir::new(&input)
                 .follow_links(false)
                 .into_iter()
@@ -291,7 +330,20 @@ pub(crate) fn discover(
                     if entry.path().starts_with(library_root) {
                         continue;
                     }
-                    files.push(entry.into_path());
+                    let folder_components = entry
+                        .path()
+                        .parent()
+                        .and_then(|dir| dir.strip_prefix(&base).ok())
+                        .map(|rel| {
+                            rel.components()
+                                .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    files.push(DiscoveredFile {
+                        path: entry.into_path(),
+                        folder_components,
+                    });
                     if files.len() % 100 == 0 {
                         on_progress(files.len() as u32);
                     }
@@ -303,6 +355,70 @@ pub(crate) fn discover(
     }
     on_progress(files.len() as u32);
     files
+}
+
+/// Create (or reuse) every folder chain the discovery produced, rooted under
+/// `root_folder`. Same-named siblings merge case-insensitively, so importing
+/// the same tree twice converges instead of duplicating folders. Returns
+/// joined-chain ("a/b") → folder id.
+fn build_folder_map(
+    library: &Library,
+    root_folder: Option<&str>,
+    files: &[DiscoveredFile],
+) -> crate::error::AppResult<std::collections::HashMap<String, String>> {
+    use std::collections::{BTreeSet, HashMap};
+
+    // Every prefix of every chain; BTreeSet orders parents before children.
+    let mut chains: BTreeSet<Vec<String>> = BTreeSet::new();
+    for file in files {
+        for depth in 1..=file.folder_components.len() {
+            chains.insert(file.folder_components[..depth].to_vec());
+        }
+    }
+    if chains.is_empty() {
+        return Ok(HashMap::new());
+    }
+
+    let root = root_folder.map(str::to_owned);
+    library.with_writer(move |conn| {
+        let tx = conn.transaction()?;
+        let mut map: HashMap<String, String> = HashMap::new();
+        for chain in &chains {
+            let parent = if chain.len() == 1 {
+                root.clone()
+            } else {
+                map.get(&chain[..chain.len() - 1].join("/")).cloned()
+            };
+            let name = chain.last().expect("chains are non-empty");
+            let id = ensure_folder(&tx, parent.as_deref(), name)?;
+            map.insert(chain.join("/"), id);
+        }
+        tx.commit()?;
+        Ok(map)
+    })
+}
+
+/// Find a same-named child folder (case-insensitive) or create it.
+fn ensure_folder(
+    conn: &rusqlite::Connection,
+    parent: Option<&str>,
+    name: &str,
+) -> rusqlite::Result<String> {
+    // `IS` (not `=`) so a NULL parent compares as root-level.
+    if let Ok(existing) = conn.query_row(
+        "SELECT id FROM folders WHERE name = ?1 COLLATE NOCASE AND parent_id IS ?2",
+        rusqlite::params![name, parent],
+        |row| row.get::<_, String>(0),
+    ) {
+        return Ok(existing);
+    }
+    let id = new_id();
+    conn.execute(
+        "INSERT INTO folders (id, parent_id, name, position, created_at, updated_at)
+         VALUES (?1, ?2, ?3, 0, ?4, ?4)",
+        rusqlite::params![id, parent, name, now_ms()],
+    )?;
+    Ok(id)
 }
 
 /// Hidden files and OS litter — skipped by import discovery and by the
@@ -558,7 +674,7 @@ mod tests {
 
         let names: Vec<String> = files
             .iter()
-            .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+            .map(|f| f.path.file_name().unwrap().to_string_lossy().into_owned())
             .collect();
         assert!(names.contains(&"a.png".to_string()));
         assert!(names.contains(&"b.jpg".to_string()));
@@ -569,6 +685,73 @@ mod tests {
         assert!(!names.iter().any(|n| n.eq_ignore_ascii_case("thumbs.db")));
         assert!(!names.contains(&"blob".to_string()));
         assert!(!names.contains(&"inside.png".to_string()));
+
+        // Folder chains lead with the dropped directory's own name.
+        let chain_of = |file_name: &str| {
+            files
+                .iter()
+                .find(|f| f.path.file_name().unwrap().to_string_lossy() == file_name)
+                .map(|f| f.folder_components.clone())
+                .expect("file present")
+        };
+        assert_eq!(chain_of("a.png"), vec!["drop".to_string()]);
+        assert_eq!(
+            chain_of("b.jpg"),
+            vec!["drop".to_string(), "sub".to_string()]
+        );
+        // Loose (explicitly dropped) files carry no chain.
+        assert_eq!(chain_of(".explicit.png"), Vec::<String>::new());
+    }
+
+    #[test]
+    fn build_folder_map_creates_and_reuses_nested_folders() {
+        let (tmp, lib) = test_library();
+        let drop_dir = tmp.path().join("pack");
+        std::fs::create_dir_all(drop_dir.join("icons/dark")).expect("mkdir");
+        write_png(&drop_dir.join("cover.png"), 8, 8, 1);
+        write_png(&drop_dir.join("icons/a.png"), 8, 8, 2);
+        write_png(&drop_dir.join("icons/dark/b.png"), 8, 8, 3);
+
+        let files = discover(vec![drop_dir].into_iter(), lib.root(), |_| {}, || false);
+        let map = build_folder_map(&lib, None, &files).expect("map");
+        assert_eq!(map.len(), 3); // pack, pack/icons, pack/icons/dark
+
+        let folder_count = |lib: &Library| -> i64 {
+            lib.with_reader(|conn| {
+                Ok(conn
+                    .query_row("SELECT COUNT(*) FROM folders", [], |row| row.get(0))
+                    .expect("count"))
+            })
+            .expect("reader")
+        };
+        assert_eq!(folder_count(&lib), 3);
+
+        // Hierarchy is wired: pack/icons/dark's parent is pack/icons.
+        let dark = map.get("pack/icons/dark").expect("dark id").clone();
+        let icons = map.get("pack/icons").expect("icons id").clone();
+        let parent: Option<String> = lib
+            .with_reader(move |conn| {
+                Ok(conn
+                    .query_row(
+                        "SELECT parent_id FROM folders WHERE id = ?1",
+                        [dark.as_str()],
+                        |row| row.get(0),
+                    )
+                    .expect("row"))
+            })
+            .expect("reader");
+        assert_eq!(parent.as_deref(), Some(icons.as_str()));
+
+        // Re-importing the same tree reuses every folder (no duplicates).
+        let files_again = discover(
+            vec![tmp.path().join("pack")].into_iter(),
+            lib.root(),
+            |_| {},
+            || false,
+        );
+        let map_again = build_folder_map(&lib, None, &files_again).expect("map again");
+        assert_eq!(map_again, map);
+        assert_eq!(folder_count(&lib), 3);
     }
 
     #[test]

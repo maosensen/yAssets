@@ -14,7 +14,7 @@ export function InspectorPanel() {
 	return (
 		// Translucent over the native vibrancy, matching the sidebar chrome.
 		// No border-l: the ResizableHandle already draws the 1px divider.
-		<aside className="h-full bg-sidebar/50">
+		<aside className="h-full bg-sidebar/50 windows:bg-sidebar">
 			{selectedIds.size === 1 ? (
 				<AssetDetails assetId={[...selectedIds][0]} />
 			) : selectedIds.size > 1 ? (

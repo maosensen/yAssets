@@ -6,6 +6,8 @@
 @plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:is(.dark *));
+/* Windows-only tweaks (class set in main.tsx from the user agent). */
+@custom-variant windows (&:is(.platform-windows *));
 
 @theme inline {
 	--font-heading: var(--font-sans);

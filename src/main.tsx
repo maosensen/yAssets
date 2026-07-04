@@ -6,6 +6,13 @@ import { getQueryClient } from "@/lib/query-client";
 import { routeTree } from "./routeTree.gen";
 import "./index.css";
 
+// Platform class for CSS variants: Windows window materials (mica/acrylic)
+// are far more see-through than macOS vibrancy, so chrome panels opt into
+// opaque backgrounds there (`windows:` variant in index.css).
+if (navigator.userAgent.includes("Windows")) {
+	document.documentElement.classList.add("platform-windows");
+}
+
 // Created automatically by @tanstack/router-plugin on first dev/build.
 // The queryClient rides along in router context so route guards
 // (`beforeLoad`) can consult the cache without extra IPC.

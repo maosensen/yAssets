@@ -37,6 +37,12 @@ export const T = {
 		upToDate: "You're on the latest version",
 		updateFailed: "Update check failed",
 	},
+	updates: {
+		available: (version: string) => `yAssets ${version} is available`,
+		installAction: "Install & Restart",
+		installing: "Downloading update…",
+		failed: "Update failed — try again from Preferences",
+	},
 	welcome: {
 		tagline: "Local-first asset library",
 		createLibrary: "New Library",

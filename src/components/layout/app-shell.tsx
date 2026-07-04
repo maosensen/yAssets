@@ -84,7 +84,7 @@ function Sidebar() {
 		// Translucent over the native vibrancy — the frosted-glass chrome.
 		// No border-r: the ResizableHandle already draws the 1px divider.
 		<aside
-			className="flex h-full flex-col bg-sidebar/50 text-sidebar-foreground"
+			className="flex h-full flex-col bg-sidebar/50 text-sidebar-foreground windows:bg-sidebar"
 			onPointerDown={windowDrag.onPointerDown}
 		>
 			{/* Overlay titlebar: top inset clears the macOS traffic lights. */}
