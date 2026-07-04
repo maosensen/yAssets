@@ -113,6 +113,8 @@ pub struct AssetDetail {
     pub hash_blake3: String,
     /// Original path at import time (provenance display only).
     pub src_path: Option<String>,
+    /// User-editable source link (e.g. where the asset came from).
+    pub url: Option<String>,
     pub folder_ids: Vec<String>,
     pub tags: Vec<TagRef>,
     /// Representative swatch hexes (JSON-decoded from the DB), for display.
@@ -130,6 +132,8 @@ pub struct AssetPatch {
     pub name: Option<String>,
     pub note: Option<String>,
     pub rating: Option<u8>,
+    /// `Some("")` clears the link.
+    pub url: Option<String>,
 }
 
 pub(crate) const SUMMARY_COLS: &str =
@@ -292,7 +296,7 @@ fn detail_by_id(conn: &rusqlite::Connection, id: &str) -> AppResult<AssetDetail>
         .query_row(
             "SELECT id, name, ext, mime, size, width, height, has_thumb, rating,
                     note, hash_blake3, src_path, imported_at, file_mtime,
-                    file_ctime, updated_at, deleted_at, palette
+                    file_ctime, updated_at, deleted_at, palette, url
              FROM assets WHERE id = ?1",
             [id],
             |row| {
@@ -313,6 +317,7 @@ fn detail_by_id(conn: &rusqlite::Connection, id: &str) -> AppResult<AssetDetail>
                     note: row.get(9)?,
                     hash_blake3: row.get(10)?,
                     src_path: row.get(11)?,
+                    url: row.get(18)?,
                     folder_ids: Vec::new(),
                     tags: Vec::new(),
                     palette,
@@ -397,6 +402,13 @@ pub async fn update_asset(
                 tx.execute(
                     "UPDATE assets SET rating = ?2 WHERE id = ?1",
                     rusqlite::params![id, rating],
+                )?;
+            }
+            if let Some(url) = &patch.url {
+                let trimmed = url.trim();
+                tx.execute(
+                    "UPDATE assets SET url = ?2 WHERE id = ?1",
+                    rusqlite::params![id, (!trimmed.is_empty()).then_some(trimmed)],
                 )?;
             }
             let changed = tx.execute(

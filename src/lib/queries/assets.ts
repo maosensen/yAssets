@@ -236,6 +236,8 @@ export type AssetPatchInput = {
 	name?: string;
 	note?: string;
 	rating?: number;
+	/** Empty string clears the link. */
+	url?: string;
 };
 
 /**
@@ -252,6 +254,7 @@ export function useUpdateAsset() {
 					name: input.patch.name ?? null,
 					note: input.patch.note ?? null,
 					rating: input.patch.rating ?? null,
+					url: input.patch.url ?? null,
 				}),
 			),
 		onMutate: async ({ id, patch }) => {
@@ -265,6 +268,7 @@ export function useUpdateAsset() {
 					...(patch.name !== undefined ? { name: patch.name } : {}),
 					...(patch.note !== undefined ? { note: patch.note } : {}),
 					...(patch.rating !== undefined ? { rating: patch.rating } : {}),
+					...(patch.url !== undefined ? { url: patch.url || null } : {}),
 				});
 			}
 			const listSnapshot = snapshotLists(queryClient);

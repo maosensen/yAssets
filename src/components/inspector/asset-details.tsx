@@ -37,6 +37,7 @@ import type { AssetDetail } from "@/lib/bindings";
 import { buildFolderTree, flattenFolderTree } from "@/lib/folder-tree";
 import { formatBytes, formatDateTime, formatDimensions } from "@/lib/format";
 import { thumbUrl } from "@/lib/media";
+import { openExternalUrl } from "@/lib/opener";
 import {
 	assetDetailQueryOptions,
 	revealAsset,
@@ -70,6 +71,7 @@ function DetailsBody({ detail }: { detail: AssetDetail }) {
 					{detail.palette.length > 0 && <PaletteDots colors={detail.palette} />}
 					<NameField detail={detail} />
 					<NoteField detail={detail} />
+					<UrlField detail={detail} />
 				</section>
 
 				<DashedDivider />
@@ -220,6 +222,45 @@ function NoteField({ detail }: { detail: AssetDetail }) {
 				}
 			}}
 		/>
+	);
+}
+
+/** Source link (Eagle-style) — blur commits, the trailing button opens it. */
+function UrlField({ detail }: { detail: AssetDetail }) {
+	const update = useUpdateAsset();
+	const [url, setUrl] = useState(detail.url ?? "");
+	useEffect(() => setUrl(detail.url ?? ""), [detail.url]);
+
+	const commit = () => {
+		const trimmed = url.trim();
+		if (trimmed === (detail.url ?? "")) return;
+		update.mutate({ id: detail.id, patch: { url: trimmed } });
+	};
+
+	return (
+		<div className="relative">
+			<Input
+				className="h-8 pr-8 text-sm"
+				placeholder={T.inspector.urlPlaceholder}
+				value={url}
+				onChange={(event) => setUrl(event.target.value)}
+				onBlur={commit}
+				onKeyDown={(event) => {
+					if (event.key === "Enter") event.currentTarget.blur();
+					if (event.key === "Escape") setUrl(detail.url ?? "");
+				}}
+			/>
+			{detail.url && (
+				<button
+					type="button"
+					aria-label={T.inspector.openLink}
+					className="absolute top-1/2 right-2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+					onClick={() => detail.url && void openExternalUrl(detail.url)}
+				>
+					<IconReveal className="size-3.5" />
+				</button>
+			)}
+		</div>
 	);
 }
 

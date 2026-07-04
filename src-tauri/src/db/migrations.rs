@@ -106,6 +106,11 @@ CREATE TABLE smart_folders (
   updated_at INTEGER NOT NULL
 );
 "#,
+    // v5 — source URL (Eagle-style provenance link, editable in the
+    // inspector). NULL/empty = none.
+    r#"
+ALTER TABLE assets ADD COLUMN url TEXT;
+"#,
 ];
 
 /// Current schema version an up-to-date library sits at.

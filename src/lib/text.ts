@@ -284,6 +284,8 @@ export const T = {
 		emptyTitle: "No Selection",
 		emptyHint: "Select an asset to view and edit its details.",
 		notePlaceholder: "Notes…",
+		urlPlaceholder: "http://",
+		openLink: "Open link",
 		ratingLabel: "Rating",
 		starLabel: (n: number) => counted(n, "star"),
 		foldersLabel: "Folders",

@@ -195,6 +195,8 @@ export type AssetDetail = {
 	hash_blake3: string,
 	/**  Original path at import time (provenance display only). */
 	src_path: string | null,
+	/**  User-editable source link (e.g. where the asset came from). */
+	url: string | null,
 	folder_ids: string[],
 	tags: TagRef[],
 	/**  Representative swatch hexes (JSON-decoded from the DB), for display. */
@@ -231,6 +233,8 @@ export type AssetPatch = {
 	name: string | null,
 	note: string | null,
 	rating: number | null,
+	/**  `Some("")` clears the link. */
+	url: string | null,
 };
 
 /**
