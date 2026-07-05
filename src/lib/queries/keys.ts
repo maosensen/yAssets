@@ -31,6 +31,10 @@ export const assetKeys = {
 	detail: (id: string) => ["assets", "detail", id] as const,
 	/** dHash neighborhood of one asset (view=similar). */
 	similar: (id: string) => ["assets", "similar", id] as const,
+	/** Folders containing ALL of these assets (folder-picker checked state).
+	 *  Prefixed by `all`, so membership mutations invalidate it. */
+	folderMembership: (ids: readonly string[]) =>
+		["assets", "folder-membership", [...ids].sort()] as const,
 };
 
 export const folderKeys = {

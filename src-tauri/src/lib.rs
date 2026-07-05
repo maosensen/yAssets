@@ -43,6 +43,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::smart_folders::delete_smart_folder,
             commands::folders::list_folders,
             commands::folders::get_folder_stats,
+            commands::folders::folders_for_assets,
             commands::folders::create_folder,
             commands::folders::rename_folder,
             commands::folders::set_folder_description,

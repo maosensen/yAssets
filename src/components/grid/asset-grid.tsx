@@ -16,6 +16,7 @@ import {
 	useRef,
 	useState,
 } from "react";
+import { FolderPicker } from "@/components/folder-picker";
 import { AssetCard, type SelectModifiers } from "@/components/grid/asset-card";
 import { AssetContextItems } from "@/components/grid/asset-context-items";
 import {
@@ -56,6 +57,9 @@ export function AssetGrid({
 }: AssetGridProps) {
 	const scrollRef = useRef<HTMLDivElement | null>(null);
 	const width = useElementWidth(scrollRef);
+	// Folder picker opens from the context menu (which unmounts on select), so
+	// its target ids are held here and the dialog lives at the grid root.
+	const [pickerIds, setPickerIds] = useState<string[] | null>(null);
 	const targetRowHeight = useViewPrefsStore((state) => state.targetRowHeight);
 	const selectOnly = useSelectionStore((state) => state.selectOnly);
 	const cardDrag = useCardDrag();
@@ -287,90 +291,100 @@ export function AssetGrid({
 	};
 
 	return (
-		<div
-			ref={scrollRef}
-			className="h-full select-none overflow-y-auto"
-			style={{ padding: PADDING }}
-			onPointerDown={onPointerDown}
-			onPointerMove={onPointerMove}
-			onPointerUp={onPointerUp}
-			onPointerCancel={onPointerUp}
-		>
+		<>
 			<div
-				className="relative"
-				style={{ height: layout.totalHeight, width: contentWidth }}
+				ref={scrollRef}
+				className="h-full select-none overflow-y-auto"
+				style={{ padding: PADDING }}
+				onPointerDown={onPointerDown}
+				onPointerMove={onPointerMove}
+				onPointerUp={onPointerUp}
+				onPointerCancel={onPointerUp}
 			>
-				{marquee && (
-					<div
-						className="pointer-events-none absolute z-10 rounded-sm border border-primary bg-primary/10"
-						style={{
-							left: marquee.left,
-							top: marquee.top,
-							width: marquee.right - marquee.left,
-							height: marquee.bottom - marquee.top,
-						}}
-					/>
-				)}
-				{virtualizer.getVirtualItems().map((virtualRow) => {
-					const row = layout.rows[virtualRow.index];
-					if (!row) return null;
-					return (
+				<div
+					className="relative"
+					style={{ height: layout.totalHeight, width: contentWidth }}
+				>
+					{marquee && (
 						<div
-							key={virtualRow.key}
-							className="absolute top-0 left-0 w-full"
+							className="pointer-events-none absolute z-10 rounded-sm border border-primary bg-primary/10"
 							style={{
-								height: row.height,
-								transform: `translateY(${row.top}px)`,
+								left: marquee.left,
+								top: marquee.top,
+								width: marquee.right - marquee.left,
+								height: marquee.bottom - marquee.top,
 							}}
-						>
-							{row.items.map((item) => {
-								const asset = assetById.get(item.id);
-								if (!asset) return null;
-								return (
-									<ContextMenu key={item.id}>
-										<ContextMenuTrigger
-											className="absolute top-0"
-											style={{
-												left: item.left,
-												width: item.width,
-												height: item.imageHeight + CAPTION_HEIGHT,
-											}}
-										>
-											<AssetCard
-												id={item.id}
-												name={asset.name}
-												ext={asset.ext}
-												hasThumb={asset.has_thumb}
-												durationMs={asset.duration_ms}
-												width={item.width}
-												imageHeight={item.imageHeight}
-												captionHeight={CAPTION_HEIGHT}
-												meta={
-													formatDimensions(asset.width, asset.height) ??
-													formatBytes(asset.size ?? 0)
-												}
-												onSelect={handleSelect}
-												onContextSelect={handleContextSelect}
-												onOpen={onOpen}
-												onPointerDown={cardDrag.onPointerDown(item.id)}
-											/>
-										</ContextMenuTrigger>
-										<ContextMenuContent>
-											<AssetContextItems
-												assetId={item.id}
-												ext={asset.ext}
-												inTrash={inTrash}
-												currentFolderId={currentFolderId}
-												onRequestDeleteForever={onRequestDeleteForever}
-											/>
-										</ContextMenuContent>
-									</ContextMenu>
-								);
-							})}
-						</div>
-					);
-				})}
+						/>
+					)}
+					{virtualizer.getVirtualItems().map((virtualRow) => {
+						const row = layout.rows[virtualRow.index];
+						if (!row) return null;
+						return (
+							<div
+								key={virtualRow.key}
+								className="absolute top-0 left-0 w-full"
+								style={{
+									height: row.height,
+									transform: `translateY(${row.top}px)`,
+								}}
+							>
+								{row.items.map((item) => {
+									const asset = assetById.get(item.id);
+									if (!asset) return null;
+									return (
+										<ContextMenu key={item.id}>
+											<ContextMenuTrigger
+												className="absolute top-0"
+												style={{
+													left: item.left,
+													width: item.width,
+													height: item.imageHeight + CAPTION_HEIGHT,
+												}}
+											>
+												<AssetCard
+													id={item.id}
+													name={asset.name}
+													ext={asset.ext}
+													hasThumb={asset.has_thumb}
+													durationMs={asset.duration_ms}
+													width={item.width}
+													imageHeight={item.imageHeight}
+													captionHeight={CAPTION_HEIGHT}
+													meta={
+														formatDimensions(asset.width, asset.height) ??
+														formatBytes(asset.size ?? 0)
+													}
+													onSelect={handleSelect}
+													onContextSelect={handleContextSelect}
+													onOpen={onOpen}
+													onPointerDown={cardDrag.onPointerDown(item.id)}
+												/>
+											</ContextMenuTrigger>
+											<ContextMenuContent>
+												<AssetContextItems
+													assetId={item.id}
+													ext={asset.ext}
+													inTrash={inTrash}
+													currentFolderId={currentFolderId}
+													onAddToFolder={setPickerIds}
+													onRequestDeleteForever={onRequestDeleteForever}
+												/>
+											</ContextMenuContent>
+										</ContextMenu>
+									);
+								})}
+							</div>
+						);
+					})}
+				</div>
 			</div>
-		</div>
+			<FolderPicker
+				open={pickerIds !== null}
+				onOpenChange={(next) => {
+					if (!next) setPickerIds(null);
+				}}
+				assetIds={pickerIds ?? []}
+			/>
+		</>
 	);
 }

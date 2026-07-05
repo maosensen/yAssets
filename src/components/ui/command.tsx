@@ -1,4 +1,4 @@
-import { Command as CommandPrimitive } from "cmdk";
+import { Command as CommandPrimitive, defaultFilter } from "cmdk";
 import type * as React from "react";
 import {
 	IconCheck as CheckIcon,
@@ -190,4 +190,5 @@ export {
 	CommandList,
 	CommandSeparator,
 	CommandShortcut,
+	defaultFilter,
 };

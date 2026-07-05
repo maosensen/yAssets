@@ -118,6 +118,11 @@ export const commands = {
 	listFolders: () => typedError<Folder[], AppError>(__TAURI_INVOKE("list_folders")),
 	/**  Direct-member aggregate (count + total bytes) for the folder info panel. */
 	getFolderStats: (folderId: string) => typedError<FolderStats, AppError>(__TAURI_INVOKE("get_folder_stats", { folderId })),
+	/**
+	 *  Folder ids that contain ALL of the given assets (intersection) — drives the
+	 *  folder picker's checked state across a single- or multi-asset selection.
+	 */
+	foldersForAssets: (assetIds: string[]) => typedError<string[], AppError>(__TAURI_INVOKE("folders_for_assets", { assetIds })),
 	createFolder: (name: string, parentId: string | null) => typedError<Folder, AppError>(__TAURI_INVOKE("create_folder", { name, parentId })),
 	renameFolder: (id: string, name: string) => typedError<Folder, AppError>(__TAURI_INVOKE("rename_folder", { id, name })),
 	/**  Set (or clear, via empty string) a folder's description. */

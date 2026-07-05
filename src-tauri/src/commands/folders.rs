@@ -130,6 +130,45 @@ pub async fn set_folder_description(
         .await
 }
 
+fn common_folder_ids(
+    conn: &rusqlite::Connection,
+    asset_ids: &[String],
+) -> rusqlite::Result<Vec<String>> {
+    if asset_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let placeholders = vec!["?"; asset_ids.len()].join(",");
+    // COUNT is an inlined usize (not user input) — no injection surface.
+    let sql = format!(
+        "SELECT folder_id FROM asset_folders
+         WHERE asset_id IN ({placeholders})
+         GROUP BY folder_id
+         HAVING COUNT(DISTINCT asset_id) = {}",
+        asset_ids.len()
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let ids = stmt
+        .query_map(rusqlite::params_from_iter(asset_ids.iter()), |row| {
+            row.get::<_, String>(0)
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(ids)
+}
+
+/// Folder ids that contain ALL of the given assets (intersection) — drives the
+/// folder picker's checked state across a single- or multi-asset selection.
+#[tauri::command]
+#[specta::specta]
+pub async fn folders_for_assets(
+    asset_ids: Vec<String>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<String>> {
+    let library = state.current_library()?;
+    library
+        .read(move |conn| Ok(common_folder_ids(conn, &asset_ids)?))
+        .await
+}
+
 fn one_folder(conn: &rusqlite::Connection, id: &str) -> AppResult<Folder> {
     conn.query_row(
         &format!("{FOLDER_SELECT} WHERE f.id = ?1"),
@@ -450,6 +489,42 @@ mod tests {
                 folder_from_row,
             )?;
             assert_eq!(folder.description.as_deref(), Some("release assets"));
+            Ok(())
+        })
+        .expect("reader");
+    }
+
+    #[test]
+    fn common_folder_ids_is_the_intersection_across_assets() {
+        let (_tmp, lib) = lib();
+        insert_folder(&lib, "fa000000000000000001", None, "F1");
+        insert_folder(&lib, "fb000000000000000002", None, "F2");
+        lib.with_writer(|conn| {
+            // A in F1+F2, B in F1 only.
+            conn.execute_batch(
+                "INSERT INTO assets (id, name, ext, size, hash_blake3, rel_path, imported_at, updated_at)
+                 VALUES ('aa000000000000000001','a','png',1,'h1','assets/aa/a.png',0,0),
+                        ('aa000000000000000002','b','png',1,'h2','assets/aa/b.png',0,0);
+                 INSERT INTO asset_folders (asset_id, folder_id, added_at) VALUES
+                        ('aa000000000000000001','fa000000000000000001',0),
+                        ('aa000000000000000001','fb000000000000000002',0),
+                        ('aa000000000000000002','fa000000000000000001',0);",
+            )?;
+            Ok(())
+        })
+        .expect("seed");
+
+        lib.with_reader(|conn| {
+            let both = common_folder_ids(
+                conn,
+                &["aa000000000000000001".into(), "aa000000000000000002".into()],
+            )?;
+            assert_eq!(both, ["fa000000000000000001"]); // only the shared folder
+
+            let just_a = common_folder_ids(conn, &["aa000000000000000001".into()])?;
+            assert_eq!(just_a.len(), 2); // A is in both folders
+
+            assert!(common_folder_ids(conn, &[])?.is_empty());
             Ok(())
         })
         .expect("reader");

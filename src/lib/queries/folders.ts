@@ -30,6 +30,16 @@ export function folderStatsQueryOptions(folderId: string) {
 	});
 }
 
+/** Folder ids that contain ALL of `assetIds` — the folder picker's checked
+ *  state. Invalidated by add/remove membership mutations (assetKeys.all). */
+export function assetFolderMembershipQueryOptions(assetIds: string[]) {
+	return queryOptions({
+		queryKey: assetKeys.folderMembership(assetIds),
+		queryFn: async () => unwrap(await commands.foldersForAssets(assetIds)),
+		enabled: assetIds.length > 0,
+	});
+}
+
 function invalidateFolders(queryClient: QueryClient) {
 	void queryClient.invalidateQueries({ queryKey: folderKeys.all });
 	void queryClient.invalidateQueries({ queryKey: libraryKeys.stats });

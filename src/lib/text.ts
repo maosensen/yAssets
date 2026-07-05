@@ -174,6 +174,19 @@ export const T = {
 	folderStrip: {
 		subfolders: (n: number) => `${n === 1 ? "Subfolder" : "Subfolders"} (${n})`,
 	},
+	folderPicker: {
+		title: "Add to Folder",
+		description: "Search and toggle the folders this asset belongs to.",
+		searchPlaceholder: "Search folders…",
+		recent: "Recent",
+		allFolders: "All Folders",
+		create: (name: string) => `Create folder “${name}”`,
+		empty: "No folders yet — type a name to create one.",
+		noMatch: "No matching folders",
+		kbMove: "Move",
+		kbToggle: "Toggle",
+		kbClose: "Close",
+	},
 	tags: {
 		addPlaceholder: "Search or create a tag…",
 		newTag: "New Tag",

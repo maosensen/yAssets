@@ -13,6 +13,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { FolderPicker } from "@/components/folder-picker";
 import {
 	IconClose,
 	IconFolder,
@@ -23,18 +24,11 @@ import { RatingStars } from "@/components/inspector/rating-stars";
 import { DashedDivider, SectionLabel } from "@/components/inspector/section";
 import { TagChips } from "@/components/inspector/tag-chips";
 import { Button } from "@/components/ui/button";
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useExport } from "@/hooks/use-export";
 import type { AssetDetail } from "@/lib/bindings";
-import { buildFolderTree, flattenFolderTree } from "@/lib/folder-tree";
 import { formatBytes, formatDateTime, formatDimensions } from "@/lib/format";
 import { openExternalUrl } from "@/lib/opener";
 import {
@@ -44,7 +38,6 @@ import {
 } from "@/lib/queries/assets";
 import {
 	foldersQueryOptions,
-	useAddAssetsToFolder,
 	useRemoveAssetsFromFolder,
 } from "@/lib/queries/folders";
 import { useThumbSrc } from "@/lib/stores/cover-bust-store";
@@ -268,19 +261,13 @@ function UrlField({ detail }: { detail: AssetDetail }) {
 
 function FolderChips({ detail }: { detail: AssetDetail }) {
 	const { data: folders } = useQuery(foldersQueryOptions());
-	const addMutation = useAddAssetsToFolder();
 	const removeMutation = useRemoveAssetsFromFolder();
+	const [pickerOpen, setPickerOpen] = useState(false);
 
 	const nameById = useMemo(
 		() => new Map((folders ?? []).map((folder) => [folder.id, folder.name])),
 		[folders],
 	);
-	const candidates = useMemo(() => {
-		const memberIds = new Set(detail.folder_ids);
-		return flattenFolderTree(buildFolderTree(folders ?? [])).filter(
-			({ node }) => !memberIds.has(node.id),
-		);
-	}, [folders, detail.folder_ids]);
 
 	return (
 		<div className="flex flex-col gap-2">
@@ -310,43 +297,21 @@ function FolderChips({ detail }: { detail: AssetDetail }) {
 						</button>
 					</span>
 				))}
-				<DropdownMenu>
-					<DropdownMenuTrigger
-						render={
-							<Button
-								variant="ghost"
-								size="icon"
-								className="size-6 text-muted-foreground"
-								aria-label={T.inspector.addToFolder}
-							/>
-						}
-					>
-						<IconPlus className="size-4" />
-					</DropdownMenuTrigger>
-					<DropdownMenuContent align="start">
-						{candidates.length === 0 ? (
-							<DropdownMenuItem disabled>
-								{T.assetMenu.noFolders}
-							</DropdownMenuItem>
-						) : (
-							candidates.map(({ node, depth }) => (
-								<DropdownMenuItem
-									key={node.id}
-									style={{ paddingLeft: 8 + depth * 12 }}
-									onClick={() =>
-										addMutation.mutate({
-											assetIds: [detail.id],
-											folderId: node.id,
-										})
-									}
-								>
-									{node.name}
-								</DropdownMenuItem>
-							))
-						)}
-					</DropdownMenuContent>
-				</DropdownMenu>
+				<Button
+					variant="ghost"
+					size="icon"
+					className="size-6 text-muted-foreground"
+					aria-label={T.inspector.addToFolder}
+					onClick={() => setPickerOpen(true)}
+				>
+					<IconPlus className="size-4" />
+				</Button>
 			</div>
+			<FolderPicker
+				open={pickerOpen}
+				onOpenChange={setPickerOpen}
+				assetIds={[detail.id]}
+			/>
 		</div>
 	);
 }

@@ -5,29 +5,19 @@
  * just the clicked card. Mounted only while the menu is open.
  */
 
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useMemo } from "react";
 import {
 	ContextMenuItem,
 	ContextMenuSeparator,
-	ContextMenuSub,
-	ContextMenuSubContent,
-	ContextMenuSubTrigger,
 } from "@/components/ui/context-menu";
 import { useExport } from "@/hooks/use-export";
-import { buildFolderTree, flattenFolderTree } from "@/lib/folder-tree";
 import {
 	revealAsset,
 	useRegenerateCover,
 	useRestoreAssets,
 	useTrashAssets,
 } from "@/lib/queries/assets";
-import {
-	foldersQueryOptions,
-	useAddAssetsToFolder,
-	useRemoveAssetsFromFolder,
-} from "@/lib/queries/folders";
+import { useRemoveAssetsFromFolder } from "@/lib/queries/folders";
 import { useSelectionStore } from "@/lib/stores/selection-store";
 import { T } from "@/lib/text";
 import { VIDEO_EXTS } from "@/lib/viewer-registry";
@@ -39,6 +29,8 @@ type AssetContextItemsProps = {
 	inTrash: boolean;
 	/** Set when the grid currently shows a folder view. */
 	currentFolderId: string | null;
+	/** Opens the folder picker for the given assets (state lives in the grid). */
+	onAddToFolder: (ids: string[]) => void;
 	onRequestDeleteForever: (ids: string[]) => void;
 };
 
@@ -60,20 +52,15 @@ export function AssetContextItems({
 	ext,
 	inTrash,
 	currentFolderId,
+	onAddToFolder,
 	onRequestDeleteForever,
 }: AssetContextItemsProps) {
 	const navigate = useNavigate();
 	const trashMutation = useTrashAssets();
 	const restoreMutation = useRestoreAssets();
-	const addMutation = useAddAssetsToFolder();
 	const removeMutation = useRemoveAssetsFromFolder();
 	const regenerateCover = useRegenerateCover();
 	const { exportAssets } = useExport();
-	const { data: folders } = useQuery(foldersQueryOptions());
-	const flat = useMemo(
-		() => flattenFolderTree(buildFolderTree(folders ?? [])),
-		[folders],
-	);
 
 	// Selection size at open time — the menu is mounted per open.
 	const count = targetIds(assetId).length;
@@ -101,31 +88,9 @@ export function AssetContextItems({
 
 	return (
 		<>
-			<ContextMenuSub>
-				<ContextMenuSubTrigger>
-					{withCount(T.assetMenu.addToFolder, count)}
-				</ContextMenuSubTrigger>
-				<ContextMenuSubContent>
-					{flat.length === 0 ? (
-						<ContextMenuItem disabled>{T.assetMenu.noFolders}</ContextMenuItem>
-					) : (
-						flat.map(({ node, depth }) => (
-							<ContextMenuItem
-								key={node.id}
-								style={{ paddingLeft: 8 + depth * 12 }}
-								onClick={() =>
-									addMutation.mutate({
-										assetIds: targetIds(assetId),
-										folderId: node.id,
-									})
-								}
-							>
-								{node.name}
-							</ContextMenuItem>
-						))
-					)}
-				</ContextMenuSubContent>
-			</ContextMenuSub>
+			<ContextMenuItem onClick={() => onAddToFolder(targetIds(assetId))}>
+				{withCount(T.assetMenu.addToFolder, count)}
+			</ContextMenuItem>
 			{currentFolderId && (
 				<ContextMenuItem
 					onClick={() =>
