@@ -44,6 +44,7 @@
 - **更新通知的先有鸡先有蛋**：自动检查功能随版本 N 首发，则只有「从 N 升 N+1」才能看到 toast；N−1 用户只能走 Preferences ▸ Check for Updates 手动升。发布任何「通知类」功能时主动向用户解释这一点，省一轮「为什么没反应」。
 - **updater 全链路清单**（漏任何一项就静默不工作）：`plugins.updater.pubkey + endpoints`（tauri.conf.json）→ `bundle.createUpdaterArtifacts: true` → capabilities `updater:default` + `process:allow-restart` → lib.rs 注册 updater + process 插件 → 前端只经 `lib/updater.ts`。
 - `releases/latest/download/latest.json` 只解析**已发布**的 release——draft 阶段 404 属预期。
+- **发版产物少了一半平台(release.yml)**：症状 = release 只有 ~10 个资产(缺 windows msi/setup + mac-x64 dmg/app),但每个 matrix job 都 `success`,job 日志里明明 `Uploading ...` 了。根因 = 旧 workflow 让**每个 matrix job 各自** `tauri-action` 带 `tagName + releaseDraft:true` 去建 draft → GitHub 允许**同一 tag 多个 draft**,四个 job 竞态各建各的,资产散落 + latest.json 只含各自平台。0.1.0–0.1.3 侥幸没触发,FTS 改动让编译耗时变化后触发。**排查**:`gh api repos/OWNER/REPO/releases --jq '.[]|select(.tag_name=="vX")|{id,draft,assets:(.assets|length)}'` 会看到同 tag 两个 release。**修复**(已落地):拆成 `create-release` 单 job 建一个 draft 输出 `release_id` → matrix job 用 `releaseId:` 上传到同一个 release(不再各自建),tauri-action 会把各平台合并进同一 latest.json。发版后务必核对资产数=17 且 latest.json 平台数=11,别只看 CI 绿。
 
 ## IPC / 导入管线
 
