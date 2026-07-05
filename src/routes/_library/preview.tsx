@@ -27,6 +27,7 @@ import {
 	CanvasViewer,
 	type ViewerHandle,
 } from "@/components/preview/canvas-viewer";
+import { HtmlViewer } from "@/components/preview/html-viewer";
 import { PdfViewer } from "@/components/preview/pdf-viewer";
 import { TextViewer } from "@/components/preview/text-viewer";
 import { VideoViewer } from "@/components/preview/video-viewer";
@@ -330,6 +331,8 @@ function PreviewBody({
 			return <AudioViewer assetId={asset.id} name={asset.name} />;
 		case "pdf":
 			return <PdfViewer assetId={asset.id} name={asset.name} />;
+		case "html":
+			return <HtmlViewer assetId={asset.id} name={asset.name} />;
 		case "markdown":
 		case "text":
 			return <TextViewer assetId={asset.id} markdown={kind === "markdown"} />;

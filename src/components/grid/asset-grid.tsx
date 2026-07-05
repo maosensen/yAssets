@@ -341,6 +341,7 @@ export function AssetGrid({
 												name={asset.name}
 												ext={asset.ext}
 												hasThumb={asset.has_thumb}
+												durationMs={asset.duration_ms}
 												width={item.width}
 												imageHeight={item.imageHeight}
 												captionHeight={CAPTION_HEIGHT}

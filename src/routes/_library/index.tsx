@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EmptyState } from "@/components/empty-state";
 import { AssetGrid } from "@/components/grid/asset-grid";
 import { GridEmptyState } from "@/components/grid/grid-empty-state";
+import { SubfolderStrip } from "@/components/grid/subfolder-strip";
 import {
 	type IconComponent,
 	IconFolderOpen,
@@ -259,30 +260,33 @@ function LibraryHome() {
 				</div>
 			)}
 
-			<div className="min-h-0 flex-1">
-				{!data ? null : data.items.length === 0 ? (
-					emptyState ? (
-						<EmptyState
-							icon={emptyState.icon}
-							title={emptyState.copy.title}
-							hint={emptyState.copy.hint}
-						/>
+			<div className="flex min-h-0 flex-1 flex-col">
+				{currentFolderId && <SubfolderStrip folderId={currentFolderId} />}
+				<div className="min-h-0 flex-1">
+					{!data ? null : data.items.length === 0 ? (
+						emptyState ? (
+							<EmptyState
+								icon={emptyState.icon}
+								title={emptyState.copy.title}
+								hint={emptyState.copy.hint}
+							/>
+						) : (
+							<GridEmptyState
+								importing={isImporting}
+								onImportFiles={() => void importFiles()}
+								onImportFolder={() => void importFolder()}
+							/>
+						)
 					) : (
-						<GridEmptyState
-							importing={isImporting}
-							onImportFiles={() => void importFiles()}
-							onImportFolder={() => void importFolder()}
+						<AssetGrid
+							assets={data.items}
+							onOpen={openPreview}
+							inTrash={inTrash}
+							currentFolderId={currentFolderId}
+							onRequestDeleteForever={setDeleteForeverIds}
 						/>
-					)
-				) : (
-					<AssetGrid
-						assets={data.items}
-						onOpen={openPreview}
-						inTrash={inTrash}
-						currentFolderId={currentFolderId}
-						onRequestDeleteForever={setDeleteForeverIds}
-					/>
-				)}
+					)}
+				</div>
 			</div>
 
 			{quickAsset && (

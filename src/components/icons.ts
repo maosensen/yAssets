@@ -18,6 +18,7 @@ export { default as IconFolderAdd } from "~icons/solar/add-folder-line-duotone";
 // Navigation / chrome
 export { default as IconChevronLeft } from "~icons/solar/alt-arrow-left-line-duotone";
 export { default as IconChevronRight } from "~icons/solar/alt-arrow-right-line-duotone";
+export { default as IconArchive } from "~icons/solar/archive-line-duotone";
 // Status (toasts, error page, menu indicators)
 export {
 	default as IconSuccess,
@@ -25,18 +26,25 @@ export {
 } from "~icons/solar/check-circle-line-duotone";
 export { default as IconRecent } from "~icons/solar/clock-circle-line-duotone";
 export { default as IconClose } from "~icons/solar/close-circle-line-duotone";
+export { default as IconCode } from "~icons/solar/code-line-duotone";
 export { default as IconCopy } from "~icons/solar/copy-line-duotone";
 export { default as IconError } from "~icons/solar/danger-circle-line-duotone";
 export { default as IconWarning } from "~icons/solar/danger-triangle-line-duotone";
 export { default as IconFileText } from "~icons/solar/document-text-line-duotone";
 export { default as IconExport } from "~icons/solar/export-line-duotone";
+// File-type placeholders (grid cards for assets without a thumbnail)
+export { default as IconFile } from "~icons/solar/file-line-duotone";
+export { default as IconPdf } from "~icons/solar/file-text-line-duotone";
 export { default as IconFilter } from "~icons/solar/filter-line-duotone";
 // Folders
 export { default as IconFolder } from "~icons/solar/folder-line-duotone";
 export { default as IconFolderOpen } from "~icons/solar/folder-open-line-duotone";
 export { default as IconImportImages } from "~icons/solar/gallery-add-line-duotone";
 // Smart views / sidebar
-export { default as IconAll } from "~icons/solar/gallery-line-duotone";
+export {
+	default as IconImageFile,
+	default as IconAll,
+} from "~icons/solar/gallery-line-duotone";
 export { default as IconHome } from "~icons/solar/home-2-line-duotone";
 export { default as IconUncategorized } from "~icons/solar/inbox-line-duotone";
 export { default as IconInfo } from "~icons/solar/info-circle-line-duotone";
@@ -61,3 +69,4 @@ export { default as IconTag } from "~icons/solar/tag-line-duotone";
 export { default as IconSwitcher } from "~icons/solar/transfer-vertical-line-duotone";
 export { default as IconTrash } from "~icons/solar/trash-bin-trash-line-duotone";
 export { default as IconRestore } from "~icons/solar/undo-left-round-line-duotone";
+export { default as IconVideo } from "~icons/solar/videocamera-line-duotone";

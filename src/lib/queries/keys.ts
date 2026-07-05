@@ -31,6 +31,9 @@ export const assetKeys = {
 
 export const folderKeys = {
 	all: ["folders"] as const,
+	/** Per-folder item/size aggregate (prefixed by `all`, so folder/asset
+	 *  invalidations catch it). */
+	stats: (id: string) => ["folders", "stats", id] as const,
 };
 
 export const smartFolderKeys = {

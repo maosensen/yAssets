@@ -29,3 +29,16 @@ export function formatDateTime(ms: number | null | undefined): string {
 	if (ms == null) return "—";
 	return formatDate(new Date(ms), "yyyy-MM-dd HH:mm");
 }
+
+/** `00:08` / `1:03:20` from milliseconds; `null` when unknown. `<= 0` counts
+ *  as unknown — the worker stores 0 for videos whose length it can't probe. */
+export function formatDuration(ms: number | null | undefined): string | null {
+	if (ms == null || !Number.isFinite(ms) || ms <= 0) return null;
+	const total = Math.round(ms / 1000);
+	const hours = Math.floor(total / 3600);
+	const minutes = Math.floor((total % 3600) / 60);
+	const seconds = total % 60;
+	const mm = String(minutes).padStart(2, "0");
+	const ss = String(seconds).padStart(2, "0");
+	return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
+}

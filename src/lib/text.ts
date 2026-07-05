@@ -170,6 +170,9 @@ export const T = {
 		smartFallback: "Smart Folder",
 		searchPrefix: (q: string) => `Search: ${q}`,
 	},
+	folderStrip: {
+		subfolders: (n: number) => `${n === 1 ? "Subfolder" : "Subfolders"} (${n})`,
+	},
 	tags: {
 		addPlaceholder: "Search or create a tag…",
 		newTag: "New Tag",
@@ -195,7 +198,7 @@ export const T = {
 			hint: "Nothing matches your search. Try different keywords.",
 		},
 		folderEmpty: {
-			title: "Empty Folder",
+			title: "No Files Here",
 			hint: "Drop files here, or drag cards from other views into this folder.",
 		},
 		uncategorizedEmpty: {
@@ -313,6 +316,9 @@ export const T = {
 		exportAction: "Export",
 		exportSoon: "Coming soon",
 		itemCount: (n: number) => counted(n, "item"),
+		// Folder info panel
+		folderItems: "Items",
+		folderDescPlaceholder: "Add a description…",
 	},
 	drag: {
 		count: (n: number) => counted(n, "item"),

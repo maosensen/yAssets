@@ -7,9 +7,14 @@
  */
 
 import { memo, useState } from "react";
+import { formatDuration } from "@/lib/format";
 import { thumbUrl } from "@/lib/media";
 import { useSelectionStore } from "@/lib/stores/selection-store";
 import { cn } from "@/lib/utils";
+import { iconForExt, VIDEO_EXTS } from "@/lib/viewer-registry";
+
+/** Extensions common enough that a type chip would be visual noise. */
+const CHIP_HIDDEN_EXTS = new Set(["png", "jpg", "jpeg"]);
 
 export type SelectModifiers = {
 	/** Cmd/Ctrl — toggle membership. */
@@ -23,6 +28,8 @@ type AssetCardProps = {
 	name: string;
 	ext: string;
 	hasThumb: boolean;
+	/** Source video duration in ms — renders a badge on video cards. */
+	durationMs?: number | null;
 	/** Layout box width in px (the wrapper positions the card). */
 	width: number;
 	imageHeight: number;
@@ -42,6 +49,7 @@ export const AssetCard = memo(function AssetCard({
 	name,
 	ext,
 	hasThumb,
+	durationMs,
 	width,
 	imageHeight,
 	captionHeight,
@@ -53,6 +61,12 @@ export const AssetCard = memo(function AssetCard({
 }: AssetCardProps) {
 	const selected = useSelectionStore((state) => state.selectedIds.has(id));
 	const [broken, setBroken] = useState(false);
+	const normalizedExt = ext.toLowerCase();
+	const showChip = ext !== "" && !CHIP_HIDDEN_EXTS.has(normalizedExt);
+	const duration = VIDEO_EXTS.has(normalizedExt)
+		? formatDuration(durationMs)
+		: null;
+	const TypeIcon = iconForExt(ext);
 
 	return (
 		<button
@@ -91,10 +105,20 @@ export const AssetCard = memo(function AssetCard({
 					/>
 				) : (
 					<div className="flex h-full w-full items-center justify-center">
-						<span className="rounded bg-background/70 px-2 py-1 font-medium text-muted-foreground text-xs uppercase">
-							{ext || "?"}
-						</span>
+						<TypeIcon className="size-10 text-muted-foreground" />
 					</div>
+				)}
+				{/* File-type chip — every card except the ubiquitous png/jpg. */}
+				{showChip && (
+					<span className="absolute top-1 left-1 rounded bg-background/80 px-1 py-0.5 font-medium text-[9px] text-foreground uppercase leading-none">
+						{ext}
+					</span>
+				)}
+				{/* Duration badge for videos with a probed length. */}
+				{duration && (
+					<span className="absolute right-1 bottom-1 rounded bg-background/80 px-1 py-0.5 font-medium text-[9px] text-foreground tabular-nums leading-none">
+						{duration}
+					</span>
 				)}
 			</div>
 			<span

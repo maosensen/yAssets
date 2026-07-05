@@ -14,6 +14,7 @@ function row(id: string, parent: string | null, name: string): Folder {
 		position: 0,
 		asset_count: 0,
 		created_at: 0,
+		description: null,
 	};
 }
 

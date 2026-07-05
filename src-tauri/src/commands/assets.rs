@@ -80,6 +80,8 @@ pub struct AssetSummary {
     pub rating: u8,
     /// Unix ms.
     pub imported_at: f64,
+    /// Source video duration in ms; None for non-video / not-yet-probed.
+    pub duration_ms: Option<f64>,
 }
 
 #[derive(Debug, Serialize, specta::Type)]
@@ -137,7 +139,7 @@ pub struct AssetPatch {
 }
 
 pub(crate) const SUMMARY_COLS: &str =
-    "id, name, ext, size, width, height, has_thumb, rating, imported_at";
+    "id, name, ext, size, width, height, has_thumb, rating, imported_at, duration_ms";
 
 pub(crate) fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<AssetSummary> {
     Ok(AssetSummary {
@@ -150,6 +152,7 @@ pub(crate) fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Asse
         has_thumb: row.get(6)?,
         rating: row.get::<_, i64>(7)? as u8,
         imported_at: row.get::<_, i64>(8)? as f64,
+        duration_ms: row.get::<_, Option<i64>>(9)?.map(|v| v as f64),
     })
 }
 

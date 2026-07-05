@@ -20,6 +20,17 @@ pub struct Folder {
     pub asset_count: u32,
     /// Unix ms.
     pub created_at: f64,
+    /// User notes shown in the folder info panel; None/empty = unset.
+    pub description: Option<String>,
+}
+
+/// Aggregate for the folder info panel — direct members only (matches the
+/// folder grid view and `asset_count`).
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct FolderStats {
+    pub item_count: u32,
+    /// Total bytes of the direct alive members.
+    pub total_size: f64,
 }
 
 fn folder_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Folder> {
@@ -30,6 +41,7 @@ fn folder_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Folder> {
         position: row.get::<_, i64>(3)? as u32,
         asset_count: row.get::<_, i64>(4)? as u32,
         created_at: row.get::<_, i64>(5)? as f64,
+        description: row.get(6)?,
     })
 }
 
@@ -37,7 +49,7 @@ const FOLDER_SELECT: &str = "SELECT f.id, f.parent_id, f.name, f.position,
        (SELECT COUNT(*) FROM asset_folders af
           JOIN assets a ON a.id = af.asset_id
          WHERE af.folder_id = f.id AND a.deleted_at IS NULL) AS asset_count,
-       f.created_at
+       f.created_at, f.description
   FROM folders f";
 
 /// Flat folder list, siblings ordered by manual position then name.
@@ -54,6 +66,66 @@ pub async fn list_folders(state: tauri::State<'_, AppState>) -> AppResult<Vec<Fo
                 .query_map([], folder_from_row)?
                 .collect::<rusqlite::Result<Vec<_>>>()?;
             Ok(folders)
+        })
+        .await
+}
+
+fn compute_folder_stats(
+    conn: &rusqlite::Connection,
+    folder_id: &str,
+) -> rusqlite::Result<FolderStats> {
+    let (count, size) = conn.query_row(
+        "SELECT COUNT(*), COALESCE(SUM(a.size), 0)
+           FROM asset_folders af
+           JOIN assets a ON a.id = af.asset_id
+          WHERE af.folder_id = ?1 AND a.deleted_at IS NULL",
+        [folder_id],
+        |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)),
+    )?;
+    Ok(FolderStats {
+        item_count: count as u32,
+        total_size: size as f64,
+    })
+}
+
+/// Direct-member aggregate (count + total bytes) for the folder info panel.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_folder_stats(
+    folder_id: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<FolderStats> {
+    let library = state.current_library()?;
+    library
+        .read(move |conn| Ok(compute_folder_stats(conn, &folder_id)?))
+        .await
+}
+
+/// Set (or clear, via empty string) a folder's description.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_folder_description(
+    id: String,
+    description: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Folder> {
+    let library = state.current_library()?;
+    library
+        .write(move |conn| {
+            let trimmed = description.trim();
+            let value: Option<&str> = if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            };
+            let changed = conn.execute(
+                "UPDATE folders SET description = ?2, updated_at = ?3 WHERE id = ?1",
+                rusqlite::params![id, value, now_ms()],
+            )?;
+            if changed == 0 {
+                return Err(AppError::NotFound(format!("folder {id}")));
+            }
+            one_folder(conn, &id)
         })
         .await
 }
@@ -315,6 +387,69 @@ mod tests {
                 "fb000000000000000002",
                 "fa000000000000000001"
             )?);
+            Ok(())
+        })
+        .expect("reader");
+    }
+
+    #[test]
+    fn folder_stats_counts_direct_alive_members_only() {
+        let (_tmp, lib) = lib();
+        insert_folder(&lib, "fa000000000000000001", None, "A");
+        insert_folder(&lib, "fb000000000000000002", None, "B");
+        lib.with_writer(|conn| {
+            // Two alive assets (100 + 250 B) and one trashed (999 B) in A;
+            // one alive asset in B that must not leak into A's totals.
+            conn.execute_batch(
+                "INSERT INTO assets (id, name, ext, size, hash_blake3, rel_path, imported_at, updated_at)
+                 VALUES ('aa000000000000000001','a','png',100,'h1','assets/aa/a.png',0,0),
+                        ('aa000000000000000002','b','png',250,'h2','assets/aa/b.png',0,0),
+                        ('aa000000000000000003','c','png',999,'h3','assets/aa/c.png',0,10),
+                        ('aa000000000000000004','d','png',500,'h4','assets/aa/d.png',0,0);
+                 UPDATE assets SET deleted_at = 5 WHERE id = 'aa000000000000000003';
+                 INSERT INTO asset_folders (asset_id, folder_id, added_at) VALUES
+                        ('aa000000000000000001','fa000000000000000001',0),
+                        ('aa000000000000000002','fa000000000000000001',0),
+                        ('aa000000000000000003','fa000000000000000001',0),
+                        ('aa000000000000000004','fb000000000000000002',0);",
+            )?;
+            Ok(())
+        })
+        .expect("seed");
+
+        lib.with_reader(|conn| {
+            let a = compute_folder_stats(conn, "fa000000000000000001")?;
+            assert_eq!(a.item_count, 2);
+            assert_eq!(a.total_size, 350.0);
+            // Empty folder aggregates to zero (no NULL SUM).
+            let empty = compute_folder_stats(conn, "fnone00000000000000")?;
+            assert_eq!(empty.item_count, 0);
+            assert_eq!(empty.total_size, 0.0);
+            Ok(())
+        })
+        .expect("reader");
+    }
+
+    #[test]
+    fn folder_select_round_trips_description() {
+        let (_tmp, lib) = lib();
+        insert_folder(&lib, "fa000000000000000001", None, "A");
+        lib.with_writer(|conn| {
+            conn.execute(
+                "UPDATE folders SET description = ?2 WHERE id = ?1",
+                rusqlite::params!["fa000000000000000001", "release assets"],
+            )?;
+            Ok(())
+        })
+        .expect("write");
+        lib.with_reader(|conn| {
+            // Exercises FOLDER_SELECT + folder_from_row's description column.
+            let folder = conn.query_row(
+                &format!("{FOLDER_SELECT} WHERE f.id = ?1"),
+                ["fa000000000000000001"],
+                folder_from_row,
+            )?;
+            assert_eq!(folder.description.as_deref(), Some("release assets"));
             Ok(())
         })
         .expect("reader");

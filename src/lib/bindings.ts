@@ -116,8 +116,12 @@ export const commands = {
 	deleteSmartFolder: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_smart_folder", { id })),
 	/**  Flat folder list, siblings ordered by manual position then name. */
 	listFolders: () => typedError<Folder[], AppError>(__TAURI_INVOKE("list_folders")),
+	/**  Direct-member aggregate (count + total bytes) for the folder info panel. */
+	getFolderStats: (folderId: string) => typedError<FolderStats, AppError>(__TAURI_INVOKE("get_folder_stats", { folderId })),
 	createFolder: (name: string, parentId: string | null) => typedError<Folder, AppError>(__TAURI_INVOKE("create_folder", { name, parentId })),
 	renameFolder: (id: string, name: string) => typedError<Folder, AppError>(__TAURI_INVOKE("rename_folder", { id, name })),
+	/**  Set (or clear, via empty string) a folder's description. */
+	setFolderDescription: (id: string, description: string) => typedError<Folder, AppError>(__TAURI_INVOKE("set_folder_description", { id, description })),
 	moveFolder: (id: string, newParentId: string | null, position: number) => typedError<null, AppError>(__TAURI_INVOKE("move_folder", { id, newParentId, position })),
 	/**
 	 *  Delete a folder and its whole subtree. Assets are never deleted — their
@@ -259,6 +263,8 @@ export type AssetSummary = {
 	rating: number,
 	/**  Unix ms. */
 	imported_at: number | null,
+	/**  Source video duration in ms; None for non-video / not-yet-probed. */
+	duration_ms: number | null,
 };
 
 /**
@@ -294,6 +300,18 @@ export type Folder = {
 	asset_count: number,
 	/**  Unix ms. */
 	created_at: number | null,
+	/**  User notes shown in the folder info panel; None/empty = unset. */
+	description: string | null,
+};
+
+/**
+ *  Aggregate for the folder info panel — direct members only (matches the
+ *  folder grid view and `asset_count`).
+ */
+export type FolderStats = {
+	item_count: number,
+	/**  Total bytes of the direct alive members. */
+	total_size: number | null,
 };
 
 /**  One file that could not be imported, with a user-displayable reason. */

@@ -23,6 +23,13 @@ export function foldersQueryOptions() {
 	});
 }
 
+export function folderStatsQueryOptions(folderId: string) {
+	return queryOptions({
+		queryKey: folderKeys.stats(folderId),
+		queryFn: async () => unwrap(await commands.getFolderStats(folderId)),
+	});
+}
+
 function invalidateFolders(queryClient: QueryClient) {
 	void queryClient.invalidateQueries({ queryKey: folderKeys.all });
 	void queryClient.invalidateQueries({ queryKey: libraryKeys.stats });
@@ -50,6 +57,16 @@ export function useRenameFolder() {
 	return useMutation({
 		mutationFn: async (input: { id: string; name: string }) =>
 			unwrap(await commands.renameFolder(input.id, input.name)),
+		onSuccess: () => invalidateFolders(queryClient),
+		onError: onToastError,
+	});
+}
+
+export function useSetFolderDescription() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async (input: { id: string; description: string }) =>
+			unwrap(await commands.setFolderDescription(input.id, input.description)),
 		onSuccess: () => invalidateFolders(queryClient),
 		onError: onToastError,
 	});

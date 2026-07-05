@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { viewerKindFor } from "./viewer-registry";
+import { iconForExt, viewerKindFor } from "./viewer-registry";
 
 const base = {
 	ext: "",
@@ -72,10 +72,27 @@ test("pdf maps to the inline pdf viewer", () => {
 	).toBe("pdf");
 });
 
+test("html renders as a document, not as source text", () => {
+	expect(viewerKindFor({ ...base, ext: "html" })).toBe("html");
+	expect(viewerKindFor({ ...base, ext: "HTM".toLowerCase() })).toBe("html");
+});
+
 test("unknown extensions fall back — unless the mime says text", () => {
 	expect(viewerKindFor({ ...base, ext: "blend" })).toBe("fallback");
 	expect(
 		viewerKindFor({ ...base, ext: "unknownext", mime: "text/x-custom" }),
 	).toBe("text");
 	expect(viewerKindFor({ ...base, ext: "" })).toBe("fallback");
+});
+
+test("iconForExt picks a per-type glyph by category", () => {
+	// Same category → same component instance (identity check).
+	expect(iconForExt("mp4")).toBe(iconForExt("mov"));
+	expect(iconForExt("mp3")).toBe(iconForExt("flac"));
+	expect(iconForExt("ts")).toBe(iconForExt("html"));
+	// Distinct categories → distinct glyphs.
+	expect(iconForExt("mp4")).not.toBe(iconForExt("mp3"));
+	expect(iconForExt("pdf")).not.toBe(iconForExt("zip"));
+	// Unknown extension → generic file glyph, distinct from typed ones.
+	expect(iconForExt("xyzzy")).not.toBe(iconForExt("mp4"));
 });

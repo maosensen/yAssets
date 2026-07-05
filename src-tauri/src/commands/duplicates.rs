@@ -24,6 +24,38 @@ pub struct DuplicateScan {
     pub visual: Vec<Vec<AssetSummary>>,
 }
 
+/// Exact-duplicate groups: alive assets sharing a blake3 hash, each group
+/// ordered oldest-first. Reads the hash by column NAME (not index) so a change
+/// to `SUMMARY_COLS`'s width can't silently shift the read.
+fn exact_duplicate_groups(conn: &rusqlite::Connection) -> rusqlite::Result<Vec<Vec<AssetSummary>>> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {SUMMARY_COLS}, hash_blake3 FROM assets
+         WHERE deleted_at IS NULL AND hash_blake3 IN (
+           SELECT hash_blake3 FROM assets
+           WHERE deleted_at IS NULL
+           GROUP BY hash_blake3 HAVING COUNT(*) > 1
+         )
+         ORDER BY hash_blake3, imported_at"
+    ))?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((summary_from_row(row)?, row.get::<_, String>("hash_blake3")?))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut exact: Vec<Vec<AssetSummary>> = Vec::new();
+    let mut last_hash: Option<String> = None;
+    for (summary, hash) in rows {
+        if last_hash.as_deref() != Some(hash.as_str()) {
+            exact.push(Vec::new());
+            last_hash = Some(hash);
+        }
+        if let Some(group) = exact.last_mut() {
+            group.push(summary);
+        }
+    }
+    Ok(exact)
+}
+
 /// Scan the whole library for exact and visual duplicates.
 #[tauri::command]
 #[specta::specta]
@@ -31,32 +63,7 @@ pub async fn scan_duplicates(state: tauri::State<'_, AppState>) -> AppResult<Dup
     let library = state.current_library()?;
     library
         .read(|conn| {
-            // --- Exact: one query, grouped in memory by hash. -------------
-            let mut stmt = conn.prepare(&format!(
-                "SELECT {SUMMARY_COLS}, hash_blake3 FROM assets
-                 WHERE deleted_at IS NULL AND hash_blake3 IN (
-                   SELECT hash_blake3 FROM assets
-                   WHERE deleted_at IS NULL
-                   GROUP BY hash_blake3 HAVING COUNT(*) > 1
-                 )
-                 ORDER BY hash_blake3, imported_at"
-            ))?;
-            let rows = stmt
-                .query_map([], |row| {
-                    Ok((summary_from_row(row)?, row.get::<_, String>(9)?))
-                })?
-                .collect::<rusqlite::Result<Vec<_>>>()?;
-            let mut exact: Vec<Vec<AssetSummary>> = Vec::new();
-            let mut last_hash: Option<String> = None;
-            for (summary, hash) in rows {
-                if last_hash.as_deref() != Some(hash.as_str()) {
-                    exact.push(Vec::new());
-                    last_hash = Some(hash);
-                }
-                if let Some(group) = exact.last_mut() {
-                    group.push(summary);
-                }
-            }
+            let exact = exact_duplicate_groups(conn)?;
 
             // --- Visual: union-find over per-hash representatives. --------
             let mut stmt = conn.prepare(
@@ -162,10 +169,42 @@ fn cluster_by_distance(reps: &[(String, u64)], max_distance: u32) -> Vec<Vec<Str
 
 #[cfg(test)]
 mod tests {
-    use super::cluster_by_distance;
+    use super::{cluster_by_distance, exact_duplicate_groups};
+    use crate::library::Library;
 
     fn ids(cluster: &[String]) -> Vec<&str> {
         cluster.iter().map(String::as_str).collect()
+    }
+
+    /// Guards the `SELECT {SUMMARY_COLS}, hash_blake3` column read against
+    /// SUMMARY_COLS width drift (a duration_ms addition once shifted the hash).
+    #[test]
+    fn exact_groups_read_hash_after_summary_cols() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let lib = Library::create(&tmp.path().join("Lib")).expect("create");
+        lib.with_writer(|conn| {
+            // Two byte-identical assets (shared hash 'dup') + one unique.
+            conn.execute_batch(
+                "INSERT INTO assets (id, name, ext, size, hash_blake3, rel_path, imported_at, updated_at)
+                 VALUES ('aa000000000000000001','a','png',10,'dup','assets/aa/a.png',1,0),
+                        ('aa000000000000000002','b','png',10,'dup','assets/aa/b.png',2,0),
+                        ('aa000000000000000003','c','png',10,'uniq','assets/aa/c.png',3,0);",
+            )?;
+            Ok(())
+        })
+        .expect("seed");
+
+        lib.with_reader(|conn| {
+            let groups = exact_duplicate_groups(conn)?;
+            assert_eq!(groups.len(), 1, "one duplicate group");
+            let g = &groups[0];
+            assert_eq!(g.len(), 2);
+            // Oldest-first ordering by imported_at.
+            assert_eq!(g[0].id, "aa000000000000000001");
+            assert_eq!(g[1].id, "aa000000000000000002");
+            Ok(())
+        })
+        .expect("reader");
     }
 
     #[test]

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { formatBytes, formatDateTime, formatDimensions } from "./format";
+import {
+	formatBytes,
+	formatDateTime,
+	formatDimensions,
+	formatDuration,
+} from "./format";
 
 describe("formatBytes", () => {
 	it("handles the unit ladder", () => {
@@ -28,6 +33,25 @@ describe("formatDimensions", () => {
 	it("returns null when either side is missing", () => {
 		expect(formatDimensions(null, 600)).toBeNull();
 		expect(formatDimensions(800, null)).toBeNull();
+	});
+});
+
+describe("formatDuration", () => {
+	it("zero-pads mm:ss and adds hours only when needed", () => {
+		expect(formatDuration(8_000)).toBe("00:08");
+		expect(formatDuration(63_000)).toBe("01:03");
+		expect(formatDuration(3_803_000)).toBe("1:03:23");
+	});
+	it("rounds to the nearest second", () => {
+		expect(formatDuration(8_600)).toBe("00:09");
+	});
+	it("returns null for unknown or garbage input", () => {
+		expect(formatDuration(null)).toBeNull();
+		expect(formatDuration(undefined)).toBeNull();
+		expect(formatDuration(-1)).toBeNull();
+		expect(formatDuration(Number.NaN)).toBeNull();
+		// 0 = length couldn't be probed → no badge, not "00:00".
+		expect(formatDuration(0)).toBeNull();
 	});
 });
 

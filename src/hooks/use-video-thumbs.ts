@@ -27,6 +27,9 @@ import { unwrap } from "@/lib/tauri";
 
 const CAPTURE_TIMEOUT_MS = 20_000;
 const TARGET_EDGE = 512;
+/** Capture several covers at once so a fresh library fills fast (and one
+ *  slow/hung file can't stall the whole queue behind its 20s timeout). */
+const CAPTURE_CONCURRENCY = 3;
 
 type Frame = {
 	base64: string;
@@ -46,30 +49,47 @@ export function useVideoThumbWorker() {
 		running.current = true;
 		try {
 			const ids = unwrap(await commands.listVideoThumbCandidates());
-			let stored = 0;
-			for (const id of ids) {
-				if (failed.current.has(id)) continue;
-				try {
-					const frame = await captureFrame(id);
-					unwrap(
-						await commands.setVideoThumbnail(
-							id,
-							frame.base64,
-							frame.width,
-							frame.height,
-							frame.durationMs,
-						),
-					);
-					stored += 1;
-				} catch (error) {
-					failed.current.add(id);
-					logger.warn({ id, error }, "video cover capture failed");
-				}
-			}
-			if (stored > 0) {
+			const queue = ids.filter((id) => !failed.current.has(id));
+			let cursor = 0;
+			let pendingRefresh = 0;
+
+			const refresh = () => {
+				pendingRefresh = 0;
 				void queryClient.invalidateQueries({ queryKey: assetKeys.all });
 				void queryClient.invalidateQueries({ queryKey: libraryKeys.stats });
-			}
+			};
+
+			// Bounded pool: workers pull from a shared cursor until drained.
+			const worker = async () => {
+				while (cursor < queue.length) {
+					const id = queue[cursor++];
+					try {
+						const frame = await captureFrame(id);
+						unwrap(
+							await commands.setVideoThumbnail(
+								id,
+								frame.base64,
+								frame.width,
+								frame.height,
+								frame.durationMs,
+							),
+						);
+						// Surface covers progressively without spamming refetches.
+						if (++pendingRefresh >= CAPTURE_CONCURRENCY) refresh();
+					} catch (error) {
+						failed.current.add(id);
+						logger.warn({ id, error }, "video cover capture failed");
+					}
+				}
+			};
+
+			await Promise.all(
+				Array.from(
+					{ length: Math.min(CAPTURE_CONCURRENCY, queue.length) },
+					() => worker(),
+				),
+			);
+			if (pendingRefresh > 0) refresh();
 		} catch (error) {
 			logger.warn({ error }, "video cover queue failed");
 		} finally {

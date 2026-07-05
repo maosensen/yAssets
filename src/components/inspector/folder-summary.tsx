@@ -19,6 +19,7 @@ import { foldersQueryOptions } from "@/lib/queries/folders";
 import { libraryStatsQueryOptions } from "@/lib/queries/library";
 import { tagsQueryOptions } from "@/lib/queries/tags";
 import { T } from "@/lib/text";
+import { FolderDetails } from "./folder-details";
 
 export function FolderSummary() {
 	// Also rendered under /preview (same layout) — fall back to "all".
@@ -26,6 +27,13 @@ export function FolderSummary() {
 	const { data: stats } = useQuery(libraryStatsQueryOptions());
 	const { data: folders } = useQuery(foldersQueryOptions());
 	const { data: tags } = useQuery(tagsQueryOptions());
+
+	// A folder view gets the full Eagle-style info panel (name/description/
+	// properties/export) instead of the generic empty-state summary.
+	if (search?.view === "folder" && search.folderId) {
+		const folder = folders?.find((f) => f.id === search.folderId);
+		if (folder) return <FolderDetails folder={folder} />;
+	}
 
 	const {
 		icon,

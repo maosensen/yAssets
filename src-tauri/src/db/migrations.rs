@@ -111,6 +111,11 @@ CREATE TABLE smart_folders (
     r#"
 ALTER TABLE assets ADD COLUMN url TEXT;
 "#,
+    // v6 — folder description (Eagle-style notes shown in the folder info
+    // panel). NULL/empty = none.
+    r#"
+ALTER TABLE folders ADD COLUMN description TEXT;
+"#,
 ];
 
 /// Current schema version an up-to-date library sits at.
