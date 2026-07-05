@@ -24,6 +24,7 @@ import {
 	type SortKey,
 } from "@/lib/bindings";
 import { describeError } from "@/lib/errors";
+import { extsForKinds } from "@/lib/file-kinds";
 import { type LibraryView, scopeFromView } from "@/lib/library-view";
 import { useCoverBustStore } from "@/lib/stores/cover-bust-store";
 import { unwrap } from "@/lib/tauri";
@@ -36,6 +37,10 @@ const FULL_FETCH_LIMIT = 50_000;
 export type AssetListParams = {
 	scope: AssetScope;
 	search?: string;
+	/** Ad-hoc facets applied on top of scope (orthogonal). */
+	ratingMin?: number;
+	types?: string[];
+	tags?: string[];
 	sort: SortKey;
 	dir: SortDir;
 };
@@ -68,6 +73,15 @@ export function assetListQueryOptions(params: AssetListParams) {
 		params.scope,
 	);
 	const search = params.search?.trim() || undefined;
+	// Normalize facets: drop empties, sort arrays so key/order is stable.
+	const ratingMin =
+		params.ratingMin && params.ratingMin > 0 ? params.ratingMin : undefined;
+	const types =
+		params.types && params.types.length > 0
+			? [...params.types].sort()
+			: undefined;
+	const tags =
+		params.tags && params.tags.length > 0 ? [...params.tags].sort() : undefined;
 	return queryOptions({
 		queryKey: assetKeys.list({
 			view,
@@ -76,6 +90,9 @@ export function assetListQueryOptions(params: AssetListParams) {
 			hue,
 			smartFolderId,
 			q: search,
+			ratingMin,
+			types,
+			tags,
 			sortBy: params.sort,
 			sortDir: params.dir,
 		}),
@@ -84,6 +101,9 @@ export function assetListQueryOptions(params: AssetListParams) {
 				await commands.listAssets({
 					scope: params.scope,
 					search: search ?? null,
+					rating_min: ratingMin ?? null,
+					types: types ?? null,
+					tag_ids: tags ?? null,
 					sort: params.sort,
 					dir: params.dir,
 					offset: null,
@@ -139,6 +159,9 @@ export function useLibraryAssetList(
 		...assetListQueryOptions({
 			scope: scopeFromView(view),
 			search: view.q,
+			ratingMin: view.rating,
+			types: extsForKinds(view.types),
+			tags: view.tags,
 			sort,
 			dir,
 		}),

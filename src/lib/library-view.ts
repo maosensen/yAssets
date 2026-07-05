@@ -32,6 +32,10 @@ export const libraryViewSchema = z.object({
 	/** Smart folder id for view=smart. */
 	smartId: z.string().optional(),
 	q: z.string().optional(),
+	/** Ad-hoc facets — orthogonal to `view`, stack on top of any scope. */
+	rating: z.coerce.number().int().min(1).max(5).optional(),
+	types: z.array(z.string()).optional(),
+	tags: z.array(z.string()).optional(),
 });
 
 export type LibraryView = z.infer<typeof libraryViewSchema>;

@@ -116,6 +116,32 @@ ALTER TABLE assets ADD COLUMN url TEXT;
     r#"
 ALTER TABLE folders ADD COLUMN description TEXT;
 "#,
+    // v7 — full-text search over name + note. External-content FTS5 keyed on
+    // the assets rowid (the TEXT id can't be an FTS rowid). Triggers keep it in
+    // sync — UPDATE only fires when name/note change (rating/folder edits don't
+    // touch it). Backfill existing rows. Soft-deleted rows stay indexed but are
+    // excluded by the caller's `deleted_at IS NULL` predicate.
+    r#"
+CREATE VIRTUAL TABLE assets_fts USING fts5(
+  name, note, content='assets', content_rowid='rowid'
+);
+INSERT INTO assets_fts (rowid, name, note)
+  SELECT rowid, name, COALESCE(note, '') FROM assets;
+CREATE TRIGGER assets_fts_ai AFTER INSERT ON assets BEGIN
+  INSERT INTO assets_fts (rowid, name, note)
+    VALUES (new.rowid, new.name, COALESCE(new.note, ''));
+END;
+CREATE TRIGGER assets_fts_ad AFTER DELETE ON assets BEGIN
+  INSERT INTO assets_fts (assets_fts, rowid, name, note)
+    VALUES ('delete', old.rowid, old.name, COALESCE(old.note, ''));
+END;
+CREATE TRIGGER assets_fts_au AFTER UPDATE OF name, note ON assets BEGIN
+  INSERT INTO assets_fts (assets_fts, rowid, name, note)
+    VALUES ('delete', old.rowid, old.name, COALESCE(old.note, ''));
+  INSERT INTO assets_fts (rowid, name, note)
+    VALUES (new.rowid, new.name, COALESCE(new.note, ''));
+END;
+"#,
 ];
 
 /// Current schema version an up-to-date library sits at.

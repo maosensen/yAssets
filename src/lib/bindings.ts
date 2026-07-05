@@ -219,8 +219,17 @@ export type AssetDetail = {
 
 export type AssetListQuery = {
 	scope: AssetScope,
-	/**  Filename substring filter (LIKE, `%_\` escaped). */
+	/**  Full-text query over name + note (FTS5). None/empty = no text filter. */
 	search: string | null,
+	/**
+	 *  Ad-hoc facets applied ON TOP of `scope` (orthogonal to it).
+	 *  Minimum star rating (inclusive).
+	 */
+	rating_min: number | null,
+	/**  Keep only these lowercase extensions (ANY-of). */
+	types: string[] | null,
+	/**  Keep assets carrying ANY of these tag ids. */
+	tag_ids: string[] | null,
 	sort: SortKey,
 	dir: SortDir,
 	/**

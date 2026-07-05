@@ -25,6 +25,10 @@ export const assetKeys = {
 		/** Smart-folder id for view=smart — without it every rule set collides. */
 		smartFolderId?: string;
 		q?: string;
+		/** Ad-hoc facets (orthogonal to view) — must be in the key too. */
+		ratingMin?: number;
+		types?: string[];
+		tags?: string[];
 		sortBy: string;
 		sortDir: string;
 	}) => ["assets", "list", params] as const,

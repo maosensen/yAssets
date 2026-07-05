@@ -55,8 +55,15 @@ pub enum SortDir {
 #[derive(Debug, Deserialize, specta::Type)]
 pub struct AssetListQuery {
     pub scope: AssetScope,
-    /// Filename substring filter (LIKE, `%_\` escaped).
+    /// Full-text query over name + note (FTS5). None/empty = no text filter.
     pub search: Option<String>,
+    /// Ad-hoc facets applied ON TOP of `scope` (orthogonal to it).
+    /// Minimum star rating (inclusive).
+    pub rating_min: Option<u8>,
+    /// Keep only these lowercase extensions (ANY-of).
+    pub types: Option<Vec<String>>,
+    /// Keep assets carrying ANY of these tag ids.
+    pub tag_ids: Option<Vec<String>>,
     pub sort: SortKey,
     pub dir: SortDir,
     /// Paged contract from day one; phase 1 fetches everything in one call
@@ -215,6 +222,23 @@ pub(crate) fn escape_like(term: &str) -> String {
         .replace('_', "\\_")
 }
 
+/// Turn free user text into a safe FTS5 MATCH string: split into alphanumeric
+/// tokens and quote each as a prefix term (`"tok"*`), AND-joined. Quoting means
+/// raw punctuation can never produce an FTS syntax error. None = no usable
+/// tokens (caller then applies no text filter).
+fn fts_match_query(term: &str) -> Option<String> {
+    let tokens: Vec<String> = term
+        .split(|c: char| !c.is_alphanumeric())
+        .filter(|t| !t.is_empty())
+        .map(|t| format!("\"{}\"*", t.replace('"', "\"\"")))
+        .collect();
+    if tokens.is_empty() {
+        None
+    } else {
+        Some(tokens.join(" "))
+    }
+}
+
 fn sort_sql(sort: SortKey, dir: SortDir) -> String {
     let column = match sort {
         SortKey::ImportedAt => "imported_at",
@@ -231,6 +255,73 @@ fn sort_sql(sort: SortKey, dir: SortDir) -> String {
     format!("{column} {dir}, id {dir}")
 }
 
+/// Build the `WHERE` clause + positional params for a list query: scope (smart
+/// folders load their rules via `conn`), then the FTS text search, then the
+/// faceted filters — appended in the order their params are pushed. Shared by
+/// `list_assets` and the test harness so both exercise the same logic.
+fn list_where(
+    conn: &rusqlite::Connection,
+    query: &AssetListQuery,
+) -> AppResult<(String, Vec<rusqlite::types::Value>)> {
+    let (predicate, mut params) = match &query.scope {
+        // Smart folders need the connection: load rules, translate.
+        AssetScope::SmartFolder { smart_folder_id } => {
+            let rules_json: String = conn
+                .query_row(
+                    "SELECT rules FROM smart_folders WHERE id = ?1",
+                    [smart_folder_id.as_str()],
+                    |row| row.get(0),
+                )
+                .map_err(|_| AppError::NotFound("smart folder not found".into()))?;
+            let rules: crate::commands::smart_folders::SmartRules =
+                serde_json::from_str(&rules_json)
+                    .map_err(|_| AppError::Conflict("invalid smart folder rules".into()))?;
+            crate::commands::smart_folders::rules_to_predicate(&rules)
+        }
+        other => scope_sql(other),
+    };
+    let mut where_clause = predicate;
+    // Text search → FTS5 over name+note (ranked, matches notes too). A term with
+    // no usable tokens (pure punctuation) is treated as no search rather than
+    // matching nothing.
+    if let Some(match_query) = query
+        .search
+        .as_deref()
+        .map(str::trim)
+        .filter(|t| !t.is_empty())
+        .and_then(fts_match_query)
+    {
+        where_clause.push_str(
+            " AND assets.rowid IN \
+             (SELECT rowid FROM assets_fts WHERE assets_fts MATCH ?)",
+        );
+        params.push(rusqlite::types::Value::Text(match_query));
+    }
+    // Faceted filters, appended after scope+search (positional params).
+    if let Some(min) = query.rating_min {
+        where_clause.push_str(" AND rating >= ?");
+        params.push(rusqlite::types::Value::Integer(i64::from(min)));
+    }
+    if let Some(types) = query.types.as_ref().filter(|t| !t.is_empty()) {
+        let placeholders = vec!["?"; types.len()].join(",");
+        where_clause.push_str(&format!(" AND LOWER(ext) IN ({placeholders})"));
+        for ext in types {
+            params.push(rusqlite::types::Value::Text(ext.to_lowercase()));
+        }
+    }
+    if let Some(tag_ids) = query.tag_ids.as_ref().filter(|t| !t.is_empty()) {
+        let placeholders = vec!["?"; tag_ids.len()].join(",");
+        where_clause.push_str(&format!(
+            " AND EXISTS (SELECT 1 FROM asset_tags at \
+             WHERE at.asset_id = assets.id AND at.tag_id IN ({placeholders}))"
+        ));
+        for id in tag_ids {
+            params.push(rusqlite::types::Value::Text(id.clone()));
+        }
+    }
+    Ok((where_clause, params))
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn list_assets(
@@ -240,36 +331,7 @@ pub async fn list_assets(
     let library = state.current_library()?;
     library
         .read(move |conn| {
-            let (predicate, mut params) = match &query.scope {
-                // Smart folders need the connection: load rules, translate.
-                AssetScope::SmartFolder { smart_folder_id } => {
-                    let rules_json: String = conn
-                        .query_row(
-                            "SELECT rules FROM smart_folders WHERE id = ?1",
-                            [smart_folder_id.as_str()],
-                            |row| row.get(0),
-                        )
-                        .map_err(|_| AppError::NotFound("smart folder not found".into()))?;
-                    let rules: crate::commands::smart_folders::SmartRules =
-                        serde_json::from_str(&rules_json)
-                            .map_err(|_| AppError::Conflict("invalid smart folder rules".into()))?;
-                    crate::commands::smart_folders::rules_to_predicate(&rules)
-                }
-                other => scope_sql(other),
-            };
-            let mut where_clause = predicate;
-            if let Some(term) = query
-                .search
-                .as_deref()
-                .map(str::trim)
-                .filter(|t| !t.is_empty())
-            {
-                where_clause.push_str(" AND name LIKE ? ESCAPE '\\'");
-                params.push(rusqlite::types::Value::Text(format!(
-                    "%{}%",
-                    escape_like(term)
-                )));
-            }
+            let (where_clause, params) = list_where(conn, &query)?;
 
             let total: u32 = conn.query_row(
                 &format!("SELECT COUNT(*) FROM assets WHERE {where_clause}"),
@@ -484,22 +546,9 @@ mod tests {
     }
 
     fn run_list(lib: &Library, query: AssetListQuery) -> AssetListResult {
-        // Reuse the command's inner logic synchronously via with_reader.
+        // Exercise the real WHERE builder (scope + FTS + facets) synchronously.
         lib.with_reader(|conn| {
-            let (predicate, mut params) = scope_sql(&query.scope);
-            let mut where_clause = predicate;
-            if let Some(term) = query
-                .search
-                .as_deref()
-                .map(str::trim)
-                .filter(|t| !t.is_empty())
-            {
-                where_clause.push_str(" AND name LIKE ? ESCAPE '\\'");
-                params.push(rusqlite::types::Value::Text(format!(
-                    "%{}%",
-                    escape_like(term)
-                )));
-            }
+            let (where_clause, params) = list_where(conn, &query).expect("build where");
             let total: u32 = conn.query_row(
                 &format!("SELECT COUNT(*) FROM assets WHERE {where_clause}"),
                 rusqlite::params_from_iter(params.iter()),
@@ -522,6 +571,9 @@ mod tests {
         AssetListQuery {
             scope,
             search: None,
+            rating_min: None,
+            types: None,
+            tag_ids: None,
             sort: SortKey::ImportedAt,
             dir: SortDir::Desc,
             offset: None,
@@ -563,38 +615,111 @@ mod tests {
     }
 
     #[test]
-    fn search_is_escaped_and_case_insensitive_default() {
+    fn fts_search_matches_name_and_note() {
         let (_tmp, lib) = seeded_library();
-        // `%` in the term must match literally, not as a wildcard.
-        let percent = run_list(
+        // Name token.
+        let by_name = run_list(
             &lib,
             AssetListQuery {
-                search: Some("100%".into()),
+                search: Some("delta".into()),
                 ..q(AssetScope::All)
             },
         );
-        assert_eq!(percent.total, 1);
-        assert_eq!(percent.items[0].name, "delta 100%");
+        assert_eq!(by_name.total, 1);
+        assert_eq!(by_name.items[0].name, "delta 100%");
+        // Prefix within a name ("beta" → beta_file).
+        assert_eq!(
+            run_list(
+                &lib,
+                AssetListQuery {
+                    search: Some("beta".into()),
+                    ..q(AssetScope::All)
+                }
+            )
+            .total,
+            1
+        );
+        // Note content is searchable (the whole point of the FTS migration).
+        lib.with_writer(|conn| {
+            conn.execute(
+                "UPDATE assets SET note = 'zephyr' WHERE id = 'asset000000000000001'",
+                [],
+            )?;
+            Ok(())
+        })
+        .expect("note update");
+        let by_note = run_list(
+            &lib,
+            AssetListQuery {
+                search: Some("zephyr".into()),
+                ..q(AssetScope::All)
+            },
+        );
+        assert_eq!(by_note.total, 1);
+        assert_eq!(by_note.items[0].name, "Alpha");
+    }
 
-        // `_` likewise.
-        let underscore = run_list(
-            &lib,
-            AssetListQuery {
-                search: Some("beta_".into()),
-                ..q(AssetScope::All)
-            },
+    #[test]
+    fn fts_search_of_pure_punctuation_is_a_no_op() {
+        let (_tmp, lib) = seeded_library();
+        // No alphanumeric tokens → no text filter (not "match nothing").
+        assert_eq!(
+            run_list(
+                &lib,
+                AssetListQuery {
+                    search: Some("%$#".into()),
+                    ..q(AssetScope::All)
+                }
+            )
+            .total,
+            3
         );
-        assert_eq!(underscore.total, 1);
+    }
 
-        // A wildcard-abusing term must not match everything.
-        let wild = run_list(
+    #[test]
+    fn facets_stack_on_top_of_scope() {
+        let (_tmp, lib) = seeded_library();
+        // rating >= 3 → Alpha(3) + beta_file(5); delta(1) excluded.
+        assert_eq!(
+            run_list(
+                &lib,
+                AssetListQuery {
+                    rating_min: Some(3),
+                    ..q(AssetScope::All)
+                }
+            )
+            .total,
+            2
+        );
+        // type png → Alpha only.
+        let png = run_list(
             &lib,
             AssetListQuery {
-                search: Some("%".into()),
+                types: Some(vec!["png".into()]),
                 ..q(AssetScope::All)
             },
         );
-        assert_eq!(wild.total, 1); // only the literal-% name
+        assert_eq!(png.total, 1);
+        assert_eq!(png.items[0].name, "Alpha");
+        // tag filter (ANY-of).
+        lib.with_writer(|conn| {
+            conn.execute_batch(
+                "INSERT INTO tags (id, name, created_at) VALUES ('tag00000000000000001','fav',0);
+                 INSERT INTO asset_tags (asset_id, tag_id)
+                   VALUES ('asset000000000000002','tag00000000000000001');",
+            )?;
+            Ok(())
+        })
+        .expect("tag seed");
+        let tagged = run_list(
+            &lib,
+            AssetListQuery {
+                tag_ids: Some(vec!["tag00000000000000001".into()]),
+                ..q(AssetScope::All)
+            },
+        );
+        assert_eq!(tagged.total, 1);
+        assert_eq!(tagged.items[0].name, "beta_file");
     }
 
     #[test]

@@ -30,4 +30,24 @@ describe("assetListQueryOptions query keys", () => {
 			keyFor({ kind: "tag", tag_id: "y" }),
 		);
 	});
+
+	// Facets are orthogonal to scope but must still be in the key, and must be
+	// normalized (array order / empties) so equal filters share a cache entry.
+	it("keys by rating/type/tag facets, normalized", () => {
+		const opts = (extra: Record<string, unknown>) =>
+			JSON.stringify(
+				assetListQueryOptions({ scope: { kind: "all" }, ...base, ...extra })
+					.queryKey,
+			);
+		const none = opts({});
+		expect(opts({ ratingMin: 3 })).not.toBe(none);
+		expect(opts({ types: ["png"] })).not.toBe(none);
+		expect(opts({ tags: ["t1"] })).not.toBe(none);
+		// Array order doesn't matter; empties / 0 are treated as no filter.
+		expect(opts({ types: ["png", "gif"] })).toBe(
+			opts({ types: ["gif", "png"] }),
+		);
+		expect(opts({ ratingMin: 0 })).toBe(none);
+		expect(opts({ types: [] })).toBe(none);
+	});
 });

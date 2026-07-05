@@ -74,6 +74,14 @@ export const T = {
 		asc: "Ascending",
 		desc: "Descending",
 	},
+	filter: {
+		label: "Filter",
+		rating: "Minimum rating",
+		fileType: "File type",
+		tags: "Tags",
+		noTags: "No tags yet",
+		clear: "Clear filters",
+	},
 	sidebar: {
 		all: "All",
 		uncategorized: "Uncategorized",
