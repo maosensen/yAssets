@@ -36,7 +36,6 @@ import { useExport } from "@/hooks/use-export";
 import type { AssetDetail } from "@/lib/bindings";
 import { buildFolderTree, flattenFolderTree } from "@/lib/folder-tree";
 import { formatBytes, formatDateTime, formatDimensions } from "@/lib/format";
-import { thumbUrl } from "@/lib/media";
 import { openExternalUrl } from "@/lib/opener";
 import {
 	assetDetailQueryOptions,
@@ -48,6 +47,7 @@ import {
 	useAddAssetsToFolder,
 	useRemoveAssetsFromFolder,
 } from "@/lib/queries/folders";
+import { useThumbSrc } from "@/lib/stores/cover-bust-store";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { T } from "@/lib/text";
 
@@ -111,18 +111,20 @@ function DetailsBody({ detail }: { detail: AssetDetail }) {
 }
 
 function PreviewBox({ detail }: { detail: AssetDetail }) {
-	const [broken, setBroken] = useState(false);
-	const showImage = detail.has_thumb && !broken;
+	// Cache-busted so a regenerated video cover refreshes the inspector too.
+	const thumbSrc = useThumbSrc(detail.id);
+	const [brokenSrc, setBrokenSrc] = useState<string | null>(null);
+	const showImage = detail.has_thumb && brokenSrc !== thumbSrc;
 	return (
 		<div className="relative flex max-h-48 min-h-24 items-center justify-center overflow-hidden rounded-md bg-muted">
 			{showImage ? (
 				<>
 					<img
-						src={thumbUrl(detail.id)}
+						src={thumbSrc}
 						alt={detail.name}
 						className="max-h-48 max-w-full object-contain"
 						draggable={false}
-						onError={() => setBroken(true)}
+						onError={() => setBrokenSrc(thumbSrc)}
 					/>
 					{detail.ext && (
 						// Eagle-style format badge in the preview corner.

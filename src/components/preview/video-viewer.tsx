@@ -4,7 +4,8 @@
  * the system's own codecs, nothing ships on our side.
  */
 
-import { fileUrl, thumbUrl } from "@/lib/media";
+import { fileUrl } from "@/lib/media";
+import { useThumbSrc } from "@/lib/stores/cover-bust-store";
 
 export function VideoViewer({
 	assetId,
@@ -15,6 +16,8 @@ export function VideoViewer({
 	name: string;
 	hasThumb: boolean;
 }) {
+	// Cache-busted so a regenerated cover updates the poster too.
+	const posterSrc = useThumbSrc(assetId);
 	return (
 		<div className="flex h-full items-center justify-center p-6">
 			{/* biome-ignore lint/a11y/useMediaCaption: arbitrary user video files have no caption tracks */}
@@ -23,7 +26,7 @@ export function VideoViewer({
 				preload="metadata"
 				playsInline
 				src={fileUrl(assetId)}
-				poster={hasThumb ? thumbUrl(assetId) : undefined}
+				poster={hasThumb ? posterSrc : undefined}
 				title={name}
 				className="max-h-full max-w-full rounded-md bg-black/40"
 			/>

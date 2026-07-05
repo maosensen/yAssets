@@ -8,7 +8,7 @@
 
 import { memo, useState } from "react";
 import { formatDuration } from "@/lib/format";
-import { thumbUrl } from "@/lib/media";
+import { useThumbSrc } from "@/lib/stores/cover-bust-store";
 import { useSelectionStore } from "@/lib/stores/selection-store";
 import { cn } from "@/lib/utils";
 import { iconForExt, VIDEO_EXTS } from "@/lib/viewer-registry";
@@ -60,7 +60,11 @@ export const AssetCard = memo(function AssetCard({
 	onPointerDown,
 }: AssetCardProps) {
 	const selected = useSelectionStore((state) => state.selectedIds.has(id));
-	const [broken, setBroken] = useState(false);
+	// Cache-busted when this asset's cover is regenerated (see useThumbSrc).
+	const thumbSrc = useThumbSrc(id);
+	// Track WHICH src failed, so a regenerated cover (new src) auto-retries.
+	const [brokenSrc, setBrokenSrc] = useState<string | null>(null);
+	const broken = brokenSrc === thumbSrc;
 	const normalizedExt = ext.toLowerCase();
 	const showChip = ext !== "" && !CHIP_HIDDEN_EXTS.has(normalizedExt);
 	const duration = VIDEO_EXTS.has(normalizedExt)
@@ -93,7 +97,7 @@ export const AssetCard = memo(function AssetCard({
 			>
 				{hasThumb && !broken ? (
 					<img
-						src={thumbUrl(id)}
+						src={thumbSrc}
 						alt=""
 						width={Math.round(width)}
 						height={Math.round(imageHeight)}
@@ -101,7 +105,7 @@ export const AssetCard = memo(function AssetCard({
 						decoding="async"
 						draggable={false}
 						className="h-full w-full object-cover"
-						onError={() => setBroken(true)}
+						onError={() => setBrokenSrc(thumbSrc)}
 					/>
 				) : (
 					<div className="flex h-full w-full items-center justify-center">

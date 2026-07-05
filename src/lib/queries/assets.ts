@@ -25,7 +25,10 @@ import {
 } from "@/lib/bindings";
 import { describeError } from "@/lib/errors";
 import { type LibraryView, scopeFromView } from "@/lib/library-view";
+import { useCoverBustStore } from "@/lib/stores/cover-bust-store";
 import { unwrap } from "@/lib/tauri";
+import { T } from "@/lib/text";
+import { captureVideoCover } from "@/lib/video-cover";
 import { assetKeys, folderKeys, libraryKeys } from "./keys";
 
 const FULL_FETCH_LIMIT = 50_000;
@@ -221,6 +224,43 @@ export function useEmptyTrash() {
 		mutationFn: async () => unwrap(await commands.emptyTrash()),
 		onSuccess: () => invalidateAfterAssetMutation(queryClient),
 		onError: (error) => toast.error(describeError(error)),
+	});
+}
+
+/**
+ * Re-extract a video's cover frame (frontend capture → set_video_thumbnail).
+ * Used by the video card's context menu to replace a poor/black auto-cover.
+ * Bumps the cover-bust token so the immutable-cached thumb reloads.
+ */
+export function useRegenerateCover() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async (id: string) => {
+			const frame = await captureVideoCover(id);
+			unwrap(
+				await commands.setVideoThumbnail(
+					id,
+					frame.base64,
+					frame.width,
+					frame.height,
+					frame.durationMs,
+				),
+			);
+			return id;
+		},
+		onMutate: (id) => {
+			toast.loading(T.video.coverUpdating, { id: `cover-${id}` });
+		},
+		onSuccess: (id) => {
+			useCoverBustStore.getState().bump(id);
+			void queryClient.invalidateQueries({ queryKey: assetKeys.all });
+			void queryClient.invalidateQueries({ queryKey: assetKeys.detail(id) });
+			void queryClient.invalidateQueries({ queryKey: libraryKeys.stats });
+			toast.success(T.video.coverDone, { id: `cover-${id}` });
+		},
+		onError: (_error, id) => {
+			toast.error(T.video.coverFailed, { id: `cover-${id}` });
+		},
 	});
 }
 

@@ -358,6 +358,7 @@ export function AssetGrid({
 										<ContextMenuContent>
 											<AssetContextItems
 												assetId={item.id}
+												ext={asset.ext}
 												inTrash={inTrash}
 												currentFolderId={currentFolderId}
 												onRequestDeleteForever={onRequestDeleteForever}

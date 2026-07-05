@@ -3,40 +3,25 @@
  *
  * Videos import without thumbnails — the Rust pipeline only decodes bitmaps
  * and SVG. This worker asks the backend for cover-less videos and captures a
- * frame with the WebView's OWN decoder, so no ffmpeg ships anywhere:
- *
- *   hidden <video crossOrigin="anonymous"> → seek ~1s → draw to a ≤512px
- *   canvas → JPEG base64 → `set_video_thumbnail` (Rust re-encodes WebP and
- *   fills color/dhash/duration).
- *
- * yasset:// answers with `Access-Control-Allow-Origin: *`, which keeps the
- * canvas untainted; if the WebView taints it anyway (SecurityError), one
- * retry goes through a same-origin blob URL (whole-file fetch — acceptable
- * as a fallback). Failing assets land in a session-local skip set so a
- * broken codec never loops.
+ * frame with the WebView's OWN decoder (no ffmpeg) via `captureVideoCover`
+ * (lib/video-cover.ts — samples several positions, keeps the most informative
+ * frame), then ships it to `set_video_thumbnail` (Rust re-encodes WebP and
+ * fills color/dhash/duration). Failing assets land in a session-local skip set
+ * so a broken codec never loops.
  */
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef } from "react";
 import { commands, events } from "@/lib/bindings";
 import { logger } from "@/lib/logger";
-import { fileUrl } from "@/lib/media";
 import { assetKeys, libraryKeys } from "@/lib/queries/keys";
 import { currentLibraryQueryOptions } from "@/lib/queries/library";
 import { unwrap } from "@/lib/tauri";
+import { captureVideoCover } from "@/lib/video-cover";
 
-const CAPTURE_TIMEOUT_MS = 20_000;
-const TARGET_EDGE = 512;
 /** Capture several covers at once so a fresh library fills fast (and one
  *  slow/hung file can't stall the whole queue behind its 20s timeout). */
 const CAPTURE_CONCURRENCY = 3;
-
-type Frame = {
-	base64: string;
-	width: number;
-	height: number;
-	durationMs: number;
-};
 
 export function useVideoThumbWorker() {
 	const queryClient = useQueryClient();
@@ -64,7 +49,7 @@ export function useVideoThumbWorker() {
 				while (cursor < queue.length) {
 					const id = queue[cursor++];
 					try {
-						const frame = await captureFrame(id);
+						const frame = await captureVideoCover(id);
 						unwrap(
 							await commands.setVideoThumbnail(
 								id,
@@ -118,85 +103,4 @@ export function useVideoThumbWorker() {
 			unlisten?.();
 		};
 	}, [drain]);
-}
-
-async function captureFrame(assetId: string): Promise<Frame> {
-	try {
-		return await captureFromSrc(fileUrl(assetId), true);
-	} catch (error) {
-		// Tainted canvas / CORS quirk → same-origin blob URL retry.
-		if (error instanceof Error && error.name === "SecurityError") {
-			const response = await fetch(fileUrl(assetId));
-			if (!response.ok) throw error;
-			const blobUrl = URL.createObjectURL(await response.blob());
-			try {
-				return await captureFromSrc(blobUrl, false);
-			} finally {
-				URL.revokeObjectURL(blobUrl);
-			}
-		}
-		throw error;
-	}
-}
-
-function captureFromSrc(src: string, crossOrigin: boolean): Promise<Frame> {
-	return new Promise((resolve, reject) => {
-		const video = document.createElement("video");
-		if (crossOrigin) video.crossOrigin = "anonymous";
-		video.muted = true;
-		video.playsInline = true;
-		video.preload = "auto";
-
-		const timer = window.setTimeout(
-			() => fail(new Error("video load timed out")),
-			CAPTURE_TIMEOUT_MS,
-		);
-		const cleanup = () => {
-			window.clearTimeout(timer);
-			video.removeAttribute("src");
-			video.load();
-		};
-		const fail = (error: unknown) => {
-			cleanup();
-			reject(error);
-		};
-
-		video.onerror = () => fail(new Error("video failed to load/decode"));
-		video.onloadedmetadata = () => {
-			// Grab a frame past any leading black, but stay inside short clips.
-			const duration = Number.isFinite(video.duration) ? video.duration : 0;
-			video.currentTime = Math.min(1, duration > 0 ? duration / 10 : 0);
-		};
-		video.onseeked = () => {
-			try {
-				const vw = video.videoWidth;
-				const vh = video.videoHeight;
-				if (!vw || !vh) throw new Error("video reports no dimensions");
-				const scale = Math.min(TARGET_EDGE / Math.max(vw, vh), 1);
-				const cw = Math.max(1, Math.round(vw * scale));
-				const ch = Math.max(1, Math.round(vh * scale));
-				const canvas = document.createElement("canvas");
-				canvas.width = cw;
-				canvas.height = ch;
-				const context = canvas.getContext("2d");
-				if (!context) throw new Error("2d context unavailable");
-				context.drawImage(video, 0, 0, cw, ch);
-				// toDataURL throws SecurityError on tainted canvases → fallback.
-				const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-				const frame: Frame = {
-					base64: dataUrl.slice(dataUrl.indexOf(",") + 1),
-					width: vw,
-					height: vh,
-					durationMs: Number.isFinite(video.duration)
-						? video.duration * 1000
-						: 0,
-				};
-				cleanup();
-				resolve(frame);
-			} catch (error) {
-				fail(error);
-			}
-		};
-		video.src = src;
-	});
 }

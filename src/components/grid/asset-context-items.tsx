@@ -19,6 +19,7 @@ import { useExport } from "@/hooks/use-export";
 import { buildFolderTree, flattenFolderTree } from "@/lib/folder-tree";
 import {
 	revealAsset,
+	useRegenerateCover,
 	useRestoreAssets,
 	useTrashAssets,
 } from "@/lib/queries/assets";
@@ -29,9 +30,12 @@ import {
 } from "@/lib/queries/folders";
 import { useSelectionStore } from "@/lib/stores/selection-store";
 import { T } from "@/lib/text";
+import { VIDEO_EXTS } from "@/lib/viewer-registry";
 
 type AssetContextItemsProps = {
 	assetId: string;
+	/** The clicked card's extension — gates video-only actions. */
+	ext: string;
 	inTrash: boolean;
 	/** Set when the grid currently shows a folder view. */
 	currentFolderId: string | null;
@@ -53,6 +57,7 @@ function withCount(label: string, count: number): string {
 
 export function AssetContextItems({
 	assetId,
+	ext,
 	inTrash,
 	currentFolderId,
 	onRequestDeleteForever,
@@ -62,6 +67,7 @@ export function AssetContextItems({
 	const restoreMutation = useRestoreAssets();
 	const addMutation = useAddAssetsToFolder();
 	const removeMutation = useRemoveAssetsFromFolder();
+	const regenerateCover = useRegenerateCover();
 	const { exportAssets } = useExport();
 	const { data: folders } = useQuery(foldersQueryOptions());
 	const flat = useMemo(
@@ -71,6 +77,7 @@ export function AssetContextItems({
 
 	// Selection size at open time — the menu is mounted per open.
 	const count = targetIds(assetId).length;
+	const isVideo = VIDEO_EXTS.has(ext.toLowerCase());
 
 	if (inTrash) {
 		return (
@@ -150,6 +157,11 @@ export function AssetContextItems({
 					<ContextMenuItem onClick={() => revealAsset(assetId)}>
 						{T.assetMenu.reveal}
 					</ContextMenuItem>
+					{isVideo && (
+						<ContextMenuItem onClick={() => regenerateCover.mutate(assetId)}>
+							{T.assetMenu.regenerateCover}
+						</ContextMenuItem>
+					)}
 				</>
 			)}
 			<ContextMenuSeparator />

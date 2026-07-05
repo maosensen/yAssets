@@ -139,6 +139,7 @@ export const T = {
 		removeFromFolder: "Remove from This Folder",
 		reveal: "Reveal in Finder",
 		findSimilar: "Find Similar",
+		regenerateCover: "Regenerate Cover",
 		export: "Export",
 		trash: "Move to Trash",
 		restore: "Restore",
@@ -327,6 +328,11 @@ export const T = {
 		title: (n: number) => `${n} selected`,
 		trash: (n: number) => `Move to Trash (${n})`,
 		restore: (n: number) => `Restore (${n})`,
+	},
+	video: {
+		coverUpdating: "Extracting frame…",
+		coverDone: "Cover updated",
+		coverFailed: "Couldn't extract a frame from this video",
 	},
 	preview: {
 		close: "Close preview",
