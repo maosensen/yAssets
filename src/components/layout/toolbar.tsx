@@ -20,6 +20,7 @@ import {
 	IconSearch,
 } from "@/components/icons";
 import { ColorFilter } from "@/components/layout/color-filter";
+import { SortMenu } from "@/components/layout/sort-menu";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
@@ -180,6 +181,7 @@ export function Toolbar() {
 			</div>
 
 			<div className="flex items-center justify-end gap-1.5">
+				<SortMenu />
 				<ColorFilter search={search} />
 				<div className="relative">
 					<IconSearch className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground/70" />

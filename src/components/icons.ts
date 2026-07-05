@@ -62,6 +62,7 @@ export { default as IconPalette } from "~icons/solar/palette-line-duotone";
 export { default as IconRadio } from "~icons/solar/record-circle-line-duotone";
 export { default as IconReload } from "~icons/solar/restart-line-duotone";
 export { default as IconSettings } from "~icons/solar/settings-line-duotone";
+export { default as IconSort } from "~icons/solar/sort-vertical-line-duotone";
 export { default as IconReveal } from "~icons/solar/square-top-up-line-duotone";
 export { default as IconStar } from "~icons/solar/star-line-duotone";
 export { default as IconSun } from "~icons/solar/sun-2-line-duotone";

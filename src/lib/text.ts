@@ -64,6 +64,16 @@ export const T = {
 		zoomIn: "Zoom in",
 		zoomOut: "Zoom out",
 	},
+	sort: {
+		label: "Sort",
+		byImportedAt: "Date Added",
+		byName: "Name",
+		bySize: "Size",
+		byRating: "Rating",
+		byUpdatedAt: "Date Modified",
+		asc: "Ascending",
+		desc: "Descending",
+	},
 	sidebar: {
 		all: "All",
 		uncategorized: "Uncategorized",
