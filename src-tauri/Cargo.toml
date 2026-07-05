@@ -42,11 +42,17 @@ rusqlite = { version = "0.37", features = ["bundled"] }
 blake3 = "1"
 # Media pipeline: decode (image) → SIMD resize (fast_image_resize) → lossy WebP
 # encode (`webp`; the `image` crate's WebP encoder is lossless-only).
-image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif", "bmp"] }
+# All decoders here are pure-Rust (no system libs): tiff/ico join the base set.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif", "bmp", "tiff", "ico"] }
 fast_image_resize = "5"
 webp = "0.3"
 # SVG rasterization for thumbnails (pure Rust, no system deps).
 resvg = "0.45"
+# Design-format thumbnails (pure Rust): PSD flattened composite, and the
+# embedded preview PNG inside zip-container formats (Sketch/ORA/KRA). `zip`
+# is trimmed to `deflate` only so it stays pure-Rust (no bzip2/lzma/zstd C libs).
+psd = "0.3"
+zip = { version = "2", default-features = false, features = ["deflate"] }
 # CPU parallelism for the import pipeline (hash/decode/resize).
 rayon = "1"
 # Recursive directory discovery on import (does not follow symlinks).

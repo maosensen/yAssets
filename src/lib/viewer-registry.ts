@@ -41,12 +41,20 @@ export type ViewerKind =
 
 /**
  * Formats WebKit/WebView2 play natively via <video>. Mirrored by the SQL in
- * `list_video_thumb_candidates` (src-tauri/src/commands/assets.rs).
+ * `list_cover_candidates` (src-tauri/src/commands/assets.rs).
  */
 export const VIDEO_EXTS = new Set(["mp4", "mov", "m4v", "webm"]);
 
 /** Formats WebKit/WebView2 decode natively via <audio>. */
 const AUDIO_EXTS = new Set(["mp3", "m4a", "aac", "wav", "flac", "aiff"]);
+
+/**
+ * HEIC/HEIF — no headless Rust decoder, so the cover is captured client-side.
+ * WebKit (macOS WebView) decodes these in an <img>; Chromium WebView2 /
+ * WebKitGTK do not, so on those engines capture fails and the card keeps its
+ * type-icon placeholder.
+ */
+export const HEIC_EXTS = new Set(["heic", "heif"]);
 
 /** Rendered as a document in a sandboxed iframe (not as source text). */
 const HTML_EXTS = new Set(["html", "htm"]);
@@ -138,7 +146,35 @@ const IMAGE_EXTS = new Set([
 	"tif",
 	"heic",
 	"heif",
+	// Design formats thumbnailed from their composite/embedded preview (Rust).
+	"psd",
+	"psb",
+	"sketch",
+	"ora",
+	"kra",
 ]);
+
+/**
+ * Image exts the WebView decodes in an <img> across BOTH engines (WebKit +
+ * Chromium). Formats outside this set (tiff/heic/psd/sketch) have a generated
+ * thumbnail but an original the engine can't reliably decode — the preview
+ * shows the thumbnail instead of fetching the (possibly huge) original.
+ */
+const NATIVE_IMAGE_EXTS = new Set([
+	"png",
+	"jpg",
+	"jpeg",
+	"gif",
+	"webp",
+	"bmp",
+	"svg",
+	"ico",
+]);
+
+/** Whether the WebView can render this ext's original file directly in an <img>. */
+export function canDecodeNativeImage(ext: string): boolean {
+	return NATIVE_IMAGE_EXTS.has(ext.toLowerCase());
+}
 
 const ARCHIVE_EXTS = new Set([
 	"zip",

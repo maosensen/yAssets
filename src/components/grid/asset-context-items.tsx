@@ -11,6 +11,7 @@ import {
 	ContextMenuSeparator,
 } from "@/components/ui/context-menu";
 import { useExport } from "@/hooks/use-export";
+import { hasCapturableCover } from "@/lib/cover-capture";
 import {
 	revealAsset,
 	useRegenerateCover,
@@ -20,7 +21,6 @@ import {
 import { useRemoveAssetsFromFolder } from "@/lib/queries/folders";
 import { useSelectionStore } from "@/lib/stores/selection-store";
 import { T } from "@/lib/text";
-import { VIDEO_EXTS } from "@/lib/viewer-registry";
 
 type AssetContextItemsProps = {
 	assetId: string;
@@ -64,7 +64,7 @@ export function AssetContextItems({
 
 	// Selection size at open time — the menu is mounted per open.
 	const count = targetIds(assetId).length;
-	const isVideo = VIDEO_EXTS.has(ext.toLowerCase());
+	const canRegenerateCover = hasCapturableCover(ext);
 
 	if (inTrash) {
 		return (
@@ -122,8 +122,10 @@ export function AssetContextItems({
 					<ContextMenuItem onClick={() => revealAsset(assetId)}>
 						{T.assetMenu.reveal}
 					</ContextMenuItem>
-					{isVideo && (
-						<ContextMenuItem onClick={() => regenerateCover.mutate(assetId)}>
+					{canRegenerateCover && (
+						<ContextMenuItem
+							onClick={() => regenerateCover.mutate({ id: assetId, ext })}
+						>
 							{T.assetMenu.regenerateCover}
 						</ContextMenuItem>
 					)}

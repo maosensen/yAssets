@@ -23,13 +23,13 @@ import {
 	type SortDir,
 	type SortKey,
 } from "@/lib/bindings";
+import { captureAndStoreCover } from "@/lib/cover-capture";
 import { describeError } from "@/lib/errors";
 import { extsForKinds } from "@/lib/file-kinds";
 import { type LibraryView, scopeFromView } from "@/lib/library-view";
 import { useCoverBustStore } from "@/lib/stores/cover-bust-store";
 import { unwrap } from "@/lib/tauri";
 import { T } from "@/lib/text";
-import { captureVideoCover } from "@/lib/video-cover";
 import { assetKeys, folderKeys, libraryKeys } from "./keys";
 
 const FULL_FETCH_LIMIT = 50_000;
@@ -263,27 +263,19 @@ export function useEmptyTrash() {
 }
 
 /**
- * Re-extract a video's cover frame (frontend capture → set_video_thumbnail).
- * Used by the video card's context menu to replace a poor/black auto-cover.
- * Bumps the cover-bust token so the immutable-cached thumb reloads.
+ * Re-generate an asset's cover via the WebView capture pipeline (video frame /
+ * PDF page 1 / HEIC image → set_video_thumbnail or set_captured_thumbnail).
+ * Used by the card context menu to replace a poor/black auto-cover. Bumps the
+ * cover-bust token so the immutable-cached thumb reloads.
  */
 export function useRegenerateCover() {
 	const queryClient = useQueryClient();
 	return useMutation({
-		mutationFn: async (id: string) => {
-			const frame = await captureVideoCover(id);
-			unwrap(
-				await commands.setVideoThumbnail(
-					id,
-					frame.base64,
-					frame.width,
-					frame.height,
-					frame.durationMs,
-				),
-			);
-			return id;
+		mutationFn: async (input: { id: string; ext: string }) => {
+			await captureAndStoreCover(input.id, input.ext);
+			return input.id;
 		},
-		onMutate: (id) => {
+		onMutate: ({ id }) => {
 			toast.loading(T.video.coverUpdating, { id: `cover-${id}` });
 		},
 		onSuccess: (id) => {
@@ -293,7 +285,7 @@ export function useRegenerateCover() {
 			void queryClient.invalidateQueries({ queryKey: libraryKeys.stats });
 			toast.success(T.video.coverDone, { id: `cover-${id}` });
 		},
-		onError: (_error, id) => {
+		onError: (_error, { id }) => {
 			toast.error(T.video.coverFailed, { id: `cover-${id}` });
 		},
 	});

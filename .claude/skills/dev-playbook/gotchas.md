@@ -27,13 +27,18 @@
 - **`AppError::Internal` 是 unit variant**：细节走 `logger`，payload 里没有位置放 detail。
 - clippy 高频修法：手写除零保护 → `checked_div`；`&Vec<T>`/`&mut Vec<T>` 参数 → `&[T]`/`&mut [usize]`；索引 for 循环 → `enumerate`。
 - specta 红线：三件套 `=` 锁版本、一起升；**64 位整数不能过 IPC**（字节数/时间戳 → f64，宽高 u32，评分 u8）。
+- **`psd` crate 对畸形/截断文件会 panic（slice 越界），不是返回 Err**。缩略图 `generate()` 在导入的 rayon worker 上直接跑，一个 panic 会 unwind 掉**整批导入**（违背「单文件失败不污染批次」）。`decode_psd` 用 `std::panic::catch_unwind` 把 `Psd::from_bytes` + `.rgba()` 包起来 → 坏 PSD 退化成单文件错误。任何「解码用户文件」的第三方 crate 都要先确认它 panic 还是返回 Err。
+- **新增缩略图格式要区分「服务端可解码」vs「需 WebView」**：纯 Rust 能 headless 解的（tiff/ico/psd/sketch）走导入管线 `is_thumbable_ext`；WebView 才能解的（video/pdf/heic）不进 `is_thumbable_ext`，改由 `list_cover_candidates` + 前端 `use-cover-worker` 客户端截帧。存量文件回填：服务端格式靠 `backfill_missing_thumbnails`（每次开库跑一次），客户端格式靠 worker 扫 `has_thumb=0`。
+- **zip 容器格式**（sketch/ora/kra）内嵌预览 PNG：`zip` crate 用 `default-features=false, features=["deflate"]` 保持纯 Rust（别拉 bzip2/lzma/zstd 的 C 依赖）；按格式试候选路径（sketch=`previews/preview.png`, ora=`Thumbnails/thumbnail.png`, kra=`mergedimage.png`）。
 
 ## 前端
 
 - **unplugin-icons `compiler:"jsx"`** 需要显式安装 `@svgr/core` + `@svgr/plugin-jsx`（devDeps），否则 vitest 环境直接炸。
 - **shadcn 底座是 Base UI 不是 Radix**：触发器用 `render={...}` 不是 `asChild`；菜单项用 `onClick`（`onSelect` 能过类型检查但永远不触发）；`*MenuLabel` 必须在 `*MenuGroup` 里否则运行时抛错。
 - **biome `noStaticElementInteractions` 挡窗口手势 div** → 逐处 `biome-ignore` 并写明理由（window chrome 手势合法地落在 div 上），不放宽全局规则。
-- **视频封面零 ffmpeg 管线**：`<video crossOrigin="anonymous">` → canvas 截帧；遇 SecurityError（画布污染）退 blob URL 重试；失败进会话级 skip-set 防无限重试。
+- **视频封面零 ffmpeg 管线**：`<video crossOrigin="anonymous">` → canvas 截帧；遇 SecurityError（画布污染）退 blob URL 重试；失败进会话级 skip-set 防无限重试。同一套客户端截帧管线现泛化到 PDF（pdf.js 渲第 1 页）和 HEIC（`<img>` 解码，仅 WebKit/macOS 能解，Chromium WebView 回落占位）：`lib/cover-capture.ts` 按 ext 分发，`use-cover-worker.ts` 统一 drain。
+- **pdf.js（pdfjs-dist v6）在 CSP + Tauri 下的坑**：① 顶层 `import * as pdfjsLib` 在模块加载时就引用 `DOMMatrix`，jsdom 测试环境没有该全局 → 直接炸；且 ~1MB 进启动包。**改用动态 `import("pdfjs-dist")` 懒加载**（首次截 PDF 才加载），顺带修了测试。② v6 API 变了：`getDocument` 参数类型里**没有** `isEvalSupported`（删掉，pdf.js 自己会在无 unsafe-eval 的 CSP 下探测并禁用 eval 快路径）；`PDFDocumentProxy` **没有** `destroy()`（用 `loadingTask.destroy()`）；`page.render` 用 `{ canvas, viewport, background: "#ffffff" }`（不是 `canvasContext`；`background` 填白，否则黑字画到透明 canvas 转 JPEG 后是黑底黑字）。③ Worker 走 Vite `import PdfWorkerUrl from "...pdf.worker.min.mjs?url"`（同源 module worker，CSP `script-src 'self'` 覆盖 worker-src）；PDF 字节主线程 `fetch` 后以 `{data}` 传入，worker 不碰网络。
+- **给 tiff/heic/psd/sketch 生成缩略图后 `has_thumb=1` → `viewerKindFor` 会返回 `"image"`**，预览会走图片查看器。但这些原图 Chromium WebView 解不了 → `viewer-registry.canDecodeNativeImage()` 白名单（png/jpg/jpeg/gif/webp/bmp/svg/ico）之外的，预览只显示 512 缩略图、**不去 fetch 无法解码的原图**（`preview.tsx ImageBody` 按 ext 门控 original-load，兼省下大文件白下载）。
 - **React 合成 onWheel 无法 preventDefault**（passive）→ 画布缩放的 wheel 监听必须原生 `addEventListener(..., { passive: false })`。
 - 全局键盘处理必须同时跳过输入框**和** `[role="dialog"]` 祖先，否则对话框里打字会触发网格快捷键。
 

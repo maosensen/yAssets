@@ -361,9 +361,9 @@ export const T = {
 		restore: (n: number) => `Restore (${n})`,
 	},
 	video: {
-		coverUpdating: "Extracting frame…",
+		coverUpdating: "Generating cover…",
 		coverDone: "Cover updated",
-		coverFailed: "Couldn't extract a frame from this video",
+		coverFailed: "Couldn't generate a cover for this file",
 	},
 	preview: {
 		close: "Close preview",

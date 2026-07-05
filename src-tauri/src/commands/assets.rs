@@ -771,44 +771,127 @@ mod tests {
     }
 }
 
-/// Video assets still missing a cover — the queue for the frontend capture
-/// worker (the WebView's own decoder grabs a frame; see `set_video_thumbnail`).
-/// Extension list mirrors `VIDEO_EXTS` in `src/lib/viewer-registry.ts`.
+/// An asset the frontend capture worker should cover, plus its ext so the
+/// worker can pick the right decoder (video frame / PDF page / HEIC image).
+#[derive(Debug, Serialize, specta::Type)]
+pub struct CoverCandidate {
+    pub id: String,
+    pub ext: String,
+}
+
+/// Assets still missing a cover whose format the WebView (not headless Rust)
+/// must decode: video, PDF, and HEIC/HEIF. The worker grabs a frame/page/image
+/// with the engine's own decoder and ships it back (see `set_video_thumbnail`
+/// for video, `set_captured_thumbnail` for the rest). Extension list mirrors
+/// `VIDEO_EXTS` and the HEIC/PDF handling in `src/lib/viewer-registry.ts`.
 #[tauri::command]
 #[specta::specta]
-pub async fn list_video_thumb_candidates(
+pub async fn list_cover_candidates(
     state: tauri::State<'_, AppState>,
-) -> AppResult<Vec<String>> {
+) -> AppResult<Vec<CoverCandidate>> {
     let library = state.current_library()?;
     library
         .read(|conn| {
             let mut stmt = conn.prepare(
-                "SELECT id FROM assets
+                "SELECT id, ext FROM assets
                  WHERE deleted_at IS NULL AND has_thumb = 0
-                   AND ext IN ('mp4', 'mov', 'm4v', 'webm')",
+                   AND LOWER(ext) IN ('mp4', 'mov', 'm4v', 'webm', 'pdf', 'heic', 'heif')",
             )?;
-            let ids = stmt
-                .query_map([], |row| row.get(0))?
-                .collect::<rusqlite::Result<Vec<String>>>()?;
-            Ok(ids)
+            let rows = stmt
+                .query_map([], |row| {
+                    Ok(CoverCandidate {
+                        id: row.get(0)?,
+                        ext: row.get(1)?,
+                    })
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
         })
         .await
 }
 
-/// Store a frontend-captured video frame as the asset's cover and record
-/// playback metadata. The frame arrives base64-encoded (JPEG/PNG, ≤512px
-/// long edge) and runs through the same WebP/color/dhash pipeline as image
-/// imports; `video_*`/`duration_ms` describe the SOURCE video, not the frame.
+/// Regenerate thumbnails for alive `managed` assets that lack one but whose
+/// format is decodable headless in Rust (TIFF/ICO/PSD/Sketch added after they
+/// were first imported). Best-effort: per-asset failures are logged and skipped;
+/// formats needing the WebView (video/PDF/HEIC) are left to the capture worker.
+/// Returns the number of covers filled — a cheap no-op when nothing is pending.
 #[tauri::command]
 #[specta::specta]
-pub async fn set_video_thumbnail(
-    asset_id: String,
+pub async fn backfill_missing_thumbnails(state: tauri::State<'_, AppState>) -> AppResult<u32> {
+    let library = state.current_library()?;
+
+    let pending: Vec<(String, String, String)> = library
+        .read(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, ext, rel_path FROM assets
+                 WHERE deleted_at IS NULL AND has_thumb = 0 AND storage = 'managed'",
+            )?;
+            let rows = stmt
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .await?;
+
+    let mut filled = 0u32;
+    for (id, ext, rel_path) in pending {
+        let ext_lc = ext.to_lowercase();
+        if !crate::import::thumbs::is_thumbable_ext(&ext_lc) {
+            continue;
+        }
+        let src = library.resolve_rel(&rel_path);
+        let dest = library.thumb_path(&id);
+        let gen = tauri::async_runtime::spawn_blocking(move || {
+            crate::import::thumbs::generate(&src, &dest, &ext_lc)
+        })
+        .await;
+        let outcome = match gen {
+            Ok(Ok(outcome)) => outcome,
+            Ok(Err(err)) => {
+                log::warn!("backfill thumbnail failed for {id}: {err}");
+                continue;
+            }
+            Err(err) => {
+                log::error!("backfill task join failed for {id}: {err}");
+                continue;
+            }
+        };
+        let (width, height) = (outcome.width, outcome.height);
+        let (hue, palette, dhash) = (outcome.hue, outcome.palette, outcome.dhash);
+        let id_for_write = id.clone();
+        let updated = library
+            .write(move |conn| {
+                conn.execute(
+                    "UPDATE assets
+                     SET has_thumb = 1, width = ?2, height = ?3,
+                         hue = ?4, palette = ?5, dhash = ?6, updated_at = ?7
+                     WHERE id = ?1 AND deleted_at IS NULL",
+                    rusqlite::params![id_for_write, width, height, hue, palette, dhash, now_ms()],
+                )?;
+                Ok(())
+            })
+            .await;
+        match updated {
+            Ok(()) => filled += 1,
+            Err(err) => log::warn!("backfill db update failed for {id}: {err}"),
+        }
+    }
+
+    if filled > 0 {
+        log::info!("backfilled {filled} thumbnail(s)");
+    }
+    Ok(filled)
+}
+
+/// Shared tail of the frontend-capture commands: validate the id, decode the
+/// base64 frame (JPEG/PNG, ≤512px long edge), and run it through the same
+/// WebP/color/dhash pipeline as image imports. Returns the pixel outcome so
+/// callers can persist type-specific metadata (duration for video; none else).
+async fn store_captured_frame(
+    library: &crate::library::Library,
+    asset_id: &str,
     frame_base64: String,
-    video_width: u32,
-    video_height: u32,
-    duration_ms: f64,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<()> {
+) -> AppResult<crate::import::thumbs::ThumbOutcome> {
     use base64::Engine;
 
     // The id becomes a thumbs/ path component — hold it to the id alphabet.
@@ -820,13 +903,12 @@ pub async fn set_video_thumbnail(
         return Err(AppError::Conflict("invalid asset id".into()));
     }
 
-    let library = state.current_library()?;
     let bytes = base64::engine::general_purpose::STANDARD
         .decode(frame_base64.as_bytes())
         .map_err(|err| AppError::Conflict(format!("invalid frame data: {err}")))?;
 
-    let dest = library.thumb_path(&asset_id);
-    let outcome = tauri::async_runtime::spawn_blocking(move || {
+    let dest = library.thumb_path(asset_id);
+    tauri::async_runtime::spawn_blocking(move || {
         let img = image::load_from_memory(&bytes)
             .map_err(|err| AppError::Conflict(format!("frame decode failed: {err}")))?
             .to_rgba8();
@@ -835,9 +917,26 @@ pub async fn set_video_thumbnail(
     })
     .await
     .map_err(|err| {
-        log::error!("video thumbnail task failed: {err}");
+        log::error!("captured thumbnail task failed: {err}");
         AppError::Internal
-    })??;
+    })?
+}
+
+/// Store a frontend-captured video frame as the asset's cover and record
+/// playback metadata. `video_*`/`duration_ms` describe the SOURCE video, not
+/// the captured frame.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_video_thumbnail(
+    asset_id: String,
+    frame_base64: String,
+    video_width: u32,
+    video_height: u32,
+    duration_ms: f64,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    let library = state.current_library()?;
+    let outcome = store_captured_frame(&library, &asset_id, frame_base64).await?;
 
     let duration = duration_ms.is_finite().then_some(duration_ms as i64);
     library
@@ -852,6 +951,43 @@ pub async fn set_video_thumbnail(
                     video_width,
                     video_height,
                     duration,
+                    outcome.hue,
+                    outcome.palette,
+                    outcome.dhash,
+                    now_ms(),
+                ],
+            )?;
+            Ok(())
+        })
+        .await
+}
+
+/// Store a frontend-captured cover for a non-video format the WebView decoded
+/// (PDF page 1, HEIC image). `width`/`height` are the SOURCE page/image size.
+/// No duration is recorded — that column is video-only.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_captured_thumbnail(
+    asset_id: String,
+    frame_base64: String,
+    width: u32,
+    height: u32,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    let library = state.current_library()?;
+    let outcome = store_captured_frame(&library, &asset_id, frame_base64).await?;
+
+    library
+        .write(move |conn| {
+            conn.execute(
+                "UPDATE assets
+                 SET has_thumb = 1, width = ?2, height = ?3,
+                     hue = ?4, palette = ?5, dhash = ?6, updated_at = ?7
+                 WHERE id = ?1 AND deleted_at IS NULL",
+                rusqlite::params![
+                    asset_id,
+                    width,
+                    height,
                     outcome.hue,
                     outcome.palette,
                     outcome.dhash,

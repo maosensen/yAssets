@@ -1,6 +1,7 @@
 /**
- * Video cover extraction — the frame-grab used by the background worker
- * (use-video-thumbs.ts) and the manual "Regenerate Cover" action.
+ * Video cover extraction — the frame-grab used by the background cover worker
+ * (use-cover-worker.ts, via lib/cover-capture.ts) and the manual
+ * "Regenerate Cover" action.
  *
  * A single seek near t=1s often lands on a black intro / fade-in, so we sample
  * several positions and keep the most INFORMATIVE frame (highest luminance

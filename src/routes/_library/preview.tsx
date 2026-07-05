@@ -35,12 +35,13 @@ import { Button } from "@/components/ui/button";
 import { useWindowDrag } from "@/hooks/use-window-drag";
 import type { AssetSummary } from "@/lib/bindings";
 import { libraryViewSchema } from "@/lib/library-view";
-import { fileUrl, thumbUrl } from "@/lib/media";
+import { fileUrl } from "@/lib/media";
 import { useLibraryAssetList } from "@/lib/queries/assets";
+import { useThumbSrc } from "@/lib/stores/cover-bust-store";
 import { useSelectionStore } from "@/lib/stores/selection-store";
 import { useViewPrefsStore } from "@/lib/stores/view-prefs-store";
 import { T } from "@/lib/text";
-import { viewerKindFor } from "@/lib/viewer-registry";
+import { canDecodeNativeImage, viewerKindFor } from "@/lib/viewer-registry";
 
 const previewSearchSchema = libraryViewSchema.extend({
 	id: z.string(),
@@ -370,15 +371,22 @@ function ImageBody({
 	onScaleChange: (scale: number) => void;
 }) {
 	const [originalSrc, setOriginalSrc] = useState<string | null>(null);
+	// Cover-bust-aware thumbnail — reflects a regenerated cover (e.g. HEIC).
+	const thumbSrc = useThumbSrc(asset.id);
 
+	// Only fetch the original for formats the WebView can decode in an <img>.
+	// For thumb-backed formats (tiff/heic/psd/sketch) the original is either
+	// undecodable or needlessly large — the 512px thumbnail is the preview.
 	useEffect(() => {
+		setOriginalSrc(null);
+		if (!canDecodeNativeImage(asset.ext)) return;
 		const image = new Image();
 		image.onload = () => setOriginalSrc(image.src);
 		image.src = fileUrl(asset.id);
 		return () => {
 			image.onload = null;
 		};
-	}, [asset.id]);
+	}, [asset.id, asset.ext]);
 
 	// viewerKindFor guarantees dimensions for "image"; keep TS honest.
 	if (asset.width == null || asset.height == null) return null;
@@ -386,7 +394,7 @@ function ImageBody({
 	return (
 		<CanvasViewer
 			ref={viewerRef}
-			src={originalSrc ?? thumbUrl(asset.id)}
+			src={originalSrc ?? thumbSrc}
 			alt={asset.name}
 			imageWidth={asset.width}
 			imageHeight={asset.height}

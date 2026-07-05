@@ -31,15 +31,15 @@ import {
 	ResizablePanel,
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { useCoverWorker } from "@/hooks/use-cover-worker";
 import { useDragImport } from "@/hooks/use-drag-import";
 import { useImport, useImportEvents } from "@/hooks/use-import";
-import { useVideoThumbWorker } from "@/hooks/use-video-thumbs";
 import { useWindowDrag } from "@/hooks/use-window-drag";
 import { T } from "@/lib/text";
 
 export function AppShell() {
 	useImportEvents();
-	useVideoThumbWorker();
+	useCoverWorker();
 	const search = useSearch({ from: "/_library/", shouldThrow: false });
 	const { importPaths } = useImport();
 	const dropFolderId =

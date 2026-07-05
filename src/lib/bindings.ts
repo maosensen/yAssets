@@ -86,18 +86,33 @@ export const commands = {
 	 */
 	revealAsset: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("reveal_asset", { id })),
 	/**
-	 *  Video assets still missing a cover — the queue for the frontend capture
-	 *  worker (the WebView's own decoder grabs a frame; see `set_video_thumbnail`).
-	 *  Extension list mirrors `VIDEO_EXTS` in `src/lib/viewer-registry.ts`.
+	 *  Assets still missing a cover whose format the WebView (not headless Rust)
+	 *  must decode: video, PDF, and HEIC/HEIF. The worker grabs a frame/page/image
+	 *  with the engine's own decoder and ships it back (see `set_video_thumbnail`
+	 *  for video, `set_captured_thumbnail` for the rest). Extension list mirrors
+	 *  `VIDEO_EXTS` and the HEIC/PDF handling in `src/lib/viewer-registry.ts`.
 	 */
-	listVideoThumbCandidates: () => typedError<string[], AppError>(__TAURI_INVOKE("list_video_thumb_candidates")),
+	listCoverCandidates: () => typedError<CoverCandidate[], AppError>(__TAURI_INVOKE("list_cover_candidates")),
 	/**
 	 *  Store a frontend-captured video frame as the asset's cover and record
-	 *  playback metadata. The frame arrives base64-encoded (JPEG/PNG, ≤512px
-	 *  long edge) and runs through the same WebP/color/dhash pipeline as image
-	 *  imports; `video_*`/`duration_ms` describe the SOURCE video, not the frame.
+	 *  playback metadata. `video_*`/`duration_ms` describe the SOURCE video, not
+	 *  the captured frame.
 	 */
 	setVideoThumbnail: (assetId: string, frameBase64: string, videoWidth: number, videoHeight: number, durationMs: number | null) => typedError<null, AppError>(__TAURI_INVOKE("set_video_thumbnail", { assetId, frameBase64, videoWidth, videoHeight, durationMs })),
+	/**
+	 *  Store a frontend-captured cover for a non-video format the WebView decoded
+	 *  (PDF page 1, HEIC image). `width`/`height` are the SOURCE page/image size.
+	 *  No duration is recorded — that column is video-only.
+	 */
+	setCapturedThumbnail: (assetId: string, frameBase64: string, width: number, height: number) => typedError<null, AppError>(__TAURI_INVOKE("set_captured_thumbnail", { assetId, frameBase64, width, height })),
+	/**
+	 *  Regenerate thumbnails for alive `managed` assets that lack one but whose
+	 *  format is decodable headless in Rust (TIFF/ICO/PSD/Sketch added after they
+	 *  were first imported). Best-effort: per-asset failures are logged and skipped;
+	 *  formats needing the WebView (video/PDF/HEIC) are left to the capture worker.
+	 *  Returns the number of covers filled — a cheap no-op when nothing is pending.
+	 */
+	backfillMissingThumbnails: () => typedError<number, AppError>(__TAURI_INVOKE("backfill_missing_thumbnails")),
 	/**
 	 *  Visual similarity search (dHash, layer L2 of the duplicate strategy):
 	 *  popcount the target's fingerprint against every alive asset, return
@@ -281,6 +296,15 @@ export type AssetSummary = {
 	imported_at: number | null,
 	/**  Source video duration in ms; None for non-video / not-yet-probed. */
 	duration_ms: number | null,
+};
+
+/**
+ *  An asset the frontend capture worker should cover, plus its ext so the
+ *  worker can pick the right decoder (video frame / PDF page / HEIC image).
+ */
+export type CoverCandidate = {
+	id: string,
+	ext: string,
 };
 
 /**

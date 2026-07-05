@@ -26,15 +26,34 @@ const WEBP_QUALITY: f32 = 80.0;
 /// Decode guards: refuse absurd dimensions / allocations up front.
 const MAX_DECODE_EDGE: u32 = 20_000;
 const MAX_DECODE_ALLOC: u64 = 512 * 1024 * 1024;
+/// Hard cap on a zip-embedded preview's *decompressed* bytes — a real preview
+/// PNG is well under this, so it only stops a zip-bomb entry (a tiny archive
+/// that inflates to GB) from OOM-ing the import batch.
+const MAX_PREVIEW_BYTES: u64 = 64 * 1024 * 1024;
 
-/// Bitmap formats decoded by the `image` crate.
+/// Bitmap formats decoded by the `image` crate (all pure-Rust decoders).
 fn is_bitmap_ext(ext: &str) -> bool {
-    matches!(ext, "jpg" | "jpeg" | "png" | "webp" | "gif" | "bmp")
+    matches!(
+        ext,
+        "jpg" | "jpeg" | "png" | "webp" | "gif" | "bmp" | "tif" | "tiff" | "ico"
+    )
 }
 
-/// Extensions we can generate a real thumbnail for (bitmaps + SVG).
+/// Adobe Photoshop documents — thumbnailed from their flattened composite.
+fn is_psd_ext(ext: &str) -> bool {
+    matches!(ext, "psd" | "psb")
+}
+
+/// Zip-container design formats that embed a rendered preview PNG.
+fn is_zip_preview_ext(ext: &str) -> bool {
+    matches!(ext, "sketch" | "ora" | "kra")
+}
+
+/// Extensions we can generate a real thumbnail for, headless in Rust
+/// (bitmaps + SVG + PSD composite + zip-embedded previews). Formats the WebView
+/// captures on-demand instead (video/PDF/HEIC) are NOT listed here.
 pub fn is_thumbable_ext(ext: &str) -> bool {
-    is_bitmap_ext(ext) || ext == "svg"
+    is_bitmap_ext(ext) || ext == "svg" || is_psd_ext(ext) || is_zip_preview_ext(ext)
 }
 
 /// Result of thumbnailing: oriented source dimensions + extracted color +
@@ -59,6 +78,10 @@ pub struct ThumbOutcome {
 pub fn generate(src: &Path, dest: &Path, ext: &str) -> AppResult<ThumbOutcome> {
     let (width, height, thumb_w, thumb_h, resized) = if ext == "svg" {
         rasterize_svg(src)?
+    } else if is_psd_ext(ext) {
+        decode_psd(src)?
+    } else if is_zip_preview_ext(ext) {
+        decode_zip_preview(src, ext)?
     } else {
         decode_bitmap(src)?
     };
@@ -171,6 +194,94 @@ fn rasterize_svg(src: &Path) -> AppResult<(u32, u32, u32, u32, Vec<u8>)> {
     ))
 }
 
+/// PSD/PSB path: take the document's flattened composite (the "merged image
+/// data" every editor writes) and SIMD downscale like a bitmap. Layers aren't
+/// re-blended — the stored composite is authoritative and cheap.
+///
+/// The `psd` crate PANICS (slice-index overrun) on truncated/malformed files,
+/// so parse + composite run inside `catch_unwind`: a bad PSD becomes a per-file
+/// error, never a panic that would unwind the whole rayon import batch.
+fn decode_psd(src: &Path) -> AppResult<(u32, u32, u32, u32, Vec<u8>)> {
+    let data = std::fs::read(src)?;
+    let parsed: Result<(u32, u32, Vec<u8>), String> = std::panic::catch_unwind(|| {
+        let psd = psd::Psd::from_bytes(&data).map_err(|err| err.to_string())?;
+        Ok((psd.width(), psd.height(), psd.rgba()))
+    })
+    .unwrap_or_else(|_| Err("psd parse panicked".to_string()));
+    let (width, height, rgba) =
+        parsed.map_err(|err| AppError::Io(format!("psd decode failed: {err}")))?;
+    if width == 0 || height == 0 || rgba.len() < (width as usize * height as usize * 4) {
+        return Err(AppError::Io("psd has no composite image".into()));
+    }
+    let (thumb_w, thumb_h) = fit_long_edge(width, height, THUMB_LONG_EDGE);
+    let resized = if (thumb_w, thumb_h) == (width, height) {
+        rgba
+    } else {
+        resize_rgba(rgba, width, height, thumb_w, thumb_h)?
+    };
+    Ok((width, height, thumb_w, thumb_h, resized))
+}
+
+/// Zip-container formats (Sketch/ORA/KRA) ship a rendered preview PNG. Pull the
+/// first candidate entry that exists and decode it as a bitmap. Reported
+/// dimensions are the PREVIEW's — the document's true canvas size isn't cheaply
+/// known, and the frontend only needs an aspect ratio for layout.
+fn decode_zip_preview(src: &Path, ext: &str) -> AppResult<(u32, u32, u32, u32, Vec<u8>)> {
+    let candidates: &[&str] = match ext {
+        "sketch" => &["previews/preview.png"],
+        "ora" => &["Thumbnails/thumbnail.png", "mergedimage.png"],
+        "kra" => &["mergedimage.png", "preview.png"],
+        _ => &[],
+    };
+
+    let file = std::fs::File::open(src)?;
+    let mut zip = zip::ZipArchive::new(std::io::BufReader::new(file))
+        .map_err(|err| AppError::Io(format!("zip open failed: {err}")))?;
+
+    let mut bytes = Vec::new();
+    let mut found = false;
+    for name in candidates {
+        let Ok(entry) = zip.by_name(name) else {
+            continue;
+        };
+        // Skip an entry that DECLARES more than the cap, and read through a
+        // `take` so a lying header still can't inflate past it — a zip-bomb
+        // preview must never OOM the import batch (declared size is only a hint).
+        if entry.size() > MAX_PREVIEW_BYTES {
+            continue;
+        }
+        use std::io::Read;
+        bytes.clear();
+        entry
+            .take(MAX_PREVIEW_BYTES)
+            .read_to_end(&mut bytes)
+            .map_err(|err| AppError::Io(format!("zip read failed: {err}")))?;
+        found = true;
+        break;
+    }
+    if !found {
+        return Err(AppError::Io("no embedded preview in container".into()));
+    }
+
+    let mut limits = image::Limits::default();
+    limits.max_image_width = Some(MAX_DECODE_EDGE);
+    limits.max_image_height = Some(MAX_DECODE_EDGE);
+    limits.max_alloc = Some(MAX_DECODE_ALLOC);
+    let mut reader = ImageReader::new(std::io::Cursor::new(bytes)).with_guessed_format()?;
+    reader.limits(limits);
+    let img = reader.decode().map_err(image_err)?;
+
+    let (width, height) = (img.width(), img.height());
+    let (thumb_w, thumb_h) = fit_long_edge(width, height, THUMB_LONG_EDGE);
+    let rgba = img.into_rgba8().into_raw();
+    let resized = if (thumb_w, thumb_h) == (width, height) {
+        rgba
+    } else {
+        resize_rgba(rgba, width, height, thumb_w, thumb_h)?
+    };
+    Ok((width, height, thumb_w, thumb_h, resized))
+}
+
 /// SIMD resize via fast_image_resize (Lanczos3, alpha-aware mul/div).
 fn resize_rgba(raw: Vec<u8>, src_w: u32, src_h: u32, dst_w: u32, dst_h: u32) -> AppResult<Vec<u8>> {
     let src = Image::from_vec_u8(src_w, src_h, raw, PixelType::U8x4).map_err(|err| {
@@ -267,6 +378,67 @@ mod tests {
         std::fs::write(&src, b"definitely not an image").expect("fixture");
 
         assert!(generate(&src, &dest, "png").is_err());
+        assert!(!dest.exists());
+    }
+
+    #[test]
+    fn generate_decodes_tiff() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let src = tmp.path().join("scan.tiff");
+        let dest = tmp.path().join("th.webp");
+        image::RgbaImage::from_fn(300, 200, |x, y| {
+            image::Rgba([(x % 256) as u8, (y % 256) as u8, 64, 255])
+        })
+        .save(&src)
+        .expect("write tiff fixture");
+
+        let outcome = generate(&src, &dest, "tiff").expect("generate tiff");
+        assert_eq!((outcome.width, outcome.height), (300, 200));
+        assert!(dest.is_file());
+    }
+
+    #[test]
+    fn generate_decodes_zip_embedded_preview() {
+        use std::io::Write;
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let src = tmp.path().join("design.sketch");
+        let dest = tmp.path().join("th.webp");
+
+        // A real .sketch is a zip; embed a preview PNG at the standard path.
+        let mut png = std::io::Cursor::new(Vec::new());
+        image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(
+            128,
+            96,
+            image::Rgba([200, 40, 40, 255]),
+        ))
+        .write_to(&mut png, image::ImageFormat::Png)
+        .expect("encode preview png");
+
+        let mut buf = std::io::Cursor::new(Vec::new());
+        {
+            let mut zw = zip::ZipWriter::new(&mut buf);
+            zw.start_file(
+                "previews/preview.png",
+                zip::write::SimpleFileOptions::default(),
+            )
+            .expect("start entry");
+            zw.write_all(png.get_ref()).expect("write entry");
+            zw.finish().expect("finish zip");
+        }
+        std::fs::write(&src, buf.into_inner()).expect("write sketch fixture");
+
+        let outcome = generate(&src, &dest, "sketch").expect("generate sketch");
+        assert_eq!((outcome.width, outcome.height), (128, 96));
+        assert!(dest.is_file());
+    }
+
+    #[test]
+    fn generate_rejects_bad_psd() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let src = tmp.path().join("broken.psd");
+        let dest = tmp.path().join("th.webp");
+        std::fs::write(&src, b"8BPS not really a document").expect("fixture");
+        assert!(generate(&src, &dest, "psd").is_err());
         assert!(!dest.exists());
     }
 
