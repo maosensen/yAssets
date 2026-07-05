@@ -44,25 +44,37 @@ function scopeKeyPart(scope: AssetScope): {
 	view: string;
 	folderId?: string;
 	tagId?: string;
+	hue?: number;
+	smartFolderId?: string;
 } {
 	switch (scope.kind) {
 		case "folder":
 			return { view: "folder", folderId: scope.folder_id };
 		case "tag":
 			return { view: "tag", tagId: scope.tag_id };
+		// Discriminator MUST be in the key — else all hues / all smart folders
+		// share one cache entry and show whichever loaded first/last.
+		case "color":
+			return { view: "color", hue: scope.hue };
+		case "smart_folder":
+			return { view: "smart_folder", smartFolderId: scope.smart_folder_id };
 		default:
 			return { view: scope.kind };
 	}
 }
 
 export function assetListQueryOptions(params: AssetListParams) {
-	const { view, folderId, tagId } = scopeKeyPart(params.scope);
+	const { view, folderId, tagId, hue, smartFolderId } = scopeKeyPart(
+		params.scope,
+	);
 	const search = params.search?.trim() || undefined;
 	return queryOptions({
 		queryKey: assetKeys.list({
 			view,
 			folderId,
 			tagId,
+			hue,
+			smartFolderId,
 			q: search,
 			sortBy: params.sort,
 			sortDir: params.dir,

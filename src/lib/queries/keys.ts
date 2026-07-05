@@ -20,6 +20,10 @@ export const assetKeys = {
 		view: string;
 		folderId?: string;
 		tagId?: string;
+		/** Hue bucket for view=color — without it every color collides. */
+		hue?: number;
+		/** Smart-folder id for view=smart — without it every rule set collides. */
+		smartFolderId?: string;
 		q?: string;
 		sortBy: string;
 		sortDir: string;
