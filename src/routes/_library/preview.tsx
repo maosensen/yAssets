@@ -59,24 +59,33 @@ function PreviewPage() {
 	const dir = useViewPrefsStore((state) => state.dir);
 	const selectOnly = useSelectionStore((state) => state.selectOnly);
 
-	// Carry EVERY scope field — prev/next must walk the same cached list the
-	// grid showed (folder/tag/color/similar views included).
+	// Carry EVERY list-affecting field (scope + facets) so prev/next walks the
+	// exact cached list the grid showed. Excludes `id` (the preview target) so
+	// navigating between assets doesn't rebuild the list query.
 	const view = useMemo(
 		() => ({
 			view: search.view,
 			folderId: search.folderId,
 			tagId: search.tagId,
 			hue: search.hue,
+			smartId: search.smartId,
 			similarTo: search.similarTo,
 			q: search.q,
+			rating: search.rating,
+			types: search.types,
+			tags: search.tags,
 		}),
 		[
 			search.view,
 			search.folderId,
 			search.tagId,
 			search.hue,
+			search.smartId,
 			search.similarTo,
 			search.q,
+			search.rating,
+			search.types,
+			search.tags,
 		],
 	);
 	const { data } = useLibraryAssetList(view, sort, dir);
