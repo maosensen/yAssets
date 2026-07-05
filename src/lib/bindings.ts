@@ -78,6 +78,8 @@ export const commands = {
 	listAssets: (query: AssetListQuery) => typedError<AssetListResult, AppError>(__TAURI_INVOKE("list_assets", { query })),
 	getAsset: (id: string) => typedError<AssetDetail, AppError>(__TAURI_INVOKE("get_asset", { id })),
 	updateAsset: (id: string, patch: AssetPatch) => typedError<AssetDetail, AppError>(__TAURI_INVOKE("update_asset", { id, patch })),
+	/**  Set the same rating on many assets at once (batch metadata editing). */
+	setAssetsRating: (assetIds: string[], rating: number) => typedError<number, AppError>(__TAURI_INVOKE("set_assets_rating", { assetIds, rating })),
 	/**
 	 *  Reveal the managed file in Finder / Explorer. The frontend never learns
 	 *  the absolute path — the OS shows it directly.

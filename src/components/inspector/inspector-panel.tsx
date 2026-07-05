@@ -18,7 +18,11 @@ export function InspectorPanel() {
 			{selectedIds.size === 1 ? (
 				<AssetDetails assetId={[...selectedIds][0]} />
 			) : selectedIds.size > 1 ? (
-				<MultiSummary ids={[...selectedIds]} />
+				// key by the selection so the batch panel's pending rating resets.
+				<MultiSummary
+					key={[...selectedIds].sort().join("|")}
+					ids={[...selectedIds]}
+				/>
 			) : (
 				<FolderSummary />
 			)}

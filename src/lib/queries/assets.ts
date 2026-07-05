@@ -299,6 +299,17 @@ export function useRegenerateCover() {
 	});
 }
 
+/** Set the same rating across a multi-selection (batch metadata editing). */
+export function useSetAssetsRating() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async (input: { assetIds: string[]; rating: number }) =>
+			unwrap(await commands.setAssetsRating(input.assetIds, input.rating)),
+		onSuccess: () => invalidateAfterAssetMutation(queryClient),
+		onError: (error) => toast.error(describeError(error)),
+	});
+}
+
 /** Reveal in Finder — fire-and-forget with an error toast. */
 export function revealAsset(id: string): void {
 	void commands.revealAsset(id).then((result) => {

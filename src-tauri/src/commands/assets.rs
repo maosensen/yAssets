@@ -490,6 +490,39 @@ pub async fn update_asset(
         .await
 }
 
+/// Set the same rating on many assets at once (batch metadata editing).
+#[tauri::command]
+#[specta::specta]
+pub async fn set_assets_rating(
+    asset_ids: Vec<String>,
+    rating: u8,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<u32> {
+    if rating > 5 {
+        return Err(AppError::Conflict("rating must be 0-5".into()));
+    }
+    let library = state.current_library()?;
+    library
+        .write(move |conn| {
+            if asset_ids.is_empty() {
+                return Ok(0);
+            }
+            let placeholders = vec!["?"; asset_ids.len()].join(",");
+            let sql = format!(
+                "UPDATE assets SET rating = ?, updated_at = ? WHERE id IN ({placeholders})"
+            );
+            let mut params: Vec<rusqlite::types::Value> = Vec::with_capacity(asset_ids.len() + 2);
+            params.push(rusqlite::types::Value::Integer(i64::from(rating)));
+            params.push(rusqlite::types::Value::Integer(now_ms()));
+            for id in &asset_ids {
+                params.push(rusqlite::types::Value::Text(id.clone()));
+            }
+            let changed = conn.execute(&sql, rusqlite::params_from_iter(params.iter()))?;
+            Ok(changed as u32)
+        })
+        .await
+}
+
 /// Reveal the managed file in Finder / Explorer. The frontend never learns
 /// the absolute path — the OS shows it directly.
 #[tauri::command]
