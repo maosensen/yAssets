@@ -203,6 +203,7 @@ function PreviewPage() {
 				title={asset?.name ?? ""}
 				index={index}
 				total={list.total}
+				loadedCount={items.length}
 				zoomPercent={zoomPercent}
 				viewerRef={viewerRef}
 				canPresent={items.length > 0}
@@ -245,6 +246,7 @@ function PreviewTopbar({
 	title,
 	index,
 	total,
+	loadedCount,
 	zoomPercent,
 	viewerRef,
 	canPresent,
@@ -255,7 +257,10 @@ function PreviewTopbar({
 }: {
 	title: string;
 	index: number;
+	/** Grand match count — the counter denominator. */
 	total: number;
+	/** Rows actually loaded — bounds Next (prefetch grows it before the edge). */
+	loadedCount: number;
 	zoomPercent: number | null;
 	viewerRef: React.RefObject<ViewerHandle | null>;
 	canPresent: boolean;
@@ -361,7 +366,7 @@ function PreviewTopbar({
 					size="icon"
 					className="size-8"
 					aria-label={T.preview.next}
-					disabled={index < 0 || index >= total - 1}
+					disabled={index < 0 || index >= loadedCount - 1}
 					onClick={onNext}
 				>
 					<IconChevronRight className="size-4" />
