@@ -30,6 +30,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::import::cancel_import,
             commands::import::import_clipboard,
             commands::assets::list_assets,
+            commands::assets::list_asset_ids,
             commands::assets::get_asset,
             commands::assets::update_asset,
             commands::assets::set_assets_rating,

@@ -52,6 +52,16 @@ pub enum SortDir {
     Desc,
 }
 
+/// Keyset page boundary: the previous page's last row. `sort_value` is that
+/// row's ACTIVE-sort-column value stringified (name verbatim; numeric sorts —
+/// imported_at/size/rating/updated_at — as a decimal integer string), `id` is
+/// its id. The next page is everything ordered strictly after (value, id).
+#[derive(Debug, Clone, Deserialize, specta::Type)]
+pub struct ListCursor {
+    pub sort_value: String,
+    pub id: String,
+}
+
 #[derive(Debug, Deserialize, specta::Type)]
 pub struct AssetListQuery {
     pub scope: AssetScope,
@@ -66,8 +76,10 @@ pub struct AssetListQuery {
     pub tag_ids: Option<Vec<String>>,
     pub sort: SortKey,
     pub dir: SortDir,
-    /// Paged contract from day one; phase 1 fetches everything in one call
-    /// (`limit: 50000`). Above ~50k the frontend switches to keyset paging.
+    /// Keyset pagination: fetch the page strictly after this boundary. When set,
+    /// `offset` is ignored (cursor replaces it). Absent = first page.
+    pub cursor: Option<ListCursor>,
+    /// Legacy offset paging (still honored when `cursor` is None).
     pub offset: Option<u32>,
     pub limit: Option<u32>,
 }
@@ -87,6 +99,9 @@ pub struct AssetSummary {
     pub rating: u8,
     /// Unix ms.
     pub imported_at: f64,
+    /// Unix ms of last metadata edit — carried so the keyset cursor for the
+    /// UpdatedAt sort can be built from the loaded row.
+    pub updated_at: f64,
     /// Source video duration in ms; None for non-video / not-yet-probed.
     pub duration_ms: Option<f64>,
 }
@@ -146,7 +161,7 @@ pub struct AssetPatch {
 }
 
 pub(crate) const SUMMARY_COLS: &str =
-    "id, name, ext, size, width, height, has_thumb, rating, imported_at, duration_ms";
+    "id, name, ext, size, width, height, has_thumb, rating, imported_at, updated_at, duration_ms";
 
 pub(crate) fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<AssetSummary> {
     Ok(AssetSummary {
@@ -159,7 +174,8 @@ pub(crate) fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Asse
         has_thumb: row.get(6)?,
         rating: row.get::<_, i64>(7)? as u8,
         imported_at: row.get::<_, i64>(8)? as f64,
-        duration_ms: row.get::<_, Option<i64>>(9)?.map(|v| v as f64),
+        updated_at: row.get::<_, i64>(9)? as f64,
+        duration_ms: row.get::<_, Option<i64>>(10)?.map(|v| v as f64),
     })
 }
 
@@ -251,8 +267,50 @@ fn sort_sql(sort: SortKey, dir: SortDir) -> String {
         SortDir::Asc => "ASC",
         SortDir::Desc => "DESC",
     };
-    // Stable id tiebreak — required for the future keyset-paging upgrade.
+    // Stable id tiebreak — required for keyset paging (mirrored in keyset_predicate).
     format!("{column} {dir}, id {dir}")
+}
+
+/// The keyset `AND (...)` clause + params selecting rows strictly AFTER `cursor`
+/// in the (sort, dir) order — the exact tiebreak `sort_sql` emits. Expanded
+/// manually (not a `(col,id)` row-value tuple) so Name keeps `COLLATE NOCASE`;
+/// direction mirrors dir (Desc → `<`, Asc → `>`).
+fn keyset_predicate(
+    sort: SortKey,
+    dir: SortDir,
+    cursor: &ListCursor,
+) -> AppResult<(String, Vec<rusqlite::types::Value>)> {
+    let column = match sort {
+        SortKey::ImportedAt => "imported_at",
+        SortKey::Name => "name COLLATE NOCASE",
+        SortKey::Size => "size",
+        SortKey::Rating => "rating",
+        SortKey::UpdatedAt => "updated_at",
+    };
+    let cmp = match dir {
+        SortDir::Asc => ">",
+        SortDir::Desc => "<",
+    };
+    // Name compares as text; every other sort key is an integer column, so the
+    // stringified cursor value must parse back to i64.
+    let value = match sort {
+        SortKey::Name => rusqlite::types::Value::Text(cursor.sort_value.clone()),
+        _ => rusqlite::types::Value::Integer(
+            cursor
+                .sort_value
+                .parse::<i64>()
+                .map_err(|_| AppError::Conflict("invalid cursor value".into()))?,
+        ),
+    };
+    let clause = format!(" AND ({column} {cmp} ? OR ({column} = ? AND id {cmp} ?))");
+    Ok((
+        clause,
+        vec![
+            value.clone(),
+            value,
+            rusqlite::types::Value::Text(cursor.id.clone()),
+        ],
+    ))
 }
 
 /// Build the `WHERE` clause + positional params for a list query: scope (smart
@@ -322,6 +380,48 @@ fn list_where(
     Ok((where_clause, params))
 }
 
+/// One page of a list query: `total` over scope+search+facets (cursor-agnostic),
+/// then the page rows. When `cursor` is set it drives keyset paging (offset
+/// ignored); otherwise legacy `offset` applies. Shared by the command and the
+/// test harness so both exercise identical SQL.
+fn list_page(conn: &rusqlite::Connection, query: &AssetListQuery) -> AppResult<AssetListResult> {
+    let (where_clause, params) = list_where(conn, query)?;
+
+    let total: u32 = conn.query_row(
+        &format!("SELECT COUNT(*) FROM assets WHERE {where_clause}"),
+        rusqlite::params_from_iter(params.iter()),
+        |row| row.get::<_, i64>(0).map(|n| n as u32),
+    )?;
+
+    // The page rows carry the keyset boundary on top of the base predicate.
+    let mut items_where = where_clause;
+    let mut items_params = params;
+    let paging = if let Some(cursor) = &query.cursor {
+        let (clause, values) = keyset_predicate(query.sort, query.dir, cursor)?;
+        items_where.push_str(&clause);
+        items_params.extend(values);
+        String::new() // keyset replaces OFFSET
+    } else {
+        format!(" OFFSET {}", query.offset.unwrap_or(0))
+    };
+
+    let limit = query.limit.unwrap_or(50_000).min(50_000);
+    let sql = format!(
+        "SELECT {SUMMARY_COLS} FROM assets WHERE {items_where}
+         ORDER BY {} LIMIT {limit}{paging}",
+        sort_sql(query.sort, query.dir),
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let items = stmt
+        .query_map(
+            rusqlite::params_from_iter(items_params.iter()),
+            summary_from_row,
+        )?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+
+    Ok(AssetListResult { items, total })
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn list_assets(
@@ -329,31 +429,36 @@ pub async fn list_assets(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<AssetListResult> {
     let library = state.current_library()?;
-    library
-        .read(move |conn| {
-            let (where_clause, params) = list_where(conn, &query)?;
+    library.read(move |conn| list_page(conn, &query)).await
+}
 
-            let total: u32 = conn.query_row(
-                &format!("SELECT COUNT(*) FROM assets WHERE {where_clause}"),
-                rusqlite::params_from_iter(params.iter()),
-                |row| row.get::<_, i64>(0).map(|n| n as u32),
-            )?;
+/// Every id matching scope+search+facets, in sort order, unpaged. Shared by the
+/// command and the test harness.
+fn list_ids(conn: &rusqlite::Connection, query: &AssetListQuery) -> AppResult<Vec<String>> {
+    let (where_clause, params) = list_where(conn, query)?;
+    let sql = format!(
+        "SELECT id FROM assets WHERE {where_clause} ORDER BY {}",
+        sort_sql(query.sort, query.dir),
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let ids = stmt
+        .query_map(rusqlite::params_from_iter(params.iter()), |row| {
+            row.get::<_, String>(0)
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(ids)
+}
 
-            let limit = query.limit.unwrap_or(50_000).min(50_000);
-            let offset = query.offset.unwrap_or(0);
-            let sql = format!(
-                "SELECT {SUMMARY_COLS} FROM assets WHERE {where_clause}
-                 ORDER BY {} LIMIT {limit} OFFSET {offset}",
-                sort_sql(query.sort, query.dir),
-            );
-            let mut stmt = conn.prepare(&sql)?;
-            let items = stmt
-                .query_map(rusqlite::params_from_iter(params.iter()), summary_from_row)?
-                .collect::<rusqlite::Result<Vec<_>>>()?;
-
-            Ok(AssetListResult { items, total })
-        })
-        .await
+/// Every asset id matching this query's scope+search+facets, in sort order and
+/// unpaged — backs "select all" so it covers rows not yet loaded by the grid.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_asset_ids(
+    query: AssetListQuery,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Vec<String>> {
+    let library = state.current_library()?;
+    library.read(move |conn| list_ids(conn, &query)).await
 }
 
 fn detail_by_id(conn: &rusqlite::Connection, id: &str) -> AppResult<AssetDetail> {
@@ -579,25 +684,9 @@ mod tests {
     }
 
     fn run_list(lib: &Library, query: AssetListQuery) -> AssetListResult {
-        // Exercise the real WHERE builder (scope + FTS + facets) synchronously.
-        lib.with_reader(|conn| {
-            let (where_clause, params) = list_where(conn, &query).expect("build where");
-            let total: u32 = conn.query_row(
-                &format!("SELECT COUNT(*) FROM assets WHERE {where_clause}"),
-                rusqlite::params_from_iter(params.iter()),
-                |row| row.get::<_, i64>(0).map(|n| n as u32),
-            )?;
-            let sql = format!(
-                "SELECT {SUMMARY_COLS} FROM assets WHERE {where_clause} ORDER BY {}",
-                sort_sql(query.sort, query.dir),
-            );
-            let mut stmt = conn.prepare(&sql)?;
-            let items = stmt
-                .query_map(rusqlite::params_from_iter(params.iter()), summary_from_row)?
-                .collect::<rusqlite::Result<Vec<_>>>()?;
-            Ok(AssetListResult { items, total })
-        })
-        .expect("list")
+        // Exercise the real list SQL (scope + FTS + facets + keyset) synchronously.
+        lib.with_reader(|conn| list_page(conn, &query))
+            .expect("list")
     }
 
     fn q(scope: AssetScope) -> AssetListQuery {
@@ -609,9 +698,129 @@ mod tests {
             tag_ids: None,
             sort: SortKey::ImportedAt,
             dir: SortDir::Desc,
+            cursor: None,
             offset: None,
             limit: None,
         }
+    }
+
+    /// Build the keyset cursor a client would send from a page's last row.
+    fn cursor_from(sort: SortKey, item: &AssetSummary) -> ListCursor {
+        let sort_value = match sort {
+            SortKey::ImportedAt => (item.imported_at as i64).to_string(),
+            SortKey::Name => item.name.clone(),
+            SortKey::Size => (item.size as i64).to_string(),
+            SortKey::Rating => (item.rating as i64).to_string(),
+            SortKey::UpdatedAt => (item.updated_at as i64).to_string(),
+        };
+        ListCursor {
+            sort_value,
+            id: item.id.clone(),
+        }
+    }
+
+    /// Walk the whole `All` list one keyset page at a time, returning ids in order.
+    fn page_all(lib: &Library, sort: SortKey, dir: SortDir, page_size: u32) -> Vec<String> {
+        let mut ids = Vec::new();
+        let mut cursor: Option<ListCursor> = None;
+        loop {
+            let mut query = q(AssetScope::All);
+            query.sort = sort;
+            query.dir = dir;
+            query.limit = Some(page_size);
+            query.cursor = cursor.clone();
+            let page = run_list(lib, query);
+            if page.items.is_empty() {
+                break;
+            }
+            cursor = Some(cursor_from(sort, page.items.last().expect("non-empty")));
+            let n = page.items.len() as u32;
+            ids.extend(page.items.into_iter().map(|it| it.id));
+            if n < page_size {
+                break;
+            }
+        }
+        ids
+    }
+
+    /// Six alive assets with deliberate ties on name/size/rating/imported_at so
+    /// the id tiebreak in the keyset predicate is actually exercised.
+    fn tie_heavy_library() -> (tempfile::TempDir, Library) {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let lib = Library::create(&tmp.path().join("Lib")).expect("create");
+        lib.with_writer(|conn| {
+            conn.execute_batch(
+                "INSERT INTO assets (id, name, ext, size, hash_blake3, rel_path,
+                                     rating, imported_at, updated_at, deleted_at)
+                 VALUES
+                 ('asset000000000000001', 'apple', 'png', 10, 'h1', 'assets/a/1.png', 3, 1000, 1000, NULL),
+                 ('asset000000000000002', 'apple', 'png', 10, 'h2', 'assets/a/2.png', 3, 1000, 2000, NULL),
+                 ('asset000000000000003', 'banana', 'jpg', 20, 'h3', 'assets/a/3.jpg', 3, 3000, 3000, NULL),
+                 ('asset000000000000004', 'cherry', 'gif', 20, 'h4', 'assets/a/4.gif', 5, 4000, 4000, NULL),
+                 ('asset000000000000005', 'apple', 'txt', 30, 'h5', 'assets/a/5.txt', 1, 5000, 5000, NULL),
+                 ('asset000000000000006', 'date', 'png', 30, 'h6', 'assets/a/6.png', 5, 6000, 6000, NULL);",
+            )?;
+            Ok(())
+        })
+        .expect("seed");
+        (tmp, lib)
+    }
+
+    #[test]
+    fn keyset_paging_covers_all_without_overlap() {
+        let (_tmp, lib) = tie_heavy_library();
+        let combos = [
+            (SortKey::ImportedAt, SortDir::Desc),
+            (SortKey::ImportedAt, SortDir::Asc),
+            (SortKey::Name, SortDir::Asc),
+            (SortKey::Name, SortDir::Desc),
+            (SortKey::Rating, SortDir::Desc),
+            (SortKey::Rating, SortDir::Asc),
+            (SortKey::Size, SortDir::Asc),
+            (SortKey::UpdatedAt, SortDir::Desc),
+        ];
+        for (sort, dir) in combos {
+            let full: Vec<String> = {
+                let mut query = q(AssetScope::All);
+                query.sort = sort;
+                query.dir = dir;
+                run_list(&lib, query)
+                    .items
+                    .into_iter()
+                    .map(|it| it.id)
+                    .collect()
+            };
+            // Page size 2 over 6 rows forces page boundaries to fall on ties.
+            let paged = page_all(&lib, sort, dir, 2);
+            assert_eq!(
+                paged, full,
+                "paged order must equal full for {sort:?} {dir:?}"
+            );
+            let unique: std::collections::HashSet<&String> = paged.iter().collect();
+            assert_eq!(unique.len(), paged.len(), "no overlap for {sort:?} {dir:?}");
+            assert_eq!(paged.len(), 6, "no skips for {sort:?} {dir:?}");
+        }
+    }
+
+    #[test]
+    fn list_asset_ids_returns_full_ordered_set() {
+        let (_tmp, lib) = tie_heavy_library();
+        let mut query = q(AssetScope::All);
+        query.sort = SortKey::Name;
+        query.dir = SortDir::Asc;
+        let via_ids = lib.with_reader(|conn| list_ids(conn, &query)).expect("ids");
+
+        let mut query2 = q(AssetScope::All);
+        query2.sort = SortKey::Name;
+        query2.dir = SortDir::Asc;
+        let via_list: Vec<String> = run_list(&lib, query2)
+            .items
+            .into_iter()
+            .map(|it| it.id)
+            .collect();
+
+        assert_eq!(via_ids, via_list);
+        assert_eq!(via_ids.len(), 6);
     }
 
     #[test]

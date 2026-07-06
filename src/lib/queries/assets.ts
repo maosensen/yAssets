@@ -106,6 +106,8 @@ export function assetListQueryOptions(params: AssetListParams) {
 					tag_ids: tags ?? null,
 					sort: params.sort,
 					dir: params.dir,
+					// Keyset paging lands in M3; the full fetch stays for now.
+					cursor: null,
 					offset: null,
 					limit: FULL_FETCH_LIMIT,
 				}),

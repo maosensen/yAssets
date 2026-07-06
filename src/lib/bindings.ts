@@ -76,6 +76,11 @@ export const commands = {
 	 */
 	importClipboard: (folderId: string | null) => typedError<ImportStarted, AppError>(__TAURI_INVOKE("import_clipboard", { folderId })),
 	listAssets: (query: AssetListQuery) => typedError<AssetListResult, AppError>(__TAURI_INVOKE("list_assets", { query })),
+	/**
+	 *  Every asset id matching this query's scope+search+facets, in sort order and
+	 *  unpaged — backs "select all" so it covers rows not yet loaded by the grid.
+	 */
+	listAssetIds: (query: AssetListQuery) => typedError<string[], AppError>(__TAURI_INVOKE("list_asset_ids", { query })),
 	getAsset: (id: string) => typedError<AssetDetail, AppError>(__TAURI_INVOKE("get_asset", { id })),
 	updateAsset: (id: string, patch: AssetPatch) => typedError<AssetDetail, AppError>(__TAURI_INVOKE("update_asset", { id, patch })),
 	/**  Set the same rating on many assets at once (batch metadata editing). */
@@ -250,9 +255,11 @@ export type AssetListQuery = {
 	sort: SortKey,
 	dir: SortDir,
 	/**
-	 *  Paged contract from day one; phase 1 fetches everything in one call
-	 *  (`limit: 50000`). Above ~50k the frontend switches to keyset paging.
+	 *  Keyset pagination: fetch the page strictly after this boundary. When set,
+	 *  `offset` is ignored (cursor replaces it). Absent = first page.
 	 */
+	cursor: ListCursor | null,
+	/**  Legacy offset paging (still honored when `cursor` is None). */
 	offset: number | null,
 	limit: number | null,
 };
@@ -294,6 +301,11 @@ export type AssetSummary = {
 	rating: number,
 	/**  Unix ms. */
 	imported_at: number | null,
+	/**
+	 *  Unix ms of last metadata edit — carried so the keyset cursor for the
+	 *  UpdatedAt sort can be built from the loaded row.
+	 */
+	updated_at: number | null,
 	/**  Source video duration in ms; None for non-video / not-yet-probed. */
 	duration_ms: number | null,
 };
@@ -427,6 +439,17 @@ export type LibraryStats = {
 	trash: number,
 	/**  Total size of alive assets, in bytes. */
 	total_size: number | null,
+};
+
+/**
+ *  Keyset page boundary: the previous page's last row. `sort_value` is that
+ *  row's ACTIVE-sort-column value stringified (name verbatim; numeric sorts —
+ *  imported_at/size/rating/updated_at — as a decimal integer string), `id` is
+ *  its id. The next page is everything ordered strictly after (value, id).
+ */
+export type ListCursor = {
+	sort_value: string,
+	id: string,
 };
 
 /**
