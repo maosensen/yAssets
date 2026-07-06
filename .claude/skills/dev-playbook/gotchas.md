@@ -48,6 +48,8 @@
 - 全局键盘处理必须同时跳过输入框**和** `[role="dialog"]` 祖先，否则对话框里打字会触发网格快捷键。
 - **infinite query（keyset 分页）的乐观更新必须遍历 `InfiniteData.pages`**，不是单个 `{items,total}` 数组——旧的乐观 helper（trash/restore/rename）在缓存值变成 `InfiniteData` 的瞬间会静默 no-op 或崩。改造 query 和改造这些 helper 必须**同一提交**。展平的 `items` 要 `useMemo`（`data.pages.flatMap` 每次渲染都是新数组 → 网格 layout memo 每次重算，性能回退）。计数器语义分叉：`total` 是全量匹配数，但预览「Next 禁用」要用**已加载数** `items.length`（否则最后一张已加载项处按钮可点却 no-op）。
 - **全库 `list_asset_ids` 支撑分页后的全选**：Cmd+A 不能只选已加载页；加一个只返回 id、无分页的后端命令，前端 Cmd+A 拉全量 id 再 selectMany（similar 视图是单次 capped 查询，选已加载即可）。
+- **手写 focus trap 必须把「容器自身」当边界**：自定义全屏 modal（幻灯片）用 `tabIndex=-1` 的容器承接初始焦点，但容器**不在** `querySelectorAll('button,...')` 的可聚焦列表里。若 trap 只判 `active===first/last || !root.contains(active)`，那么焦点停在容器上时 `root.contains(容器)` 为 true 且既非 first 也非 last → 两个分支都不进 → 浏览器默认 **Shift+Tab 把焦点送到 DOM 里排在容器前面的控件**（本例是盖在 `z-95` 遮罩下面的 preview topbar 按钮），焦点逃出 modal。修法：`const atBoundary = active === root || !root.contains(active)`，Tab/Shift+Tab 命中边界就 `preventDefault` 并 wrap 到 first/last。对抗式 review 抓到的真回归。
+- **i18n 可切换而零改动 43 个引用**：文案放 `i18n/en.ts`（不加 `as const`，这样 `Messages = typeof en` 的叶子是 `string`/函数签名，别的 locale 才能满足契约；加了 `as const` 会把每个字面量钉死成精确字符串，第二语言无法赋值）。`T` 做成**浅 Proxy**（只拦顶层 `T.<group>`，返回 `locales[active][group]` 的真对象，嵌套访问/迭代不受影响、引用稳定），调用形态 `T.a.b(...)` 不变，`text.ts` 退化成 re-export barrel。运行时切 locale 不会自动重渲染 React 树（`T` 不是 state）——真上多语言时要配一个 app 级 state bump。`counted()` 换 `Intl.PluralRules`：只决定单复数形，`s` 后缀逻辑不变，对现有所有调用（含 `0`/多词名词）输出与旧实现逐字一致。
 
 ## CI / 发布 / 更新
 
