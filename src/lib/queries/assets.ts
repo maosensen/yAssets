@@ -149,6 +149,33 @@ export function assetListQueryOptions(params: AssetListParams) {
 	});
 }
 
+/**
+ * Every asset id matching a view's scope+search+facets, in the active sort order
+ * and UNPAGED — backs select-all (Cmd+A) so it covers rows the grid hasn't
+ * loaded yet. Facet normalization mirrors `assetListQueryOptions` so the id set
+ * matches exactly what the grid shows.
+ */
+export async function fetchAssetIdsForView(
+	view: LibraryView,
+	sort: SortKey,
+	dir: SortDir,
+): Promise<string[]> {
+	return unwrap(
+		await commands.listAssetIds({
+			scope: scopeFromView(view),
+			search: view.q?.trim() || null,
+			rating_min: view.rating && view.rating > 0 ? view.rating : null,
+			types: extsForKinds(view.types) ?? null,
+			tag_ids: view.tags && view.tags.length > 0 ? view.tags : null,
+			sort,
+			dir,
+			cursor: null,
+			offset: null,
+			limit: null,
+		}),
+	);
+}
+
 export function assetDetailQueryOptions(id: string) {
 	return queryOptions({
 		queryKey: assetKeys.detail(id),

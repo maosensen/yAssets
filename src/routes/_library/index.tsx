@@ -40,6 +40,7 @@ import { useImport, useImportClipboard } from "@/hooks/use-import";
 import { pickDirectory, pickFiles } from "@/lib/dialogs";
 import { libraryViewSchema } from "@/lib/library-view";
 import {
+	fetchAssetIdsForView,
 	useDeleteAssetsForever,
 	useEmptyTrash,
 	useLibraryAssetList,
@@ -67,6 +68,9 @@ function LibraryHome() {
 	// Latest list for the stable-deps keyboard handler (Cmd+A).
 	const listRef = useRef(list);
 	listRef.current = list;
+	// Fresh view/sort/dir for that same handler (select-all fetches all ids).
+	const viewParamsRef = useRef({ view: search, sort, dir });
+	viewParamsRef.current = { view: search, sort, dir };
 
 	const { importPaths, isImporting } = useImport();
 	const { importClipboard } = useImportClipboard();
@@ -159,15 +163,24 @@ function LibraryHome() {
 				useUiStore.getState().requestRename();
 				return;
 			}
-			// Cmd/Ctrl+A — select everything in the current view.
+			// Cmd/Ctrl+A — select EVERY matching asset, including rows the grid
+			// hasn't paged in yet (via the unpaged list_asset_ids command).
 			if ((event.metaKey || event.ctrlKey) && event.key === "a") {
 				event.preventDefault();
-				const current = listRef.current;
-				if (current.items.length > 0) {
-					useSelectionStore
-						.getState()
-						.selectMany(current.items.map((asset) => asset.id));
+				const { view, sort: s, dir: d } = viewParamsRef.current;
+				// Similar view is a single capped query — select what's loaded.
+				if (view.view === "similar") {
+					const items = listRef.current.items;
+					if (items.length > 0) {
+						useSelectionStore.getState().selectMany(items.map((a) => a.id));
+					}
+					return;
 				}
+				void fetchAssetIdsForView(view, s, d)
+					.then((ids) => {
+						if (ids.length > 0) useSelectionStore.getState().selectMany(ids);
+					})
+					.catch(() => {});
 				return;
 			}
 			// Cmd/Ctrl+V — paste external assets (files or a bitmap) into the
