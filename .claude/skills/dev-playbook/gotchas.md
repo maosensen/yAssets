@@ -10,6 +10,8 @@
 | 拖滚动条时整个窗口跟着移动 | 长按拖动手势没排除滚动条命中 | `use-window-drag.ts` 已内置两道防线：指针坐标超出 clientWidth/Height 视为经典滚动条；手势期间收到 scroll 事件即否决。新增 chrome 区域复用该 hook，别自写 |
 | WebView2（Windows）上 HTML5 drag 完全不触发 | 窗口 `dragDropEnabled` 默认 true，原生层吞掉 HTML5 DnD | 内部拖拽（卡片→文件夹）一律 pointer 方案（drag-store + use-card-drag）；外部文件导入用原生 `onDragDropEvent`（经 `tauri-events.ts`） |
 | Windows 侧栏透明过头、文字看不清 | mica/acrylic 的透过率远高于 macOS vibrancy，同一半透明 token 两平台观感完全不同 | `windowEffects.effects` 混填 `["sidebar","mica","acrylic","blur"]`（各平台忽略不认识的值，一份配置服双端）；main.tsx 按 UA 挂 `.platform-windows` + index.css `@custom-variant windows` + 关键面板 `windows:bg-sidebar` 不透明兜底 |
+| 设了自定义原生菜单后 macOS 上 Cmd+C/V/X/A 全失效 | `app.set_menu` 一旦设了自定义 app 菜单，就把系统默认的 Edit 菜单（含剪切/复制/粘贴/全选）**整个替换掉**了 | 菜单里**必须**手动补一个 `Edit` 子菜单（`SubmenuBuilder::new(h,"Edit").undo().redo().cut().copy().paste().select_all()`）；顺带补 Window（minimize/maximize/close_window）。原生菜单仅 macOS（`#[cfg(target_os="macos")]`），Windows/Linux 会在窗口内长出菜单栏和自定义标题栏打架，那边用侧栏菜单承载同样动作 |
+| 原生菜单点 Preferences/About 没反应（欢迎页） | macOS 菜单栏**全局常驻**（欢迎页也在），但对话框当时挂在侧栏组件里、欢迎页没侧栏 → 菜单只 set 了 store flag 没人渲染；开库后 flag 残留还会误弹 | 菜单驱动的全局对话框放到根级 `AppDialogs`（在 i18n 重挂边界**内**，始终挂载、切语言也重译），用 UI store flag 驱动。菜单→前端走 `app.emit("menu://<id>")` + `listen`；订阅 hook 挂在重挂边界**外**（RootComponent），异步 `listen` 的 cleanup 要用 `cancelled` 标志防竞态 |
 
 ## macOS 分发
 
