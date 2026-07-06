@@ -47,6 +47,12 @@ export const ja: Messages = {
 		installing: "アップデートをダウンロード中…",
 		failed: "アップデートに失敗しました — 環境設定から再試行してください",
 	},
+	about: {
+		title: "yAssets について",
+		version: (v: string) => `バージョン ${v}`,
+		copyright: "© 2026 maosensen",
+		ok: "OK",
+	},
 	watched: {
 		description:
 			"これらのフォルダに追加されたファイルは自動的にインポートされます。ネストしたフォルダや重複は通常のインポートと同様に処理されます。",

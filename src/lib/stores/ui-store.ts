@@ -16,6 +16,8 @@ type UiState = {
 	requestRename: () => void;
 	preferencesOpen: boolean;
 	setPreferencesOpen: (open: boolean) => void;
+	aboutOpen: boolean;
+	setAboutOpen: (open: boolean) => void;
 };
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -24,4 +26,6 @@ export const useUiStore = create<UiState>()((set) => ({
 		set((state) => ({ renameSignal: state.renameSignal + 1 })),
 	preferencesOpen: false,
 	setPreferencesOpen: (open) => set({ preferencesOpen: open }),
+	aboutOpen: false,
+	setAboutOpen: (open) => set({ aboutOpen: open }),
 }));

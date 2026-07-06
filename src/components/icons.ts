@@ -14,6 +14,9 @@ export type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
 // Actions
 export { default as IconPlus } from "~icons/solar/add-circle-line-duotone";
+// Thin outline ring+plus — the subtle "add" affordance in sidebar section
+// headers (the duotone IconPlus reads too heavy there).
+export { default as IconAdd } from "~icons/solar/add-circle-linear";
 export { default as IconFolderAdd } from "~icons/solar/add-folder-line-duotone";
 // Navigation / chrome
 export { default as IconChevronLeft } from "~icons/solar/alt-arrow-left-line-duotone";

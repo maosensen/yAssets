@@ -5,13 +5,16 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
+import { AboutDialog } from "@/components/about-dialog";
 import { DuplicatesDialog } from "@/components/duplicates/duplicates-dialog";
 import {
 	IconClose,
 	IconCopy,
 	IconFolderAdd,
 	IconFolderOpen,
+	IconInfo,
 	IconLibrary,
+	IconReload,
 	IconSettings,
 	IconSwitcher,
 } from "@/components/icons";
@@ -33,6 +36,7 @@ import {
 } from "@/lib/queries/library";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { T } from "@/lib/text";
+import { runUpdateCheck } from "@/lib/update-actions";
 
 export function LibrarySwitcher() {
 	const { data: library } = useQuery(currentLibraryQueryOptions());
@@ -42,6 +46,7 @@ export function LibrarySwitcher() {
 	// remount when the user switches language from inside Preferences.
 	const prefsOpen = useUiStore((state) => state.preferencesOpen);
 	const setPrefsOpen = useUiStore((state) => state.setPreferencesOpen);
+	const setAboutOpen = useUiStore((state) => state.setAboutOpen);
 	const [duplicatesOpen, setDuplicatesOpen] = useState(false);
 
 	const otherRecents = (recents ?? []).filter(
@@ -112,6 +117,15 @@ export function LibrarySwitcher() {
 						<IconSettings className="size-4" />
 						{T.preferences.open}
 					</DropdownMenuItem>
+					<DropdownMenuSeparator />
+					<DropdownMenuItem onClick={() => void runUpdateCheck()}>
+						<IconReload className="size-4" />
+						{T.preferences.checkUpdates}
+					</DropdownMenuItem>
+					<DropdownMenuItem onClick={() => setAboutOpen(true)}>
+						<IconInfo className="size-4" />
+						{T.about.title}
+					</DropdownMenuItem>
 					<DropdownMenuItem onClick={() => actions.closeCurrent()}>
 						<IconClose className="size-4" />
 						{T.sidebar.switcher.closeCurrent}
@@ -119,6 +133,7 @@ export function LibrarySwitcher() {
 				</DropdownMenuContent>
 			</DropdownMenu>
 			<PreferencesDialog open={prefsOpen} onOpenChange={setPrefsOpen} />
+			<AboutDialog />
 			<DuplicatesDialog
 				open={duplicatesOpen}
 				onOpenChange={setDuplicatesOpen}

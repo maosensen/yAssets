@@ -48,6 +48,12 @@ export const en = {
 		installing: "Downloading update…",
 		failed: "Update failed — try again from Preferences",
 	},
+	about: {
+		title: "About yAssets",
+		version: (v: string) => `Version ${v}`,
+		copyright: "© 2026 maosensen",
+		ok: "OK",
+	},
 	watched: {
 		description:
 			"New files dropped into these folders import automatically. Nested folders and duplicates are handled like a normal import.",

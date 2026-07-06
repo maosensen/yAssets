@@ -7,7 +7,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
-import { IconMagic, IconPlus } from "@/components/icons";
+import { IconAdd, IconMagic } from "@/components/icons";
 import { SectionLabel } from "@/components/inspector/section";
 import {
 	SmartFolderDialog,
@@ -50,16 +50,16 @@ export function SmartFolderList() {
 
 	return (
 		<div className="flex shrink-0 flex-col">
-			<div className="flex items-center justify-between px-2 py-1">
+			<div className="flex items-center justify-between py-1 pr-1 pl-2">
 				<SectionLabel>{T.smartFolders.title}</SectionLabel>
 				<Button
 					variant="ghost"
 					size="icon"
-					className="size-6"
+					className="size-6 text-muted-foreground"
 					aria-label={T.smartFolders.create}
 					onClick={() => setDialog("new")}
 				>
-					<IconPlus className="size-3.5" />
+					<IconAdd className="size-4" />
 				</Button>
 			</div>
 

@@ -47,6 +47,12 @@ export const zh: Messages = {
 		installing: "正在下载更新…",
 		failed: "更新失败 — 请从偏好设置中重试",
 	},
+	about: {
+		title: "关于 yAssets",
+		version: (v: string) => `版本 ${v}`,
+		copyright: "© 2026 maosensen",
+		ok: "确定",
+	},
 	watched: {
 		description:
 			"放入这些文件夹的新文件会自动导入。嵌套文件夹与重复文件将按普通导入方式处理。",

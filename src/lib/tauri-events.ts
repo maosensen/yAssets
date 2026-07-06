@@ -10,6 +10,7 @@
  * in-app dragging must use pointer events, never HTML5 drag.
  */
 
+import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { logger } from "@/lib/logger";
 
@@ -44,4 +45,28 @@ export async function subscribeDragDrop(
 				break;
 		}
 	});
+}
+
+/** Global actions the native app menu (macOS menu bar) dispatches into the
+ *  webview. The Rust side emits `menu://<action>` on click (see lib.rs). */
+export type MenuAction = "preferences" | "about" | "check-updates";
+
+const MENU_ACTIONS: readonly MenuAction[] = [
+	"preferences",
+	"about",
+	"check-updates",
+];
+
+/** Subscribe to native-menu actions. Returns unlisten. */
+export async function subscribeMenu(
+	handler: (action: MenuAction) => void,
+): Promise<() => void> {
+	const unlisteners = await Promise.all(
+		MENU_ACTIONS.map((action) =>
+			listen(`menu://${action}`, () => handler(action)),
+		),
+	);
+	return () => {
+		for (const unlisten of unlisteners) unlisten();
+	};
 }

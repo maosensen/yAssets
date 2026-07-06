@@ -9,7 +9,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { toast } from "sonner";
 import {
 	IconArchive,
 	type IconComponent,
@@ -28,7 +27,6 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { pickDirectory } from "@/lib/dialogs";
 import { formatBytes } from "@/lib/format";
-import { logger } from "@/lib/logger";
 import {
 	maintenanceReportQueryOptions,
 	useCleanOrphans,
@@ -43,7 +41,7 @@ import {
 } from "@/lib/queries/watched-folders";
 import { useLocaleStore } from "@/lib/stores/locale-store";
 import { type LocaleCode, localeCodes, T } from "@/lib/text";
-import { checkAndInstall } from "@/lib/updater";
+import { runUpdateCheck } from "@/lib/update-actions";
 import { cn } from "@/lib/utils";
 
 type PreferencesDialogProps = {
@@ -126,11 +124,7 @@ function GeneralPane() {
 	const checkUpdates = async () => {
 		setChecking(true);
 		try {
-			const outcome = await checkAndInstall();
-			if (outcome === "none") toast.info(T.preferences.upToDate);
-		} catch (error) {
-			logger.warn({ error }, "update check failed");
-			toast.error(T.preferences.updateFailed);
+			await runUpdateCheck();
 		} finally {
 			setChecking(false);
 		}

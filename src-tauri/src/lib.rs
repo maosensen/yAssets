@@ -141,6 +141,64 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
             }
+
+            // Native application menu (macOS only). Windows/Linux keep the
+            // in-window sidebar switcher menu, which carries the same actions — a
+            // native menu bar there would clash with the custom titlebar. Custom
+            // items emit `menu://<id>` to the webview (handled by the
+            // use-menu-actions hook); the Edit submenu is required so
+            // copy/paste/select-all keep working, which setting a custom app menu
+            // would otherwise drop.
+            #[cfg(target_os = "macos")]
+            {
+                use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+                use tauri::Emitter;
+
+                let handle = app.handle();
+                let preferences = MenuItemBuilder::with_id("preferences", "Preferences…")
+                    .accelerator("CmdOrCtrl+,")
+                    .build(handle)?;
+                let app_menu = SubmenuBuilder::new(handle, "yAssets")
+                    .text("about", "About yAssets")
+                    .text("check-updates", "Check for Updates…")
+                    .separator()
+                    .item(&preferences)
+                    .separator()
+                    .services()
+                    .separator()
+                    .hide()
+                    .hide_others()
+                    .show_all()
+                    .separator()
+                    .quit()
+                    .build()?;
+                let edit_menu = SubmenuBuilder::new(handle, "Edit")
+                    .undo()
+                    .redo()
+                    .separator()
+                    .cut()
+                    .copy()
+                    .paste()
+                    .select_all()
+                    .build()?;
+                let window_menu = SubmenuBuilder::new(handle, "Window")
+                    .minimize()
+                    .maximize()
+                    .separator()
+                    .close_window()
+                    .build()?;
+                let menu = MenuBuilder::new(handle)
+                    .items(&[&app_menu, &edit_menu, &window_menu])
+                    .build()?;
+                app.set_menu(menu)?;
+                app.on_menu_event(move |app, event| {
+                    let id = event.id().as_ref();
+                    if matches!(id, "about" | "preferences" | "check-updates") {
+                        let _ = app.emit(&format!("menu://{id}"), ());
+                    }
+                });
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())

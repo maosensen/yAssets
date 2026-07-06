@@ -8,7 +8,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useSearch } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { IconPlus } from "@/components/icons";
+import { IconAdd } from "@/components/icons";
 import { SectionLabel } from "@/components/inspector/section";
 import {
 	AlertDialog,
@@ -60,16 +60,16 @@ export function FolderTree({ filter }: { filter: string }) {
 
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
-			<div className="flex items-center justify-between px-2 py-1">
+			<div className="flex items-center justify-between py-1 pr-1 pl-2">
 				<SectionLabel>{T.sidebar.foldersTitle}</SectionLabel>
 				<Button
 					variant="ghost"
 					size="icon"
-					className="size-6"
+					className="size-6 text-muted-foreground"
 					aria-label={T.sidebar.newFolder}
 					onClick={() => setDialog({ mode: "create", parentId: null })}
 				>
-					<IconPlus className="size-3.5" />
+					<IconAdd className="size-4" />
 				</Button>
 			</div>
 

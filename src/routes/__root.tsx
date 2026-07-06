@@ -3,6 +3,7 @@ import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { I18nProvider } from "@/components/i18n-provider";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/sonner";
+import { useMenuActions } from "@/hooks/use-menu-actions";
 import { useUpdateCheck } from "@/hooks/use-update-check";
 
 /** Injected by `createRouter` in main.tsx; consumed by route guards. */
@@ -17,6 +18,9 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 function RootComponent() {
 	// Startup update notification — root-level so the welcome screen gets it too.
 	useUpdateCheck();
+	// Native app-menu (macOS) → in-app actions. Mounted here, above the locale
+	// remount boundary, so the listeners persist across a language switch.
+	useMenuActions();
 	return (
 		<Providers>
 			{/* Only the routed content remounts on a language switch (so every
