@@ -13,6 +13,10 @@ import { runUpdateCheck } from "@/lib/update-actions";
 export function useMenuActions() {
 	useEffect(() => {
 		let dispose: (() => void) | undefined;
+		// If the effect is torn down before subscribeMenu resolves (StrictMode
+		// double-mount, fast unmount), unlisten as soon as it does — otherwise the
+		// listener leaks and menu clicks fire twice.
+		let cancelled = false;
 		void subscribeMenu((action) => {
 			const ui = useUiStore.getState();
 			switch (action) {
@@ -27,8 +31,12 @@ export function useMenuActions() {
 					break;
 			}
 		}).then((unlisten) => {
-			dispose = unlisten;
+			if (cancelled) unlisten();
+			else dispose = unlisten;
 		});
-		return () => dispose?.();
+		return () => {
+			cancelled = true;
+			dispose?.();
+		};
 	}, []);
 }
