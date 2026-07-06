@@ -39,6 +39,7 @@ export { default as IconFilter } from "~icons/solar/filter-line-duotone";
 // Folders
 export { default as IconFolder } from "~icons/solar/folder-line-duotone";
 export { default as IconFolderOpen } from "~icons/solar/folder-open-line-duotone";
+export { default as IconFullscreen } from "~icons/solar/full-screen-line-duotone";
 export { default as IconImportImages } from "~icons/solar/gallery-add-line-duotone";
 // Smart views / sidebar
 export {
@@ -52,6 +53,7 @@ export { default as IconMulti } from "~icons/solar/layers-line-duotone";
 export { default as IconLibrary } from "~icons/solar/library-line-duotone";
 export { default as IconMagic } from "~icons/solar/magic-stick-3-line-duotone";
 export { default as IconSearch } from "~icons/solar/magnifer-line-duotone";
+export { default as IconExitFullscreen } from "~icons/solar/minimize-line-duotone";
 export { default as IconMinus } from "~icons/solar/minus-circle-line-duotone";
 // Theme chips
 export { default as IconMonitor } from "~icons/solar/monitor-line-duotone";
@@ -59,6 +61,9 @@ export { default as IconMoon } from "~icons/solar/moon-line-duotone";
 export { default as IconFolderImport } from "~icons/solar/move-to-folder-line-duotone";
 export { default as IconMusic } from "~icons/solar/music-note-2-line-duotone";
 export { default as IconPalette } from "~icons/solar/palette-line-duotone";
+export { default as IconPause } from "~icons/solar/pause-circle-line-duotone";
+// Preview / present-mode controls (C 组 — viewing experience).
+export { default as IconPlay } from "~icons/solar/play-circle-line-duotone";
 export { default as IconRadio } from "~icons/solar/record-circle-line-duotone";
 export { default as IconReload } from "~icons/solar/restart-line-duotone";
 export { default as IconSettings } from "~icons/solar/settings-line-duotone";
@@ -71,3 +76,4 @@ export { default as IconSwitcher } from "~icons/solar/transfer-vertical-line-duo
 export { default as IconTrash } from "~icons/solar/trash-bin-trash-line-duotone";
 export { default as IconRestore } from "~icons/solar/undo-left-round-line-duotone";
 export { default as IconVideo } from "~icons/solar/videocamera-line-duotone";
+export { default as IconCompare } from "~icons/solar/widget-2-line-duotone";

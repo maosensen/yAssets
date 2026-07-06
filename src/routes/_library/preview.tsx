@@ -20,6 +20,7 @@ import {
 	IconChevronLeft,
 	IconChevronRight,
 	IconMinus,
+	IconPlay,
 	IconPlus,
 } from "@/components/icons";
 import { AudioViewer } from "@/components/preview/audio-viewer";
@@ -29,19 +30,19 @@ import {
 } from "@/components/preview/canvas-viewer";
 import { HtmlViewer } from "@/components/preview/html-viewer";
 import { PdfViewer } from "@/components/preview/pdf-viewer";
+import { Slideshow } from "@/components/preview/slideshow";
 import { TextViewer } from "@/components/preview/text-viewer";
 import { VideoViewer } from "@/components/preview/video-viewer";
 import { Button } from "@/components/ui/button";
+import { usePreviewSrc } from "@/hooks/use-preview-src";
 import { useWindowDrag } from "@/hooks/use-window-drag";
 import type { AssetSummary } from "@/lib/bindings";
 import { libraryViewSchema } from "@/lib/library-view";
-import { fileUrl } from "@/lib/media";
 import { useLibraryAssetList } from "@/lib/queries/assets";
-import { useThumbSrc } from "@/lib/stores/cover-bust-store";
 import { useSelectionStore } from "@/lib/stores/selection-store";
 import { useViewPrefsStore } from "@/lib/stores/view-prefs-store";
 import { T } from "@/lib/text";
-import { canDecodeNativeImage, viewerKindFor } from "@/lib/viewer-registry";
+import { viewerKindFor } from "@/lib/viewer-registry";
 
 const previewSearchSchema = libraryViewSchema.extend({
 	id: z.string(),
@@ -98,6 +99,8 @@ function PreviewPage() {
 	// Zoom state surfaced from the canvas for the topbar controls.
 	const viewerRef = useRef<ViewerHandle | null>(null);
 	const [zoomPercent, setZoomPercent] = useState<number | null>(null);
+	// Fullscreen slideshow / present mode over the current list.
+	const [slideshow, setSlideshow] = useState(false);
 	const onScaleChange = useCallback(
 		(scale: number) => setZoomPercent(Math.round(scale * 100)),
 		[],
@@ -131,6 +134,8 @@ function PreviewPage() {
 	// the listener mounts once (stable deps) yet always sees current index.
 	const keyHandler = useRef<(event: KeyboardEvent) => void>(() => {});
 	keyHandler.current = (event: KeyboardEvent) => {
+		// The slideshow owns the keyboard while open (its own capture listener).
+		if (slideshow) return;
 		if (event.key === "Escape") goBack();
 		else if (event.key === "ArrowLeft" && index > 0) goTo(index - 1);
 		else if (event.key === "ArrowRight" && index < items.length - 1) {
@@ -166,6 +171,8 @@ function PreviewPage() {
 				total={items.length}
 				zoomPercent={zoomPercent}
 				viewerRef={viewerRef}
+				canPresent={items.length > 0}
+				onPresent={() => setSlideshow(true)}
 				onBack={goBack}
 				onPrev={() => goTo(index - 1)}
 				onNext={() => goTo(index + 1)}
@@ -186,6 +193,16 @@ function PreviewPage() {
 					</div>
 				)}
 			</div>
+			{slideshow && items.length > 0 && (
+				<Slideshow
+					items={items}
+					startIndex={Math.max(0, index)}
+					onClose={(finalIndex) => {
+						setSlideshow(false);
+						if (finalIndex !== index) goTo(finalIndex);
+					}}
+				/>
+			)}
 		</div>
 	);
 }
@@ -196,6 +213,8 @@ function PreviewTopbar({
 	total,
 	zoomPercent,
 	viewerRef,
+	canPresent,
+	onPresent,
 	onBack,
 	onPrev,
 	onNext,
@@ -205,6 +224,8 @@ function PreviewTopbar({
 	total: number;
 	zoomPercent: number | null;
 	viewerRef: React.RefObject<ViewerHandle | null>;
+	canPresent: boolean;
+	onPresent: () => void;
 	onBack: () => void;
 	onPrev: () => void;
 	onNext: () => void;
@@ -280,6 +301,17 @@ function PreviewTopbar({
 			</div>
 
 			<div className="flex items-center justify-end gap-0.5">
+				<Button
+					variant="ghost"
+					size="icon"
+					className="size-8"
+					aria-label={T.preview.slideshow}
+					title={T.preview.slideshow}
+					disabled={!canPresent}
+					onClick={onPresent}
+				>
+					<IconPlay className="size-4" />
+				</Button>
 				<Button
 					variant="ghost"
 					size="icon"
@@ -370,23 +402,9 @@ function ImageBody({
 	viewerRef: React.RefObject<ViewerHandle | null>;
 	onScaleChange: (scale: number) => void;
 }) {
-	const [originalSrc, setOriginalSrc] = useState<string | null>(null);
-	// Cover-bust-aware thumbnail — reflects a regenerated cover (e.g. HEIC).
-	const thumbSrc = useThumbSrc(asset.id);
-
-	// Only fetch the original for formats the WebView can decode in an <img>.
-	// For thumb-backed formats (tiff/heic/psd/sketch) the original is either
-	// undecodable or needlessly large — the 512px thumbnail is the preview.
-	useEffect(() => {
-		setOriginalSrc(null);
-		if (!canDecodeNativeImage(asset.ext)) return;
-		const image = new Image();
-		image.onload = () => setOriginalSrc(image.src);
-		image.src = fileUrl(asset.id);
-		return () => {
-			image.onload = null;
-		};
-	}, [asset.id, asset.ext]);
+	// Thumbnail bridges instantly; the original swaps in once decoded (only for
+	// WebView-decodable formats — see usePreviewSrc).
+	const src = usePreviewSrc(asset);
 
 	// viewerKindFor guarantees dimensions for "image"; keep TS honest.
 	if (asset.width == null || asset.height == null) return null;
@@ -394,7 +412,7 @@ function ImageBody({
 	return (
 		<CanvasViewer
 			ref={viewerRef}
-			src={originalSrc ?? thumbSrc}
+			src={src}
 			alt={asset.name}
 			imageWidth={asset.width}
 			imageHeight={asset.height}

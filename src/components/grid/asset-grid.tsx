@@ -19,6 +19,7 @@ import {
 import { FolderPicker } from "@/components/folder-picker";
 import { AssetCard, type SelectModifiers } from "@/components/grid/asset-card";
 import { AssetContextItems } from "@/components/grid/asset-context-items";
+import { Compare } from "@/components/preview/compare";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -60,6 +61,15 @@ export function AssetGrid({
 	// Folder picker opens from the context menu (which unmounts on select), so
 	// its target ids are held here and the dialog lives at the grid root.
 	const [pickerIds, setPickerIds] = useState<string[] | null>(null);
+	// Compare overlay opens from the context menu (which unmounts on select), so
+	// its target ids are held here and the overlay lives at the grid root.
+	const [compareIds, setCompareIds] = useState<string[] | null>(null);
+	// Resolve to live assets so a list refetch/trash under the overlay can't
+	// leave it showing a degenerate 0-1 panel view (guard on THIS length).
+	const compareAssets =
+		compareIds !== null
+			? assets.filter((asset) => compareIds.includes(asset.id))
+			: [];
 	const targetRowHeight = useViewPrefsStore((state) => state.targetRowHeight);
 	const selectOnly = useSelectionStore((state) => state.selectOnly);
 	const cardDrag = useCardDrag();
@@ -367,6 +377,7 @@ export function AssetGrid({
 													inTrash={inTrash}
 													currentFolderId={currentFolderId}
 													onAddToFolder={setPickerIds}
+													onCompare={setCompareIds}
 													onRequestDeleteForever={onRequestDeleteForever}
 												/>
 											</ContextMenuContent>
@@ -385,6 +396,9 @@ export function AssetGrid({
 				}}
 				assetIds={pickerIds ?? []}
 			/>
+			{compareAssets.length >= 2 && (
+				<Compare assets={compareAssets} onClose={() => setCompareIds(null)} />
+			)}
 		</>
 	);
 }

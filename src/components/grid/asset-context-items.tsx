@@ -31,6 +31,8 @@ type AssetContextItemsProps = {
 	currentFolderId: string | null;
 	/** Opens the folder picker for the given assets (state lives in the grid). */
 	onAddToFolder: (ids: string[]) => void;
+	/** Opens side-by-side compare for the given assets (2-4; grid holds state). */
+	onCompare: (ids: string[]) => void;
 	onRequestDeleteForever: (ids: string[]) => void;
 };
 
@@ -53,6 +55,7 @@ export function AssetContextItems({
 	inTrash,
 	currentFolderId,
 	onAddToFolder,
+	onCompare,
 	onRequestDeleteForever,
 }: AssetContextItemsProps) {
 	const navigate = useNavigate();
@@ -65,6 +68,8 @@ export function AssetContextItems({
 	// Selection size at open time — the menu is mounted per open.
 	const count = targetIds(assetId).length;
 	const canRegenerateCover = hasCapturableCover(ext);
+	// Compare fits 2-4 panels side by side; hidden outside that range.
+	const canCompare = count >= 2 && count <= 4;
 
 	if (inTrash) {
 		return (
@@ -104,6 +109,11 @@ export function AssetContextItems({
 				</ContextMenuItem>
 			)}
 			<ContextMenuSeparator />
+			{canCompare && (
+				<ContextMenuItem onClick={() => onCompare(targetIds(assetId))}>
+					{T.assetMenu.compare}
+				</ContextMenuItem>
+			)}
 			<ContextMenuItem onClick={() => void exportAssets(targetIds(assetId))}>
 				{withCount(T.assetMenu.export, count)}
 			</ContextMenuItem>
