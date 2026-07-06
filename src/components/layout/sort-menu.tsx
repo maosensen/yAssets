@@ -20,17 +20,19 @@ import { useViewPrefsStore } from "@/lib/stores/view-prefs-store";
 import { T } from "@/lib/text";
 import { cn } from "@/lib/utils";
 
-const SORT_KEYS: Array<{ value: SortKey; label: string }> = [
-	{ value: "ImportedAt", label: T.sort.byImportedAt },
-	{ value: "Name", label: T.sort.byName },
-	{ value: "Size", label: T.sort.bySize },
-	{ value: "Rating", label: T.sort.byRating },
-	{ value: "UpdatedAt", label: T.sort.byUpdatedAt },
+// Built in render (not at module scope) so the labels re-read `T` on a locale
+// switch; the `value`s are locale-independent enum members.
+const SORT_KEYS: Array<{ value: SortKey; label: () => string }> = [
+	{ value: "ImportedAt", label: () => T.sort.byImportedAt },
+	{ value: "Name", label: () => T.sort.byName },
+	{ value: "Size", label: () => T.sort.bySize },
+	{ value: "Rating", label: () => T.sort.byRating },
+	{ value: "UpdatedAt", label: () => T.sort.byUpdatedAt },
 ];
 
-const SORT_DIRS: Array<{ value: SortDir; label: string }> = [
-	{ value: "Desc", label: T.sort.desc },
-	{ value: "Asc", label: T.sort.asc },
+const SORT_DIRS: Array<{ value: SortDir; label: () => string }> = [
+	{ value: "Desc", label: () => T.sort.desc },
+	{ value: "Asc", label: () => T.sort.asc },
 ];
 
 export function SortMenu() {
@@ -63,7 +65,7 @@ export function SortMenu() {
 				>
 					{SORT_KEYS.map((key) => (
 						<DropdownMenuRadioItem key={key.value} value={key.value}>
-							{key.label}
+							{key.label()}
 						</DropdownMenuRadioItem>
 					))}
 				</DropdownMenuRadioGroup>
@@ -77,7 +79,7 @@ export function SortMenu() {
 							key={direction.value}
 							value={direction.value}
 						>
-							{direction.label}
+							{direction.label()}
 						</DropdownMenuRadioItem>
 					))}
 				</DropdownMenuRadioGroup>

@@ -41,7 +41,8 @@ import {
 	useSetWatchedFolderEnabled,
 	watchedFoldersQueryOptions,
 } from "@/lib/queries/watched-folders";
-import { T } from "@/lib/text";
+import { useLocaleStore } from "@/lib/stores/locale-store";
+import { type LocaleCode, localeCodes, T } from "@/lib/text";
 import { checkAndInstall } from "@/lib/updater";
 import { cn } from "@/lib/utils";
 
@@ -50,23 +51,34 @@ type PreferencesDialogProps = {
 	onOpenChange: (open: boolean) => void;
 };
 
-type SectionId = "general" | "watched" | "maintenance";
+/** Language names shown in their own script — locale-independent, so they read
+ *  identically regardless of the active UI language. */
+const LANGUAGE_NAMES: Record<LocaleCode, string> = {
+	en: "English",
+	zh: "中文",
+	ja: "日本語",
+};
 
-const SECTIONS: Array<{
-	id: SectionId;
-	label: string;
-	icon: IconComponent;
-}> = [
-	{ id: "general", label: T.preferences.navGeneral, icon: IconSettings },
-	{ id: "watched", label: T.preferences.navWatched, icon: IconFolderOpen },
-	{ id: "maintenance", label: T.preferences.navMaintenance, icon: IconArchive },
-];
+type SectionId = "general" | "watched" | "maintenance";
 
 export function PreferencesDialog({
 	open,
 	onOpenChange,
 }: PreferencesDialogProps) {
 	const [section, setSection] = useState<SectionId>("general");
+
+	// Built in render (not at module scope) so labels re-read `T` on a locale
+	// switch.
+	const sections: Array<{ id: SectionId; label: string; icon: IconComponent }> =
+		[
+			{ id: "general", label: T.preferences.navGeneral, icon: IconSettings },
+			{ id: "watched", label: T.preferences.navWatched, icon: IconFolderOpen },
+			{
+				id: "maintenance",
+				label: T.preferences.navMaintenance,
+				icon: IconArchive,
+			},
+		];
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
@@ -77,7 +89,7 @@ export function PreferencesDialog({
 					<span className="px-2 py-1.5 font-semibold text-sm">
 						{T.preferences.title}
 					</span>
-					{SECTIONS.map(({ id, label, icon: Icon }) => (
+					{sections.map(({ id, label, icon: Icon }) => (
 						<button
 							key={id}
 							type="button"
@@ -107,6 +119,8 @@ export function PreferencesDialog({
 
 function GeneralPane() {
 	const { theme, setTheme } = useTheme();
+	const locale = useLocaleStore((state) => state.locale);
+	const setLocale = useLocaleStore((state) => state.setLocale);
 	const [checking, setChecking] = useState(false);
 
 	const checkUpdates = async () => {
@@ -145,6 +159,26 @@ function GeneralPane() {
 							label={T.preferences.themeSystem}
 							onClick={() => setTheme("system")}
 						/>
+					</div>
+				</Row>
+				<Row label={T.preferences.language}>
+					<div className="flex gap-1.5">
+						{localeCodes.map((code) => (
+							<button
+								key={code}
+								type="button"
+								aria-pressed={locale === code}
+								onClick={() => setLocale(code)}
+								className={cn(
+									"rounded-md border px-2.5 py-1.5 text-sm transition-colors",
+									locale === code
+										? "border-primary bg-primary/10 text-foreground"
+										: "border-transparent bg-muted/50 text-foreground/80 hover:bg-muted",
+								)}
+							>
+								{LANGUAGE_NAMES[code]}
+							</button>
+						))}
 					</div>
 				</Row>
 			</Section>

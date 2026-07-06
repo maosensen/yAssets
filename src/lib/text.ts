@@ -8,6 +8,7 @@
 export {
 	getLocale,
 	type LocaleCode,
+	localeCodes,
 	type Messages,
 	setLocale,
 	T,

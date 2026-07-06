@@ -35,6 +35,7 @@ export const en = {
 		themeLight: "Light",
 		themeDark: "Dark",
 		themeSystem: "System",
+		language: "Language",
 		sectionUpdates: "Updates",
 		checkUpdates: "Check for Updates",
 		checkingUpdates: "Checking…",

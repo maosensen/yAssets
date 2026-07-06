@@ -7,15 +7,20 @@
  */
 
 import { en } from "./en";
+import { ja } from "./ja";
+import { zh } from "./zh";
 
 /** The structural contract for a locale catalog (derived from English). */
 export type Messages = typeof en;
 
 /** Registered locales. Add a translation by listing its `Messages`-typed
  *  catalog here. */
-const locales = { en } satisfies Record<string, Messages>;
+const locales = { en, zh, ja } satisfies Record<string, Messages>;
 
 export type LocaleCode = keyof typeof locales;
+
+/** All registered locale codes, in registration order. */
+export const localeCodes = Object.keys(locales) as LocaleCode[];
 
 let active: LocaleCode = "en";
 
