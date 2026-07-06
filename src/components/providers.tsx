@@ -1,6 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { I18nProvider } from "@/components/i18n-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { getQueryClient } from "@/lib/query-client";
 
@@ -10,7 +9,7 @@ export function Providers({ children }: { children: ReactNode }) {
 	return (
 		<QueryClientProvider client={queryClient}>
 			<ThemeProvider defaultTheme="dark" storageKey="yassets-theme">
-				<I18nProvider>{children}</I18nProvider>
+				{children}
 			</ThemeProvider>
 		</QueryClientProvider>
 	);

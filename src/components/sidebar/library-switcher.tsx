@@ -31,13 +31,17 @@ import {
 	currentLibraryQueryOptions,
 	recentLibrariesQueryOptions,
 } from "@/lib/queries/library";
+import { useUiStore } from "@/lib/stores/ui-store";
 import { T } from "@/lib/text";
 
 export function LibrarySwitcher() {
 	const { data: library } = useQuery(currentLibraryQueryOptions());
 	const { data: recents } = useQuery(recentLibrariesQueryOptions());
 	const actions = useLibraryActions();
-	const [prefsOpen, setPrefsOpen] = useState(false);
+	// Kept in the UI store (not local state) so the dialog survives the locale
+	// remount when the user switches language from inside Preferences.
+	const prefsOpen = useUiStore((state) => state.preferencesOpen);
+	const setPrefsOpen = useUiStore((state) => state.setPreferencesOpen);
 	const [duplicatesOpen, setDuplicatesOpen] = useState(false);
 
 	const otherRecents = (recents ?? []).filter(
