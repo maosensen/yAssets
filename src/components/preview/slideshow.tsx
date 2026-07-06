@@ -78,11 +78,22 @@ export function Slideshow({
 		[count],
 	);
 
+	// onClose must fire exactly once. `close()` reports it directly, but exiting
+	// OS fullscreen ALSO reports it (fullscreenchange fires asynchronously, after
+	// exitFullscreen resolves) — so a close-while-fullscreen would otherwise call
+	// onClose twice. This guard collapses every close path to a single call.
+	const closedRef = useRef(false);
+	const finish = useCallback((finalIndex: number) => {
+		if (closedRef.current) return;
+		closedRef.current = true;
+		onCloseRef.current(finalIndex);
+	}, []);
+
 	const close = useCallback(() => {
 		if (document.fullscreenElement)
 			void document.exitFullscreen().catch(() => {});
-		onCloseRef.current(indexRef.current);
-	}, []);
+		finish(indexRef.current);
+	}, [finish]);
 
 	// Auto-advance at a steady cadence while playing (functional update, so no
 	// dependency on the current index).
@@ -100,11 +111,20 @@ export function Slideshow({
 	// stays mounted, swallowing keys behind an invisible modal.
 	useEffect(() => {
 		if (count === 0) {
-			onCloseRef.current(0);
+			finish(0);
 			return;
 		}
 		setIndex((i) => (i >= count ? count - 1 : i));
-	}, [count]);
+	}, [count, finish]);
+
+	// Modal focus management: pull focus into the overlay on mount so keys land
+	// here, and restore it to whatever launched the slideshow (the preview's
+	// launch button) on unmount.
+	useEffect(() => {
+		const previouslyFocused = document.activeElement as HTMLElement | null;
+		containerRef.current?.focus();
+		return () => previouslyFocused?.focus?.();
+	}, []);
 
 	// Request OS fullscreen on mount (the launch click supplies the gesture);
 	// if it's blocked the fixed overlay still gives an in-app present mode.
@@ -115,7 +135,7 @@ export function Slideshow({
 		const onFsChange = () => {
 			const fs = document.fullscreenElement != null;
 			setIsFullscreen(fs);
-			if (!fs) onCloseRef.current(indexRef.current);
+			if (!fs) finish(indexRef.current);
 		};
 		document.addEventListener("fullscreenchange", onFsChange);
 		return () => {
@@ -123,7 +143,7 @@ export function Slideshow({
 			if (document.fullscreenElement)
 				void document.exitFullscreen().catch(() => {});
 		};
-	}, []);
+	}, [finish]);
 
 	// Keyboard (capture phase so it wins over the preview route's handler, which
 	// also no-ops while the slideshow is mounted).
@@ -141,6 +161,14 @@ export function Slideshow({
 			} else if (event.key === " ") {
 				event.preventDefault();
 				setPlaying((p) => !p);
+			} else if (event.key === "Tab") {
+				// Trap focus inside the modal; reveal the chrome so the control the
+				// user is tabbing to is actually visible (it auto-hides on idle).
+				const root = containerRef.current;
+				if (root) {
+					setChromeVisible(true);
+					trapTabFocus(root, event);
+				}
 			}
 		};
 		window.addEventListener("keydown", onKey, true);
@@ -184,8 +212,12 @@ export function Slideshow({
 	return (
 		<div
 			ref={containerRef}
+			role="dialog"
+			aria-modal="true"
+			aria-label={T.preview.slideshow}
+			tabIndex={-1}
 			className={cn(
-				"fixed inset-0 z-[95] flex flex-col bg-black",
+				"fixed inset-0 z-[95] flex flex-col bg-black outline-none",
 				!chromeVisible && "cursor-none",
 			)}
 		>
@@ -260,6 +292,33 @@ export function Slideshow({
 			</div>
 		</div>
 	);
+}
+
+/** Keep Tab focus inside the modal, wrapping around at both ends. Called from
+ *  the capture-phase key handler so it fires even when focus has escaped. */
+function trapTabFocus(root: HTMLElement, event: KeyboardEvent) {
+	const focusables = Array.from(
+		root.querySelectorAll<HTMLElement>(
+			'button, [href], input, [tabindex]:not([tabindex="-1"])',
+		),
+	).filter((el) => !el.hasAttribute("disabled"));
+	if (focusables.length === 0) {
+		event.preventDefault();
+		root.focus();
+		return;
+	}
+	const first = focusables[0];
+	const last = focusables[focusables.length - 1];
+	const active = document.activeElement;
+	if (event.shiftKey) {
+		if (active === first || !root.contains(active)) {
+			event.preventDefault();
+			last?.focus();
+		}
+	} else if (active === last || !root.contains(active)) {
+		event.preventDefault();
+		first?.focus();
+	}
 }
 
 function SlideButton({

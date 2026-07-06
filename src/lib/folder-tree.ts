@@ -62,15 +62,35 @@ export function filterFolderTree(
 	return roots.map(walk).filter((node): node is FolderNode => node !== null);
 }
 
-/** Depth-first flatten with depth — for indented flat pickers (menus). */
-export function flattenFolderTree(
+export type FlatFolderRow = { node: FolderNode; depth: number };
+
+/**
+ * Depth-first rows with depth. A node's children are included only when
+ * `showAll` is true (flat listing) OR the node's id is in `expanded` — the
+ * shape a collapsible tree picker needs. `flattenFolderTree` is the
+ * `showAll` special case.
+ */
+export function flattenVisibleFolders(
 	roots: readonly FolderNode[],
-): Array<{ node: FolderNode; depth: number }> {
-	const out: Array<{ node: FolderNode; depth: number }> = [];
+	expanded: ReadonlySet<string>,
+	showAll: boolean,
+): FlatFolderRow[] {
+	const out: FlatFolderRow[] = [];
 	const visit = (node: FolderNode, depth: number) => {
 		out.push({ node, depth });
-		for (const child of node.children) visit(child, depth + 1);
+		if (node.children.length > 0 && (showAll || expanded.has(node.id))) {
+			for (const child of node.children) visit(child, depth + 1);
+		}
 	};
 	for (const root of roots) visit(root, 0);
 	return out;
+}
+
+const NO_EXPANDED: ReadonlySet<string> = new Set();
+
+/** Depth-first flatten with depth — for indented flat pickers (menus). */
+export function flattenFolderTree(
+	roots: readonly FolderNode[],
+): FlatFolderRow[] {
+	return flattenVisibleFolders(roots, NO_EXPANDED, true);
 }

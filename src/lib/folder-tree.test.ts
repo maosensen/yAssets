@@ -4,6 +4,7 @@ import {
 	buildFolderTree,
 	filterFolderTree,
 	flattenFolderTree,
+	flattenVisibleFolders,
 } from "./folder-tree";
 
 function row(id: string, parent: string | null, name: string): Folder {
@@ -90,5 +91,58 @@ describe("flattenFolderTree", () => {
 			["b", 1],
 			["c", 0],
 		]);
+	});
+});
+
+describe("flattenVisibleFolders", () => {
+	const tree = buildFolderTree([
+		row("a", null, "A"),
+		row("b", "a", "B"),
+		row("c", "b", "C"),
+		row("d", null, "D"),
+	]);
+
+	it("hides collapsed children (empty expanded set)", () => {
+		const flat = flattenVisibleFolders(tree, new Set(), false).map(
+			({ node }) => node.id,
+		);
+		expect(flat).toEqual(["a", "d"]);
+	});
+
+	it("reveals only the expanded branch, one level at a time", () => {
+		const flat = flattenVisibleFolders(tree, new Set(["a"]), false).map(
+			({ node, depth }) => [node.id, depth],
+		);
+		// "a" expanded shows "b"; "b" is still collapsed so "c" stays hidden.
+		expect(flat).toEqual([
+			["a", 0],
+			["b", 1],
+			["d", 0],
+		]);
+	});
+
+	it("reveals a deep chain when every ancestor is expanded", () => {
+		const flat = flattenVisibleFolders(tree, new Set(["a", "b"]), false).map(
+			({ node }) => node.id,
+		);
+		expect(flat).toEqual(["a", "b", "c", "d"]);
+	});
+
+	it("showAll ignores the expanded set and returns the full tree", () => {
+		const flat = flattenVisibleFolders(tree, new Set(), true).map(
+			({ node, depth }) => [node.id, depth],
+		);
+		expect(flat).toEqual([
+			["a", 0],
+			["b", 1],
+			["c", 2],
+			["d", 0],
+		]);
+	});
+
+	it("matches flattenFolderTree when showAll is true", () => {
+		expect(flattenVisibleFolders(tree, new Set(), true)).toEqual(
+			flattenFolderTree(tree),
+		);
 	});
 });

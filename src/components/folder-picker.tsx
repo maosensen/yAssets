@@ -34,7 +34,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import type { Folder } from "@/lib/bindings";
-import { buildFolderTree, type FolderNode } from "@/lib/folder-tree";
+import { buildFolderTree, flattenVisibleFolders } from "@/lib/folder-tree";
 import {
 	assetFolderMembershipQueryOptions,
 	foldersQueryOptions,
@@ -105,7 +105,7 @@ function PickerBody({ assetIds }: { assetIds: string[] }) {
 
 	const searching = query.trim().length > 0;
 	const rows = useMemo(
-		() => flattenVisible(roots, expanded, searching),
+		() => flattenVisibleFolders(roots, expanded, searching),
 		[roots, expanded, searching],
 	);
 
@@ -301,22 +301,4 @@ function Hint({ keys, label }: { keys: string; label: string }) {
 			{label}
 		</span>
 	);
-}
-
-/** Depth-first rows; a node's children are included only while expanded (or
- *  when searching, where everything is shown flat for cmdk to filter). */
-function flattenVisible(
-	roots: readonly FolderNode[],
-	expanded: ReadonlySet<string>,
-	showAll: boolean,
-): Array<{ node: FolderNode; depth: number }> {
-	const out: Array<{ node: FolderNode; depth: number }> = [];
-	const visit = (node: FolderNode, depth: number) => {
-		out.push({ node, depth });
-		if (node.children.length > 0 && (showAll || expanded.has(node.id))) {
-			for (const child of node.children) visit(child, depth + 1);
-		}
-	};
-	for (const root of roots) visit(root, 0);
-	return out;
 }
