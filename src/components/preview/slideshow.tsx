@@ -310,12 +310,17 @@ function trapTabFocus(root: HTMLElement, event: KeyboardEvent) {
 	const first = focusables[0];
 	const last = focusables[focusables.length - 1];
 	const active = document.activeElement;
+	// The dialog container itself holds focus right after open (tabIndex=-1, so
+	// it's never in `focusables`). Treat it — and anything outside the modal — as
+	// a boundary, otherwise the default Shift+Tab would walk to a control behind
+	// the overlay and escape the trap.
+	const atBoundary = active === root || !root.contains(active);
 	if (event.shiftKey) {
-		if (active === first || !root.contains(active)) {
+		if (atBoundary || active === first) {
 			event.preventDefault();
 			last?.focus();
 		}
-	} else if (active === last || !root.contains(active)) {
+	} else if (atBoundary || active === last) {
 		event.preventDefault();
 		first?.focus();
 	}

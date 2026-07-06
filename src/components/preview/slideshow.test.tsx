@@ -81,3 +81,24 @@ test("traps Tab focus inside the dialog (wraps last → first)", () => {
 	fireEvent.keyDown(first as HTMLElement, { key: "Tab", shiftKey: true });
 	expect(document.activeElement).toBe(last);
 });
+
+test("keeps focus inside when tabbing from the dialog container itself", () => {
+	// The container holds focus immediately after open (tabIndex=-1). Both Tab
+	// and Shift+Tab from there must stay in the modal — Shift+Tab must not fall
+	// through to the controls rendered behind the overlay.
+	const { getByRole, getAllByRole } = render(
+		<Slideshow items={items} startIndex={0} onClose={vi.fn()} />,
+	);
+	const dialog = getByRole("dialog");
+	const buttons = getAllByRole("button");
+	const first = buttons[0];
+	const last = buttons[buttons.length - 1];
+
+	expect(document.activeElement).toBe(dialog);
+	fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+	expect(document.activeElement).toBe(last);
+
+	dialog.focus();
+	fireEvent.keyDown(dialog, { key: "Tab" });
+	expect(document.activeElement).toBe(first);
+});
