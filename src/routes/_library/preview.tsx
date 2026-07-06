@@ -48,6 +48,10 @@ const previewSearchSchema = libraryViewSchema.extend({
 	id: z.string(),
 });
 
+/** Fetch the next keyset page once the previewed item is within this many of
+ *  the loaded end — keeps prev/next seamless across page boundaries. */
+const PREVIEW_PREFETCH_MARGIN = 10;
+
 export const Route = createFileRoute("/_library/preview")({
 	validateSearch: previewSearchSchema,
 	component: PreviewPage,
@@ -156,21 +160,49 @@ function PreviewPage() {
 		return () => window.removeEventListener("keydown", onKeyDown);
 	}, []);
 
-	// Item not in the loaded list (deleted / view changed) → back to grid. Wait
-	// out loading AND in-flight paging so a not-yet-fetched asset doesn't bounce
-	// (deep-link-until-found hardening lands in M5).
+	// Keyset paging survival: pull the next page when the previewed item nears
+	// the end of the loaded set (so prev/next crosses page boundaries) OR isn't
+	// loaded at all (deep-link to a deep asset — keep paging until it appears).
 	useEffect(() => {
-		if (!list.isLoading && !list.isFetchingNextPage && index < 0) {
+		if (!list.hasNextPage || list.isFetchingNextPage) return;
+		if (index < 0 || index >= items.length - PREVIEW_PREFETCH_MARGIN) {
+			list.fetchNextPage();
+		}
+	}, [
+		index,
+		items.length,
+		list.hasNextPage,
+		list.isFetchingNextPage,
+		list.fetchNextPage,
+	]);
+
+	// Item genuinely not in the list (deleted / view changed) → back to grid.
+	// Only once fully loaded (no more pages could contain it) so a deep-link to
+	// an unfetched asset pages in via the effect above instead of bouncing.
+	useEffect(() => {
+		if (
+			!list.isLoading &&
+			!list.isFetchingNextPage &&
+			!list.hasNextPage &&
+			index < 0
+		) {
 			void navigate({ to: "/", search: view, replace: true });
 		}
-	}, [list.isLoading, list.isFetchingNextPage, index, navigate, view]);
+	}, [
+		list.isLoading,
+		list.isFetchingNextPage,
+		list.hasNextPage,
+		index,
+		navigate,
+		view,
+	]);
 
 	return (
 		<div className="flex h-full flex-col bg-background">
 			<PreviewTopbar
 				title={asset?.name ?? ""}
 				index={index}
-				total={items.length}
+				total={list.total}
 				zoomPercent={zoomPercent}
 				viewerRef={viewerRef}
 				canPresent={items.length > 0}
