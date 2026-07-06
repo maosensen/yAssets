@@ -5,7 +5,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { AboutDialog } from "@/components/about-dialog";
 import { DuplicatesDialog } from "@/components/duplicates/duplicates-dialog";
 import {
 	IconClose,
@@ -18,7 +17,6 @@ import {
 	IconSettings,
 	IconSwitcher,
 } from "@/components/icons";
-import { PreferencesDialog } from "@/components/preferences/preferences-dialog";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -42,9 +40,9 @@ export function LibrarySwitcher() {
 	const { data: library } = useQuery(currentLibraryQueryOptions());
 	const { data: recents } = useQuery(recentLibrariesQueryOptions());
 	const actions = useLibraryActions();
-	// Kept in the UI store (not local state) so the dialog survives the locale
-	// remount when the user switches language from inside Preferences.
-	const prefsOpen = useUiStore((state) => state.preferencesOpen);
+	// These dialogs are mounted app-globally (AppDialogs) and opened via the UI
+	// store, so they work from here, the native menu, and the welcome screen
+	// alike. This menu only needs the setters.
 	const setPrefsOpen = useUiStore((state) => state.setPreferencesOpen);
 	const setAboutOpen = useUiStore((state) => state.setAboutOpen);
 	const [duplicatesOpen, setDuplicatesOpen] = useState(false);
@@ -132,8 +130,6 @@ export function LibrarySwitcher() {
 					</DropdownMenuItem>
 				</DropdownMenuContent>
 			</DropdownMenu>
-			<PreferencesDialog open={prefsOpen} onOpenChange={setPrefsOpen} />
-			<AboutDialog />
 			<DuplicatesDialog
 				open={duplicatesOpen}
 				onOpenChange={setDuplicatesOpen}

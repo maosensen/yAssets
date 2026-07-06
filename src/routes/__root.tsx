@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
+import { AppDialogs } from "@/components/app-dialogs";
 import { I18nProvider } from "@/components/i18n-provider";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/sonner";
@@ -29,6 +30,10 @@ function RootComponent() {
 			    update-available toast that only fires once per launch. */}
 			<I18nProvider>
 				<Outlet />
+				{/* Global dialogs (Preferences, About) — mounted on every route,
+				    incl. welcome, so the native menu bar reaches them. Inside the
+				    boundary so they re-translate on a language switch. */}
+				<AppDialogs />
 			</I18nProvider>
 			<Toaster position="bottom-right" />
 		</Providers>
