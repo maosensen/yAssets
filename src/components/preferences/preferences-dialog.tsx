@@ -6,21 +6,41 @@
  * Shortcuts, …) drop in without restructuring.
  */
 
+import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
+	IconArchive,
 	type IconComponent,
+	IconFolderAdd,
+	IconFolderOpen,
 	IconMonitor,
 	IconMoon,
 	IconReload,
 	IconSettings,
 	IconSun,
+	IconTrash,
 } from "@/components/icons";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { pickDirectory } from "@/lib/dialogs";
+import { formatBytes } from "@/lib/format";
 import { logger } from "@/lib/logger";
+import {
+	maintenanceReportQueryOptions,
+	useCleanOrphans,
+	useVacuumDatabase,
+	useVerifyIntegrity,
+} from "@/lib/queries/maintenance";
+import {
+	useAddWatchedFolder,
+	useRemoveWatchedFolder,
+	useSetWatchedFolderEnabled,
+	watchedFoldersQueryOptions,
+} from "@/lib/queries/watched-folders";
 import { T } from "@/lib/text";
 import { checkAndInstall } from "@/lib/updater";
 import { cn } from "@/lib/utils";
@@ -30,13 +50,17 @@ type PreferencesDialogProps = {
 	onOpenChange: (open: boolean) => void;
 };
 
-type SectionId = "general";
+type SectionId = "general" | "watched" | "maintenance";
 
 const SECTIONS: Array<{
 	id: SectionId;
 	label: string;
 	icon: IconComponent;
-}> = [{ id: "general", label: T.preferences.navGeneral, icon: IconSettings }];
+}> = [
+	{ id: "general", label: T.preferences.navGeneral, icon: IconSettings },
+	{ id: "watched", label: T.preferences.navWatched, icon: IconFolderOpen },
+	{ id: "maintenance", label: T.preferences.navMaintenance, icon: IconArchive },
+];
 
 export function PreferencesDialog({
 	open,
@@ -73,6 +97,8 @@ export function PreferencesDialog({
 
 				<div className="min-w-0 flex-1 overflow-y-auto p-5">
 					{section === "general" && <GeneralPane />}
+					{section === "watched" && <WatchedFoldersPane />}
+					{section === "maintenance" && <MaintenancePane />}
 				</div>
 			</DialogContent>
 		</Dialog>
@@ -137,6 +163,142 @@ function GeneralPane() {
 							: T.preferences.checkUpdates}
 					</Button>
 				</Row>
+			</Section>
+		</div>
+	);
+}
+
+function WatchedFoldersPane() {
+	const { data: folders } = useQuery(watchedFoldersQueryOptions());
+	const add = useAddWatchedFolder();
+	const setEnabled = useSetWatchedFolderEnabled();
+	const remove = useRemoveWatchedFolder();
+
+	const onAdd = async () => {
+		const dir = await pickDirectory(T.watched.add);
+		if (dir) add.mutate({ path: dir, folderId: null });
+	};
+
+	const rows = folders ?? [];
+	return (
+		<div className="flex flex-col gap-4">
+			<Section title={T.preferences.navWatched}>
+				<p className="text-muted-foreground text-xs leading-relaxed">
+					{T.watched.description}
+				</p>
+				<div className="flex flex-col gap-1.5">
+					{rows.length === 0 ? (
+						<p className="py-2 text-muted-foreground text-sm">
+							{T.watched.empty}
+						</p>
+					) : (
+						rows.map((folder) => (
+							<div
+								key={folder.id}
+								className="flex items-center gap-3 rounded-md border px-3 py-2"
+							>
+								<div className="min-w-0 flex-1">
+									<div className="truncate text-sm" title={folder.path}>
+										{folder.path}
+									</div>
+									<div className="text-muted-foreground text-xs">
+										{T.watched.autoImport}
+									</div>
+								</div>
+								<Switch
+									checked={folder.auto_import}
+									onCheckedChange={(checked) =>
+										setEnabled.mutate({ id: folder.id, enabled: checked })
+									}
+								/>
+								<Button
+									variant="ghost"
+									size="icon"
+									className="size-7 shrink-0"
+									aria-label={T.watched.remove}
+									title={T.watched.remove}
+									onClick={() => remove.mutate(folder.id)}
+								>
+									<IconTrash className="size-4" />
+								</Button>
+							</div>
+						))
+					)}
+				</div>
+				<Button
+					variant="outline"
+					size="sm"
+					className="self-start"
+					disabled={add.isPending}
+					onClick={() => void onAdd()}
+				>
+					<IconFolderAdd className="size-4" />
+					{T.watched.add}
+				</Button>
+			</Section>
+		</div>
+	);
+}
+
+function MaintenancePane() {
+	const { data: report } = useQuery(maintenanceReportQueryOptions());
+	const vacuum = useVacuumDatabase();
+	const verify = useVerifyIntegrity();
+	const clean = useCleanOrphans();
+	const orphanCount =
+		(report?.orphan_asset_files ?? 0) + (report?.orphan_thumbnails ?? 0);
+	const busy = vacuum.isPending || verify.isPending || clean.isPending;
+
+	return (
+		<div className="flex flex-col gap-5">
+			<Section title={T.preferences.navMaintenance}>
+				<p className="text-muted-foreground text-xs leading-relaxed">
+					{T.maintenance.description}
+				</p>
+				<div className="flex flex-col gap-1.5 text-sm">
+					<div className="flex items-center justify-between">
+						<span>{T.maintenance.databaseSize}</span>
+						<span className="text-muted-foreground tabular-nums">
+							{report ? formatBytes(report.db_bytes ?? 0) : "—"}
+						</span>
+					</div>
+					<div className="flex items-center justify-between">
+						<span>
+							{orphanCount > 0
+								? T.maintenance.orphans(orphanCount)
+								: T.maintenance.noOrphans}
+						</span>
+					</div>
+				</div>
+				<div className="flex flex-wrap gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={busy}
+						onClick={() => vacuum.mutate()}
+					>
+						<IconArchive className="size-3.5" />
+						{vacuum.isPending ? T.maintenance.busy : T.maintenance.vacuum}
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={busy}
+						onClick={() => verify.mutate()}
+					>
+						<IconReload className="size-3.5" />
+						{verify.isPending ? T.maintenance.busy : T.maintenance.verify}
+					</Button>
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={busy || orphanCount === 0}
+						onClick={() => clean.mutate()}
+					>
+						<IconTrash className="size-3.5" />
+						{clean.isPending ? T.maintenance.busy : T.maintenance.clean}
+					</Button>
+				</div>
 			</Section>
 		</div>
 	);

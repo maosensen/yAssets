@@ -55,3 +55,11 @@ export const smartFolderKeys = {
 export const tagKeys = {
 	all: ["tags"] as const,
 };
+
+export const watchedFolderKeys = {
+	all: ["watched-folders"] as const,
+};
+
+export const maintenanceKeys = {
+	report: ["maintenance", "report"] as const,
+};
