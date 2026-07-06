@@ -65,6 +65,10 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::tags::delete_tag,
             commands::tags::add_tags_to_assets,
             commands::tags::remove_tags_from_assets,
+            commands::watched_folders::list_watched_folders,
+            commands::watched_folders::add_watched_folder,
+            commands::watched_folders::set_watched_folder_enabled,
+            commands::watched_folders::remove_watched_folder,
             commands::export::export_assets
         ])
         .events(collect_events![

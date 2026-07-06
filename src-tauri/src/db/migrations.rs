@@ -142,6 +142,20 @@ CREATE TRIGGER assets_fts_au AFTER UPDATE OF name, note ON assets BEGIN
     VALUES (new.rowid, new.name, COALESCE(new.note, ''));
 END;
 "#,
+    // v8 — watched folders (auto-import). Each row is an external directory the
+    // app watches; new files there import into `folder_id` (NULL = library root)
+    // when `auto_import` is on. `path` is unique so the same dir isn't watched
+    // twice; `last_scanned_at` records the last reconciliation pass.
+    r#"
+CREATE TABLE watched_folders (
+  id TEXT PRIMARY KEY,
+  path TEXT NOT NULL UNIQUE,
+  folder_id TEXT REFERENCES folders(id) ON DELETE SET NULL,
+  auto_import INTEGER NOT NULL DEFAULT 1,
+  last_scanned_at INTEGER,
+  created_at INTEGER NOT NULL
+);
+"#,
 ];
 
 /// Current schema version an up-to-date library sits at.

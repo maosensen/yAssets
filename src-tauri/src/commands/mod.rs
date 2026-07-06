@@ -20,3 +20,4 @@ pub mod library;
 pub mod smart_folders;
 pub mod tags;
 pub mod trash;
+pub mod watched_folders;

@@ -184,6 +184,10 @@ export const commands = {
 	/**  Attach every tag to every asset (cartesian, INSERT OR IGNORE). */
 	addTagsToAssets: (assetIds: string[], tagIds: string[]) => typedError<number, AppError>(__TAURI_INVOKE("add_tags_to_assets", { assetIds, tagIds })),
 	removeTagsFromAssets: (assetIds: string[], tagIds: string[]) => typedError<number, AppError>(__TAURI_INVOKE("remove_tags_from_assets", { assetIds, tagIds })),
+	listWatchedFolders: () => typedError<WatchedFolder[], AppError>(__TAURI_INVOKE("list_watched_folders")),
+	addWatchedFolder: (path: string, folderId: string | null) => typedError<WatchedFolder, AppError>(__TAURI_INVOKE("add_watched_folder", { path, folderId })),
+	setWatchedFolderEnabled: (id: string, enabled: boolean) => typedError<null, AppError>(__TAURI_INVOKE("set_watched_folder_enabled", { id, enabled })),
+	removeWatchedFolder: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("remove_watched_folder", { id })),
 	/**  Copy `ids` into `dest_dir`. Returns the number of files written. */
 	exportAssets: (ids: string[], destDir: string) => typedError<number, AppError>(__TAURI_INVOKE("export_assets", { ids, destDir })),
 };
@@ -506,6 +510,18 @@ export type TagRef = {
 	id: string,
 	name: string,
 	color: string | null,
+};
+
+export type WatchedFolder = {
+	id: string,
+	path: string,
+	/**  Library folder new files import into; None = library root. */
+	folder_id: string | null,
+	auto_import: boolean,
+	/**  Unix ms of the last reconciliation pass; None = never scanned. */
+	last_scanned_at: number | null,
+	/**  Unix ms. */
+	created_at: number | null,
 };
 
 /* Tauri Specta runtime */
