@@ -188,6 +188,17 @@ export const commands = {
 	addWatchedFolder: (path: string, folderId: string | null) => typedError<WatchedFolder, AppError>(__TAURI_INVOKE("add_watched_folder", { path, folderId })),
 	setWatchedFolderEnabled: (id: string, enabled: boolean) => typedError<null, AppError>(__TAURI_INVOKE("set_watched_folder_enabled", { id, enabled })),
 	removeWatchedFolder: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("remove_watched_folder", { id })),
+	getMaintenanceReport: () => typedError<MaintenanceReport, AppError>(__TAURI_INVOKE("get_maintenance_report")),
+	/**  Reclaim free database pages. Returns bytes reclaimed. */
+	vacuumDatabase: () => typedError<number | null, AppError>(__TAURI_INVOKE("vacuum_database")),
+	/**  `PRAGMA integrity_check` — true when the database is healthy. */
+	verifyIntegrity: () => typedError<boolean, AppError>(__TAURI_INVOKE("verify_integrity")),
+	/**
+	 *  Delete orphan asset/thumbnail files (irreversible — no soft delete). Refused
+	 *  while an import is in flight, since a mid-import file has no DB row yet and
+	 *  would be misread as orphaned.
+	 */
+	cleanOrphans: () => typedError<OrphanCleanup, AppError>(__TAURI_INVOKE("clean_orphans")),
 	/**  Copy `ids` into `dest_dir`. Returns the number of files written. */
 	exportAssets: (ids: string[], destDir: string) => typedError<number, AppError>(__TAURI_INVOKE("export_assets", { ids, destDir })),
 };
@@ -454,6 +465,21 @@ export type LibraryStats = {
 export type ListCursor = {
 	sort_value: string,
 	id: string,
+};
+
+/**  What the Maintenance pane displays before the user acts. */
+export type MaintenanceReport = {
+	/**  Database file size (excluding WAL), bytes. */
+	db_bytes: number | null,
+	/**  Files under assets/ with no live DB row. */
+	orphan_asset_files: number,
+	/**  Thumbnails under thumbs/ with no live DB row. */
+	orphan_thumbnails: number,
+};
+
+export type OrphanCleanup = {
+	asset_files: number,
+	thumbnails: number,
 };
 
 /**

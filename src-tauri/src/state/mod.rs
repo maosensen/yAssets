@@ -80,6 +80,16 @@ impl AppState {
         }
     }
 
+    /// Whether any import/rescan job is in flight — orphan cleanup must refuse
+    /// while true, since a mid-import file has no DB row yet and would look
+    /// orphaned.
+    pub fn has_active_imports(&self) -> bool {
+        self.imports
+            .lock()
+            .map(|jobs| !jobs.is_empty())
+            .unwrap_or(false)
+    }
+
     /// Install (or clear with `None`) the watch-folder watcher; the previous
     /// handle drops here, stopping its thread.
     pub fn set_watcher(&self, handle: Option<Box<dyn std::any::Any + Send>>) {

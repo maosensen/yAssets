@@ -300,6 +300,98 @@ impl Library {
             }
         }
     }
+
+    /// Size of the database file (excluding the WAL) in bytes.
+    pub fn db_size_bytes(&self) -> u64 {
+        std::fs::metadata(&self.db_path)
+            .map(|m| m.len())
+            .unwrap_or(0)
+    }
+
+    /// Files under `assets/` and `thumbs/` with no live DB row — returned as
+    /// absolute paths (asset files, thumbnail files). Read-only. A caller that
+    /// DELETES the results must ensure no import is in flight: a mid-import file
+    /// exists on disk before its row commits and would look orphaned.
+    pub fn find_orphans(&self) -> (Vec<PathBuf>, Vec<PathBuf>) {
+        use std::collections::HashSet;
+        let catalog = self
+            .with_reader(|conn| {
+                let mut stmt = conn.prepare("SELECT id, rel_path FROM assets")?;
+                let rows = stmt
+                    .query_map([], |row| {
+                        Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                    })?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                Ok(rows)
+            })
+            .unwrap_or_default();
+        let ids: HashSet<&str> = catalog.iter().map(|(id, _)| id.as_str()).collect();
+        let rels: HashSet<&str> = catalog.iter().map(|(_, rel)| rel.as_str()).collect();
+
+        let mut orphan_assets = Vec::new();
+        for entry in walkdir::WalkDir::new(self.root.join(ASSETS_DIR))
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_type().is_file())
+            .filter(|e| !crate::import::is_junk(e.file_name()))
+        {
+            let rel = entry
+                .path()
+                .strip_prefix(&self.root)
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            if !rels.contains(rel.as_str()) {
+                orphan_assets.push(entry.into_path());
+            }
+        }
+        let mut orphan_thumbs = Vec::new();
+        for entry in walkdir::WalkDir::new(self.root.join(THUMBS_DIR))
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_type().is_file())
+            .filter(|e| !crate::import::is_junk(e.file_name()))
+        {
+            let stem = entry
+                .path()
+                .file_stem()
+                .map(|s| s.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            if !ids.contains(stem.as_str()) {
+                orphan_thumbs.push(entry.into_path());
+            }
+        }
+        (orphan_assets, orphan_thumbs)
+    }
+
+    /// `PRAGMA integrity_check` — true when the database reports "ok".
+    pub fn integrity_check(&self) -> AppResult<bool> {
+        self.with_reader(|conn| {
+            let result: String = conn.query_row("PRAGMA integrity_check", [], |row| row.get(0))?;
+            Ok(result == "ok")
+        })
+    }
+
+    /// Rebuild the database to reclaim free pages, returning bytes reclaimed.
+    /// Serializes on the writer lock, drops idle pooled readers, folds the WAL,
+    /// then VACUUMs (which can't run inside a transaction). A concurrent read
+    /// snapshot can make SQLite report busy — surfaced as a retryable Conflict.
+    pub fn vacuum(&self) -> AppResult<u64> {
+        let before = self.db_size_bytes();
+        let conn = self.writer.lock().map_err(|_| {
+            log::error!("writer mutex poisoned");
+            AppError::Internal
+        })?;
+        if let Ok(mut pool) = self.readers.lock() {
+            pool.clear();
+        }
+        db::checkpoint_truncate(&conn);
+        conn.execute_batch("VACUUM").map_err(|err| {
+            log::warn!("vacuum failed: {err}");
+            AppError::Conflict("database is busy; try again".into())
+        })?;
+        db::checkpoint_truncate(&conn);
+        Ok(before.saturating_sub(self.db_size_bytes()))
+    }
 }
 
 impl Drop for Library {
@@ -322,61 +414,13 @@ impl Drop for Library {
 /// phase 1, just surfaced in the log for diagnostics.
 pub fn spawn_orphan_sweep(library: Arc<Library>) {
     tauri::async_runtime::spawn_blocking(move || {
-        let catalog = library.with_reader(|conn| {
-            let mut stmt = conn.prepare("SELECT id, rel_path FROM assets")?;
-            let rows = stmt
-                .query_map([], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-                })?
-                .collect::<rusqlite::Result<Vec<_>>>()?;
-            Ok(rows)
-        });
-        let Ok(catalog) = catalog else {
-            return;
-        };
-        let ids: std::collections::HashSet<&str> =
-            catalog.iter().map(|(id, _)| id.as_str()).collect();
-        let rels: std::collections::HashSet<&str> =
-            catalog.iter().map(|(_, rel)| rel.as_str()).collect();
-
-        let mut orphan_assets = 0u32;
-        let mut orphan_thumbs = 0u32;
-        for entry in walkdir::WalkDir::new(library.root().join(ASSETS_DIR))
-            .into_iter()
-            .filter_map(Result::ok)
-            .filter(|e| e.file_type().is_file())
-            .filter(|e| !crate::import::is_junk(e.file_name()))
-        {
-            let rel = entry
-                .path()
-                .strip_prefix(library.root())
-                .map(|p| p.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            if !rels.contains(rel.as_str()) {
-                orphan_assets += 1;
-                log::debug!("orphan asset file: {rel}");
-            }
-        }
-        for entry in walkdir::WalkDir::new(library.root().join(THUMBS_DIR))
-            .into_iter()
-            .filter_map(Result::ok)
-            .filter(|e| e.file_type().is_file())
-            .filter(|e| !crate::import::is_junk(e.file_name()))
-        {
-            let stem = entry
-                .path()
-                .file_stem()
-                .map(|s| s.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            if !ids.contains(stem.as_str()) {
-                orphan_thumbs += 1;
-                log::debug!("orphan thumbnail: {}", entry.path().display());
-            }
-        }
-        if orphan_assets > 0 || orphan_thumbs > 0 {
+        let (orphan_assets, orphan_thumbs) = library.find_orphans();
+        if !orphan_assets.is_empty() || !orphan_thumbs.is_empty() {
             log::info!(
-                "orphan sweep ({}): {orphan_assets} asset file(s), {orphan_thumbs} thumbnail(s) without DB rows (log-only, not deleted)",
-                library.root().display()
+                "orphan sweep ({}): {} asset file(s), {} thumbnail(s) without DB rows (log-only; clean from Preferences ▸ Maintenance)",
+                library.root().display(),
+                orphan_assets.len(),
+                orphan_thumbs.len(),
             );
         }
     });
