@@ -54,11 +54,18 @@ fn install_library(
     // In-flight imports hold their own Arc to the *old* library — signal them
     // to wind down; their remaining commits still land in the old database.
     state.cancel_all_imports();
+    // Stop the previous library's watch-folder watcher before swapping.
+    state.set_watcher(None);
     let library = Arc::new(library);
     let info = library.info();
     *state.library.write().map_err(|_| AppError::Internal)? = Some(Arc::clone(&library));
     recent::remember(app, &info)?;
     recent::set_last_library(app, Some(&info.path))?;
+    // Start auto-import watching for this library's enabled watched folders.
+    state.set_watcher(crate::library::watch::start(
+        app.clone(),
+        Arc::clone(&library),
+    ));
     crate::library::spawn_orphan_sweep(Arc::clone(&library));
     crate::library::spawn_backfill(library);
     Ok(info)
@@ -100,6 +107,7 @@ pub async fn close_library(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<()> {
     state.cancel_all_imports();
+    state.set_watcher(None);
     // Explicit close = don't auto-reopen next launch.
     recent::set_last_library(&app, None)?;
     let previous = state

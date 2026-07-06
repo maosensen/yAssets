@@ -57,6 +57,10 @@ zip = { version = "2", default-features = false, features = ["deflate"] }
 rayon = "1"
 # Recursive directory discovery on import (does not follow symlinks).
 walkdir = "2"
+# Watch-folder auto-import: debounced filesystem events (pure-Rust — FSEvents /
+# inotify / ReadDirectoryChangesW, no system libs). The debouncer coalesces the
+# event storm from a large copy and settles write-then-rename into one import.
+notify-debouncer-full = "0.3"
 # Asset/folder/job ids. MUST use the lowercase alphabet in `library` — macOS
 # APFS is case-insensitive, so mixed-case ids would collide on disk.
 nanoid = "0.4"

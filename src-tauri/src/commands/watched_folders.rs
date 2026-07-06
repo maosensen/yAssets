@@ -60,6 +60,7 @@ pub async fn list_watched_folders(
 pub async fn add_watched_folder(
     path: String,
     folder_id: Option<String>,
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<WatchedFolder> {
     let library = state.current_library()?;
@@ -78,7 +79,7 @@ pub async fn add_watched_folder(
         ));
     }
 
-    library
+    let row = library
         .write(move |conn| {
             if let Some(folder) = &folder_id {
                 let exists = conn
@@ -111,7 +112,10 @@ pub async fn add_watched_folder(
             )?;
             Ok(row)
         })
-        .await
+        .await?;
+    // Pick up the new folder without reopening the library.
+    crate::library::watch::restart(&app, &state, &library);
+    Ok(row)
 }
 
 #[tauri::command]
@@ -119,6 +123,7 @@ pub async fn add_watched_folder(
 pub async fn set_watched_folder_enabled(
     id: String,
     enabled: bool,
+    app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<()> {
     let library = state.current_library()?;
@@ -133,12 +138,18 @@ pub async fn set_watched_folder_enabled(
             }
             Ok(())
         })
-        .await
+        .await?;
+    crate::library::watch::restart(&app, &state, &library);
+    Ok(())
 }
 
 #[tauri::command]
 #[specta::specta]
-pub async fn remove_watched_folder(id: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
+pub async fn remove_watched_folder(
+    id: String,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
     let library = state.current_library()?;
     library
         .write(move |conn| {
@@ -148,7 +159,9 @@ pub async fn remove_watched_folder(id: String, state: tauri::State<'_, AppState>
             }
             Ok(())
         })
-        .await
+        .await?;
+    crate::library::watch::restart(&app, &state, &library);
+    Ok(())
 }
 
 #[cfg(test)]

@@ -26,6 +26,10 @@ pub struct AppState {
     /// keeps its own `Arc<Library>`, so late commits still land in the old
     /// (correct) database before it drops.
     imports: Mutex<HashMap<String, Arc<AtomicBool>>>,
+    /// Running watch-folder watcher, if any (see `library::watch`). An opaque
+    /// RAII handle — replacing/clearing it drops the previous, stopping its
+    /// thread. Reset on every library open/close and after a watched-folder edit.
+    watcher: Mutex<Option<Box<dyn std::any::Any + Send>>>,
 }
 
 impl AppState {
@@ -75,6 +79,14 @@ impl AppState {
             jobs.remove(job_id);
         }
     }
+
+    /// Install (or clear with `None`) the watch-folder watcher; the previous
+    /// handle drops here, stopping its thread.
+    pub fn set_watcher(&self, handle: Option<Box<dyn std::any::Any + Send>>) {
+        if let Ok(mut slot) = self.watcher.lock() {
+            *slot = handle;
+        }
+    }
 }
 
 impl Default for AppState {
@@ -82,6 +94,7 @@ impl Default for AppState {
         Self {
             library: RwLock::new(None),
             imports: Mutex::new(HashMap::new()),
+            watcher: Mutex::new(None),
         }
     }
 }

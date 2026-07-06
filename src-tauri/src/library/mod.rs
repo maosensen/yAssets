@@ -19,6 +19,7 @@
 //! threads — commands stay `async` and never hold a lock across an await.
 
 pub mod recent;
+pub mod watch;
 
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
