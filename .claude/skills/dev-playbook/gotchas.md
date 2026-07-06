@@ -30,6 +30,11 @@
 - **`psd` crate 对畸形/截断文件会 panic（slice 越界），不是返回 Err**。缩略图 `generate()` 在导入的 rayon worker 上直接跑，一个 panic 会 unwind 掉**整批导入**（违背「单文件失败不污染批次」）。`decode_psd` 用 `std::panic::catch_unwind` 把 `Psd::from_bytes` + `.rgba()` 包起来 → 坏 PSD 退化成单文件错误。任何「解码用户文件」的第三方 crate 都要先确认它 panic 还是返回 Err。
 - **新增缩略图格式要区分「服务端可解码」vs「需 WebView」**：纯 Rust 能 headless 解的（tiff/ico/psd/sketch）走导入管线 `is_thumbable_ext`；WebView 才能解的（video/pdf/heic）不进 `is_thumbable_ext`，改由 `list_cover_candidates` + 前端 `use-cover-worker` 客户端截帧。存量文件回填：服务端格式靠 `backfill_missing_thumbnails`（每次开库跑一次），客户端格式靠 worker 扫 `has_thumb=0`。
 - **zip 容器格式**（sketch/ora/kra）内嵌预览 PNG：`zip` crate 用 `default-features=false, features=["deflate"]` 保持纯 Rust（别拉 bzip2/lzma/zstd 的 C 依赖）；按格式试候选路径（sketch=`previews/preview.png`, ora=`Thumbnails/thumbnail.png`, kra=`mergedimage.png`）。
+- **「遍历磁盘文件 vs DB rel_path」必须归一化路径分隔符**：DB 里 rel_path 是 `asset_rel_path` 写死的正斜杠（`assets/ab/id.png`），但 `entry.strip_prefix(root).to_string_lossy()` 在 **Windows 出反斜杠**，集合比对永不命中 → **每个素材都被判成孤儿**。`find_orphans` 里 `rel.replace(std::path::MAIN_SEPARATOR, "/")` 后再比。⚠️ 更大的教训：**把一个 log-only 的检查改成「可删除」时是数据丢失倍增器**——`spawn_orphan_sweep` 一直有这个分隔符 bug 但只打日志无害；M10 让它能删了才变成「Windows 上清孤儿=删整库」。这类重构要专门 re-review。
+- **keyset 分页**：`sort_sql` 早就带了 `{col} {dir}, id {dir}` tiebreak；游标谓词要**手写展开**（`(col cmp ? OR (col = ? AND id cmp ?))`）**不能用 `(col,id)` 行值元组**——因为 Name 排序要 `COLLATE NOCASE`，元组比较注入不了 collation，会导致翻页重叠/跳过。方向随 `dir`（Desc=`<`/Asc=`>`）。UpdatedAt 排序要把 `updated_at` 加进 `AssetSummary`/`SUMMARY_COLS`，游标值才能从已加载行取到。总数 `total` 每页都返回，计数器才不受已加载页数影响。
+- **`notify-debouncer-full` 的 `Drop` 只置 stop 标志、不 join 线程**（阻塞 join 在消费型 `stop()` 里，从不被调用）→ 库切换/关闭后一个已成熟的 debounced 批次仍可能触发回调，把文件导入到**已切走/已关闭的库**（绕过 `cancel_all_imports`）。防御：watcher 回调 spawn 前用 `Arc::ptr_eq(state.current_library(), 捕获的 library)` 校验仍是当前库，不是就 no-op。watcher 句柄以 `Box<dyn Any + Send>` 存 AppState（RAII，换/清即 drop）。
+- **watched-folder 路径校验先 canonicalize**：`Path::starts_with` 按 component 字面比较，不解析 `..`/symlink，所以 `.../foo/../Lib` 能绕过「不许监视库内」的检查 → reconcile 走库自身 assets/thumbs → 导入死循环。`std::fs::canonicalize` 两边后再做包含判断，并存归一化后的路径。
+- **删孤儿的 TOCTOU**：`has_active_imports()` 只在进 `run_blocking` 前查一次；watcher 事件可能之后才 spawn 导入，把刚复制进 `assets/`、DB 行还没提交的文件当孤儿删掉。除了这个 guard，删除时**跳过 mtime 在 60s 宽限窗内的文件**。
 
 ## 前端
 
@@ -41,6 +46,8 @@
 - **给 tiff/heic/psd/sketch 生成缩略图后 `has_thumb=1` → `viewerKindFor` 会返回 `"image"`**，预览会走图片查看器。但这些原图 Chromium WebView 解不了 → `viewer-registry.canDecodeNativeImage()` 白名单（png/jpg/jpeg/gif/webp/bmp/svg/ico）之外的，预览只显示 512 缩略图、**不去 fetch 无法解码的原图**（`preview.tsx ImageBody` 按 ext 门控 original-load，兼省下大文件白下载）。
 - **React 合成 onWheel 无法 preventDefault**（passive）→ 画布缩放的 wheel 监听必须原生 `addEventListener(..., { passive: false })`。
 - 全局键盘处理必须同时跳过输入框**和** `[role="dialog"]` 祖先，否则对话框里打字会触发网格快捷键。
+- **infinite query（keyset 分页）的乐观更新必须遍历 `InfiniteData.pages`**，不是单个 `{items,total}` 数组——旧的乐观 helper（trash/restore/rename）在缓存值变成 `InfiniteData` 的瞬间会静默 no-op 或崩。改造 query 和改造这些 helper 必须**同一提交**。展平的 `items` 要 `useMemo`（`data.pages.flatMap` 每次渲染都是新数组 → 网格 layout memo 每次重算，性能回退）。计数器语义分叉：`total` 是全量匹配数，但预览「Next 禁用」要用**已加载数** `items.length`（否则最后一张已加载项处按钮可点却 no-op）。
+- **全库 `list_asset_ids` 支撑分页后的全选**：Cmd+A 不能只选已加载页；加一个只返回 id、无分页的后端命令，前端 Cmd+A 拉全量 id 再 selectMany（similar 视图是单次 capped 查询，选已加载即可）。
 
 ## CI / 发布 / 更新
 
@@ -56,3 +63,7 @@
 - 改导入管线共享函数签名（如 `process_file` 加参数）→ 用 codegraph_impact 全仓扫调用点（上次波及 10 处，含 `commands/trash.rs` 的恢复路径），受影响测试语义同 commit 更新。
 - `keep_duplicates = true` 只关**库级**查重；批内 `seen_hashes` 永远生效（同一批拖两份一样的文件仍只进一份）。
 - 嵌套文件夹导入：`DiscoveredFile.folder_components` 相对「拖入目录的父级」计算（所以拖入的目录名本身是链条第一层）；`build_folder_map` 用 BTreeSet 保证父先于子创建，`ensure_folder` 按 `name COLLATE NOCASE + parent_id` 复用——重复导入收敛到同一棵树。
+
+## 工具 / 多智能体 review
+
+- **后台 review Workflow 会在共享工作树里跑 `git stash`/`checkout`**（为了 diff 历史提交），把你**未提交**的改动在中途 revert 掉——我亲眼看到一个新文件在两条命令间闪现消失。**规矩：spawn 后台 review workflow 之前先把在做的活 commit**，让工作树干净；review 只读已提交代码，也更准。对抗式 review 每个阶段都抓到过真 bug（B 组 zip-bomb/PSD panic、E 组 Next 按钮、D+E-2 的 Windows 删库/watcher 竞态）——值得每个 milestone 批次跑一次，但务必先 commit。
