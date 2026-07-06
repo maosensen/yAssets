@@ -90,9 +90,9 @@ function PreviewPage() {
 			search.tags,
 		],
 	);
-	const { data } = useLibraryAssetList(view, sort, dir);
+	const list = useLibraryAssetList(view, sort, dir);
 
-	const items = data?.items ?? [];
+	const items = list.items;
 	const index = items.findIndex((asset) => asset.id === search.id);
 	const asset = index >= 0 ? items[index] : undefined;
 
@@ -156,12 +156,14 @@ function PreviewPage() {
 		return () => window.removeEventListener("keydown", onKeyDown);
 	}, []);
 
-	// Data shrank out from under us (deleted / view changed) → back to grid.
+	// Item not in the loaded list (deleted / view changed) → back to grid. Wait
+	// out loading AND in-flight paging so a not-yet-fetched asset doesn't bounce
+	// (deep-link-until-found hardening lands in M5).
 	useEffect(() => {
-		if (data && index < 0) {
+		if (!list.isLoading && !list.isFetchingNextPage && index < 0) {
 			void navigate({ to: "/", search: view, replace: true });
 		}
-	}, [data, index, navigate, view]);
+	}, [list.isLoading, list.isFetchingNextPage, index, navigate, view]);
 
 	return (
 		<div className="flex h-full flex-col bg-background">

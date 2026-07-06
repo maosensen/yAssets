@@ -8,7 +8,7 @@
  * inspector; no form library.
  */
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { IconFolder } from "@/components/icons";
 import { DashedDivider, SectionLabel } from "@/components/inspector/section";
@@ -16,14 +16,14 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useExport } from "@/hooks/use-export";
-import type { Folder } from "@/lib/bindings";
+import { commands, type Folder } from "@/lib/bindings";
 import { formatBytes, formatDateTime } from "@/lib/format";
-import { assetListQueryOptions } from "@/lib/queries/assets";
 import {
 	folderStatsQueryOptions,
 	useSetFolderDescription,
 } from "@/lib/queries/folders";
 import { useViewPrefsStore } from "@/lib/stores/view-prefs-store";
+import { unwrap } from "@/lib/tauri";
 import { T } from "@/lib/text";
 
 export function FolderDetails({ folder }: { folder: Folder }) {
@@ -34,23 +34,28 @@ export function FolderDetails({ folder }: { folder: Folder }) {
 function FolderBody({ folder }: { folder: Folder }) {
 	const { data: stats } = useQuery(folderStatsQueryOptions(folder.id));
 	const { exportAssets, isExporting } = useExport();
-	const queryClient = useQueryClient();
 	const sort = useViewPrefsStore((state) => state.sort);
 	const dir = useViewPrefsStore((state) => state.dir);
 
 	const itemCount = stats?.item_count ?? folder.asset_count;
 
 	const onExport = async () => {
-		// Resolve the folder's direct assets on demand (shares the grid's cache
-		// entry when the folder is being viewed), then export.
-		const list = await queryClient.fetchQuery(
-			assetListQueryOptions({
+		// Resolve ALL of the folder's direct assets (unpaged id list), then export.
+		const ids = unwrap(
+			await commands.listAssetIds({
 				scope: { kind: "folder", folder_id: folder.id },
+				search: null,
+				rating_min: null,
+				types: null,
+				tag_ids: null,
 				sort,
 				dir,
+				cursor: null,
+				offset: null,
+				limit: null,
 			}),
 		);
-		await exportAssets(list.items.map((asset) => asset.id));
+		await exportAssets(ids);
 	};
 
 	return (

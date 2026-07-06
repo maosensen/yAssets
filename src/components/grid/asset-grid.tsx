@@ -47,7 +47,14 @@ type AssetGridProps = {
 	/** Set when the grid shows a folder view (enables remove-from-folder). */
 	currentFolderId: string | null;
 	onRequestDeleteForever: (ids: string[]) => void;
+	/** Keyset paging: another page exists / is loading, and how to fetch it. */
+	hasNextPage: boolean;
+	isFetchingNextPage: boolean;
+	onLoadMore: () => void;
 };
+
+/** Prefetch the next page once the viewport is within this many rows of the end. */
+const LOAD_MORE_ROW_MARGIN = 6;
 
 export function AssetGrid({
 	assets,
@@ -55,6 +62,9 @@ export function AssetGrid({
 	inTrash,
 	currentFolderId,
 	onRequestDeleteForever,
+	hasNextPage,
+	isFetchingNextPage,
+	onLoadMore,
 }: AssetGridProps) {
 	const scrollRef = useRef<HTMLDivElement | null>(null);
 	const width = useElementWidth(scrollRef);
@@ -128,6 +138,26 @@ export function AssetGrid({
 			virtualizer.scrollToOffset(newTop);
 		}
 	}, [layout, virtualizer]);
+
+	// Prefetch the next keyset page as the viewport nears the last rows.
+	const virtualRows = virtualizer.getVirtualItems();
+	useEffect(() => {
+		const last = virtualRows[virtualRows.length - 1];
+		if (!last) return;
+		if (
+			hasNextPage &&
+			!isFetchingNextPage &&
+			last.index >= layout.rows.length - LOAD_MORE_ROW_MARGIN
+		) {
+			onLoadMore();
+		}
+	}, [
+		virtualRows,
+		layout.rows.length,
+		hasNextPage,
+		isFetchingNextPage,
+		onLoadMore,
+	]);
 
 	const assetById = useMemo(
 		() => new Map(assets.map((asset) => [asset.id, asset])),
@@ -326,7 +356,7 @@ export function AssetGrid({
 							}}
 						/>
 					)}
-					{virtualizer.getVirtualItems().map((virtualRow) => {
+					{virtualRows.map((virtualRow) => {
 						const row = layout.rows[virtualRow.index];
 						if (!row) return null;
 						return (

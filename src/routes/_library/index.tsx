@@ -63,10 +63,10 @@ function LibraryHome() {
 	const dir = useViewPrefsStore((state) => state.dir);
 	// One shared hook resolves the view's list (regular scopes AND the
 	// ranked similar view) — preview walks the exact same cache entry.
-	const { data } = useLibraryAssetList(search, sort, dir);
+	const list = useLibraryAssetList(search, sort, dir);
 	// Latest list for the stable-deps keyboard handler (Cmd+A).
-	const dataRef = useRef(data);
-	dataRef.current = data;
+	const listRef = useRef(list);
+	listRef.current = list;
 
 	const { importPaths, isImporting } = useImport();
 	const { importClipboard } = useImportClipboard();
@@ -90,7 +90,7 @@ function LibraryHome() {
 	quickLookRef.current = quickLook;
 	const anchorId = useSelectionStore((state) => state.anchorId);
 	const quickAsset = quickLook
-		? data?.items.find((asset) => asset.id === anchorId)
+		? list.items.find((asset) => asset.id === anchorId)
 		: undefined;
 	useEffect(() => {
 		// Selection moved off-image / got cleared → drop the overlay.
@@ -145,7 +145,7 @@ function LibraryHome() {
 					return;
 				}
 				const { anchorId: anchor } = useSelectionStore.getState();
-				const asset = dataRef.current?.items.find((a) => a.id === anchor);
+				const asset = listRef.current.items.find((a) => a.id === anchor);
 				if (!asset) return;
 				if (viewerKindFor(asset) === "image") setQuickLook(true);
 				else openPreviewRef.current(asset.id);
@@ -162,8 +162,8 @@ function LibraryHome() {
 			// Cmd/Ctrl+A — select everything in the current view.
 			if ((event.metaKey || event.ctrlKey) && event.key === "a") {
 				event.preventDefault();
-				const current = dataRef.current;
-				if (current && current.items.length > 0) {
+				const current = listRef.current;
+				if (current.items.length > 0) {
 					useSelectionStore
 						.getState()
 						.selectMany(current.items.map((asset) => asset.id));
@@ -210,7 +210,7 @@ function LibraryHome() {
 		icon: IconComponent;
 		copy: { title: string; hint: string };
 	} | null => {
-		if (!data || data.items.length > 0) return null;
+		if (list.isLoading || list.items.length > 0) return null;
 		if (search.q) return { icon: IconSearch, copy: T.gridEmpty.noSearchResult };
 		switch (search.view) {
 			case "trash":
@@ -243,10 +243,10 @@ function LibraryHome() {
 		// Center column anatomy: header (Toolbar) + optional trash bar + main.
 		<div className="flex h-full flex-col">
 			<Toolbar />
-			{data && inTrash && data.total != null && data.total > 0 && (
+			{inTrash && list.total > 0 && (
 				<div className="flex items-center justify-between border-b px-4 py-2">
 					<span className="text-muted-foreground text-sm">
-						{T.trashUi.itemsInTrash(data.total)}
+						{T.trashUi.itemsInTrash(list.total)}
 					</span>
 					<Button
 						variant="outline"
@@ -263,7 +263,7 @@ function LibraryHome() {
 			<div className="flex min-h-0 flex-1 flex-col">
 				{currentFolderId && <SubfolderStrip folderId={currentFolderId} />}
 				<div className="min-h-0 flex-1">
-					{!data ? null : data.items.length === 0 ? (
+					{list.isLoading ? null : list.items.length === 0 ? (
 						emptyState ? (
 							<EmptyState
 								icon={emptyState.icon}
@@ -279,11 +279,14 @@ function LibraryHome() {
 						)
 					) : (
 						<AssetGrid
-							assets={data.items}
+							assets={list.items}
 							onOpen={openPreview}
 							inTrash={inTrash}
 							currentFolderId={currentFolderId}
 							onRequestDeleteForever={setDeleteForeverIds}
+							hasNextPage={list.hasNextPage}
+							isFetchingNextPage={list.isFetchingNextPage}
+							onLoadMore={list.fetchNextPage}
 						/>
 					)}
 				</div>

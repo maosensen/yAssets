@@ -1,25 +1,33 @@
 /**
  * Asset-domain data layer.
  *
- * Phase-1 list strategy: ONE full fetch per view (`limit: 50000`) — masonry
- * wants every aspect ratio up front, optimistic updates work on a single
- * array, and offset-drift during concurrent imports can't happen. The IPC
- * contract stays paged, so switching to keyset+infinite later is additive.
+ * List strategy: keyset (cursor) pagination via TanStack `useInfiniteQuery`,
+ * `PAGE_SIZE` rows per page (see M2 backend `list_assets`). The grid flattens
+ * `data.pages`; optimistic mutations walk every page. `total` (grand match
+ * count) rides on every page so counters stay accurate independent of how many
+ * pages are loaded. The find-similar view is a single capped query normalized
+ * into the same flattened shape.
  */
 
 import {
+	type InfiniteData,
+	infiniteQueryOptions,
 	type QueryClient,
 	queryOptions,
+	useInfiniteQuery,
 	useMutation,
 	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
+import { useMemo } from "react";
 import { toast } from "sonner";
 import {
 	type AssetDetail,
 	type AssetListResult,
 	type AssetScope,
+	type AssetSummary,
 	commands,
+	type ListCursor,
 	type SortDir,
 	type SortKey,
 } from "@/lib/bindings";
@@ -32,7 +40,7 @@ import { unwrap } from "@/lib/tauri";
 import { T } from "@/lib/text";
 import { assetKeys, folderKeys, libraryKeys } from "./keys";
 
-const FULL_FETCH_LIMIT = 50_000;
+const PAGE_SIZE = 200;
 
 export type AssetListParams = {
 	scope: AssetScope;
@@ -44,6 +52,23 @@ export type AssetListParams = {
 	sort: SortKey;
 	dir: SortDir;
 };
+
+/** The keyset cursor for the page AFTER `item`, per the active sort column.
+ *  Numeric sort values are truncated to an integer string (the backend parses
+ *  them as i64); `?? 0` guards the `number | null` wire type. */
+function cursorFromItem(item: AssetSummary, sort: SortKey): ListCursor {
+	const sortValue =
+		sort === "Name"
+			? item.name
+			: sort === "Size"
+				? String(Math.trunc(item.size ?? 0))
+				: sort === "Rating"
+					? String(item.rating)
+					: sort === "UpdatedAt"
+						? String(Math.trunc(item.updated_at ?? 0))
+						: String(Math.trunc(item.imported_at ?? 0));
+	return { sort_value: sortValue, id: item.id };
+}
 
 function scopeKeyPart(scope: AssetScope): {
 	view: string;
@@ -82,7 +107,7 @@ export function assetListQueryOptions(params: AssetListParams) {
 			: undefined;
 	const tags =
 		params.tags && params.tags.length > 0 ? [...params.tags].sort() : undefined;
-	return queryOptions({
+	return infiniteQueryOptions({
 		queryKey: assetKeys.list({
 			view,
 			folderId,
@@ -96,7 +121,7 @@ export function assetListQueryOptions(params: AssetListParams) {
 			sortBy: params.sort,
 			sortDir: params.dir,
 		}),
-		queryFn: async () =>
+		queryFn: async ({ pageParam }) =>
 			unwrap(
 				await commands.listAssets({
 					scope: params.scope,
@@ -106,12 +131,21 @@ export function assetListQueryOptions(params: AssetListParams) {
 					tag_ids: tags ?? null,
 					sort: params.sort,
 					dir: params.dir,
-					// Keyset paging lands in M3; the full fetch stays for now.
-					cursor: null,
+					cursor: pageParam,
 					offset: null,
-					limit: FULL_FETCH_LIMIT,
+					limit: PAGE_SIZE,
 				}),
 			),
+		initialPageParam: null as ListCursor | null,
+		// A short page means we've reached the end; otherwise the boundary is the
+		// last row of the page we just got.
+		getNextPageParam: (lastPage) =>
+			lastPage.items.length < PAGE_SIZE
+				? undefined
+				: cursorFromItem(
+						lastPage.items[lastPage.items.length - 1],
+						params.sort,
+					),
 	});
 }
 
@@ -142,22 +176,34 @@ export function similarAssetsQueryOptions(id: string) {
 	});
 }
 
+/** Flattened list surface the grid/preview consume — hides infinite-vs-single. */
+export type LibraryAssetList = {
+	items: AssetSummary[];
+	/** Grand match count (all pages), independent of how many are loaded. */
+	total: number;
+	isLoading: boolean;
+	fetchNextPage: () => void;
+	hasNextPage: boolean;
+	isFetchingNextPage: boolean;
+};
+
 /**
- * The one list the current view renders — regular scoped list for most
- * views, the ranked dHash neighborhood for view=similar. Grid AND preview
- * both resolve through here so prev/next always walks what the user saw.
+ * The one list the current view renders — a keyset-paged infinite query for
+ * most views, the single ranked dHash neighborhood for view=similar. Both are
+ * flattened to the same shape so the grid AND preview walk what the user saw
+ * (prev/next matches the grid the user came from).
  */
 export function useLibraryAssetList(
 	view: LibraryView,
 	sort: SortKey,
 	dir: SortDir,
-) {
+): LibraryAssetList {
 	const similarId = view.view === "similar" ? view.similarTo : undefined;
 	const similar = useQuery({
 		...similarAssetsQueryOptions(similarId ?? ""),
 		enabled: similarId !== undefined,
 	});
-	const regular = useQuery({
+	const regular = useInfiniteQuery({
 		...assetListQueryOptions({
 			scope: scopeFromView(view),
 			search: view.q,
@@ -169,7 +215,35 @@ export function useLibraryAssetList(
 		}),
 		enabled: similarId === undefined,
 	});
-	return similarId !== undefined ? similar : regular;
+
+	// Stable identity across renders (only changes when pages change), so the
+	// grid's layout/assetById memos don't recompute on every scroll tick.
+	const regularItems = useMemo(
+		() => regular.data?.pages.flatMap((page) => page.items) ?? [],
+		[regular.data],
+	);
+
+	if (similarId !== undefined) {
+		return {
+			items: similar.data?.items ?? [],
+			total: similar.data?.total ?? 0,
+			isLoading: similar.isLoading,
+			fetchNextPage: () => {},
+			hasNextPage: false,
+			isFetchingNextPage: false,
+		};
+	}
+	return {
+		items: regularItems,
+		total: regular.data?.pages[0]?.total ?? 0,
+		isLoading: regular.isLoading,
+		// TanStack's fetchNextPage is stable across renders; a Promise return is
+		// assignable to () => void, so pass it straight through (stable identity
+		// keeps the grid's fetch-on-scroll effect from re-firing every render).
+		fetchNextPage: regular.fetchNextPage,
+		hasNextPage: regular.hasNextPage,
+		isFetchingNextPage: regular.isFetchingNextPage,
+	};
 }
 
 // ---------------------------------------------------------------------------
@@ -178,12 +252,12 @@ export function useLibraryAssetList(
 // and empty-trash go through plain invalidation.
 // ---------------------------------------------------------------------------
 
-type ListSnapshot = Array<
-	readonly [readonly unknown[], AssetListResult | undefined]
->;
+/** Cached list value is now an infinite query — pages of AssetListResult. */
+type ListData = InfiniteData<AssetListResult, ListCursor | null>;
+type ListSnapshot = Array<readonly [readonly unknown[], ListData | undefined]>;
 
 function snapshotLists(queryClient: QueryClient): ListSnapshot {
-	return queryClient.getQueriesData<AssetListResult>({
+	return queryClient.getQueriesData<ListData>({
 		queryKey: [...assetKeys.all, "list"],
 	});
 }
@@ -194,14 +268,20 @@ function removeIdsFromLists(
 ): void {
 	for (const [key, data] of snapshotLists(queryClient)) {
 		if (!data) continue;
-		const items = data.items.filter((item) => !ids.has(item.id));
-		if (items.length !== data.items.length) {
-			queryClient.setQueryData(key as readonly unknown[], {
-				items,
-				total: Math.max(
-					0,
-					(data.total ?? items.length) - (data.items.length - items.length),
-				),
+		let removed = 0;
+		const pages = data.pages.map((page) => {
+			const items = page.items.filter((item) => !ids.has(item.id));
+			removed += page.items.length - items.length;
+			return items.length === page.items.length ? page : { ...page, items };
+		});
+		if (removed > 0) {
+			// `total` is the same grand count on every page — keep it in step.
+			queryClient.setQueryData<ListData>(key as readonly unknown[], {
+				...data,
+				pages: pages.map((page) => ({
+					...page,
+					total: Math.max(0, page.total - removed),
+				})),
 			});
 		}
 	}
@@ -356,19 +436,24 @@ export function useUpdateAsset() {
 				for (const [key, data] of listSnapshot) {
 					if (!data) continue;
 					let touched = false;
-					const items = data.items.map((item) => {
-						if (item.id !== id) return item;
-						touched = true;
-						return {
-							...item,
-							...(patch.name !== undefined ? { name: patch.name } : {}),
-							...(patch.rating !== undefined ? { rating: patch.rating } : {}),
-						};
+					const pages = data.pages.map((page) => {
+						let pageTouched = false;
+						const items = page.items.map((item) => {
+							if (item.id !== id) return item;
+							pageTouched = true;
+							touched = true;
+							return {
+								...item,
+								...(patch.name !== undefined ? { name: patch.name } : {}),
+								...(patch.rating !== undefined ? { rating: patch.rating } : {}),
+							};
+						});
+						return pageTouched ? { ...page, items } : page;
 					});
 					if (touched) {
-						queryClient.setQueryData(key as readonly unknown[], {
+						queryClient.setQueryData<ListData>(key as readonly unknown[], {
 							...data,
-							items,
+							pages,
 						});
 					}
 				}
