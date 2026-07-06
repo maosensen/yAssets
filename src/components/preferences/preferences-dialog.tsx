@@ -245,6 +245,8 @@ function MaintenancePane() {
 	const vacuum = useVacuumDatabase();
 	const verify = useVerifyIntegrity();
 	const clean = useCleanOrphans();
+	// Two-step confirm — cleanup permanently deletes files (no soft delete).
+	const [confirmClean, setConfirmClean] = useState(false);
 	const orphanCount =
 		(report?.orphan_asset_files ?? 0) + (report?.orphan_thumbnails ?? 0);
 	const busy = vacuum.isPending || verify.isPending || clean.isPending;
@@ -290,13 +292,24 @@ function MaintenancePane() {
 						{verify.isPending ? T.maintenance.busy : T.maintenance.verify}
 					</Button>
 					<Button
-						variant="outline"
+						variant={confirmClean ? "destructive" : "outline"}
 						size="sm"
 						disabled={busy || orphanCount === 0}
-						onClick={() => clean.mutate()}
+						onClick={() => {
+							if (confirmClean) {
+								clean.mutate();
+								setConfirmClean(false);
+							} else {
+								setConfirmClean(true);
+							}
+						}}
 					>
 						<IconTrash className="size-3.5" />
-						{clean.isPending ? T.maintenance.busy : T.maintenance.clean}
+						{clean.isPending
+							? T.maintenance.busy
+							: confirmClean
+								? T.maintenance.cleanConfirm
+								: T.maintenance.clean}
 					</Button>
 				</div>
 			</Section>

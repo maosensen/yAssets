@@ -9,6 +9,10 @@ use crate::error::{AppError, AppResult};
 use crate::library::run_blocking;
 use crate::state::AppState;
 
+/// Don't delete an "orphan" younger than this — it may be a file mid-import
+/// (copied to disk before its DB row commits).
+const ORPHAN_MIN_AGE_SECS: u64 = 60;
+
 /// What the Maintenance pane displays before the user acts.
 #[derive(Debug, Serialize, specta::Type)]
 pub struct MaintenanceReport {
@@ -73,9 +77,22 @@ pub async fn clean_orphans(state: tauri::State<'_, AppState>) -> AppResult<Orpha
     let library = state.current_library()?;
     run_blocking(move || {
         let (assets, thumbs) = library.find_orphans();
+        // Closes the TOCTOU with the folder watcher: a mid-import file exists on
+        // disk (freshly copied) before its DB row commits, so it would look
+        // orphaned. Never delete a file modified within the grace window.
+        let cutoff = std::time::SystemTime::now()
+            .checked_sub(std::time::Duration::from_secs(ORPHAN_MIN_AGE_SECS))
+            .unwrap_or(std::time::UNIX_EPOCH);
         let remove = |paths: &[std::path::PathBuf]| -> u32 {
             let mut removed = 0;
             for path in paths {
+                let recent = std::fs::metadata(path)
+                    .and_then(|m| m.modified())
+                    .map(|modified| modified > cutoff)
+                    .unwrap_or(true);
+                if recent {
+                    continue;
+                }
                 match std::fs::remove_file(path) {
                     Ok(()) => removed += 1,
                     Err(err) if err.kind() == std::io::ErrorKind::NotFound => {}

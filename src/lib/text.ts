@@ -66,6 +66,7 @@ export const T = {
 		verifyOk: "Library is healthy",
 		verifyFailed: "Integrity check found problems — see logs",
 		clean: "Clean Up Orphans",
+		cleanConfirm: "Click again to permanently delete",
 		cleanDone: (n: number) => `Removed ${counted(n, "file")}`,
 		busy: "Working…",
 	},

@@ -339,6 +339,10 @@ impl Library {
                 .path()
                 .strip_prefix(&self.root)
                 .map(|p| p.to_string_lossy().into_owned())
+                // DB rel_paths use forward slashes (asset_rel_path); normalize the
+                // OS-native separator so Windows backslashes still match — else
+                // EVERY asset file looks orphaned and cleanup would nuke the library.
+                .map(|rel| rel.replace(std::path::MAIN_SEPARATOR, "/"))
                 .unwrap_or_default();
             if !rels.contains(rel.as_str()) {
                 orphan_assets.push(entry.into_path());

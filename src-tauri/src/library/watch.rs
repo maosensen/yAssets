@@ -167,6 +167,14 @@ fn on_events(
     }
 
     let state = app.state::<AppState>();
+    // Dropping the debouncer only flags its thread to stop — it isn't joined, so
+    // a matured batch can fire after a library switch/close. Bail unless the
+    // library we captured is still current, or we'd import into a switched-away
+    // (or closed) library, evading cancel_all_imports.
+    match state.current_library() {
+        Ok(current) if Arc::ptr_eq(&current, library) => {}
+        _ => return,
+    }
     for (folder_id, paths) in by_target {
         let job_id = crate::import::new_job_id();
         let cancel = state.register_import(&job_id);

@@ -69,15 +69,20 @@ pub async fn add_watched_folder(
     if path.is_empty() {
         return Err(AppError::Conflict("empty path".into()));
     }
-    // Never watch inside (or a parent of) the library — that would observe the
-    // app's own asset/thumb writes and storm the watcher.
-    let root = library.root().to_path_buf();
-    let candidate = std::path::PathBuf::from(&path);
+    // Canonicalize first so `..` segments / symlinks can't smuggle a path INTO
+    // the library — otherwise the watcher would observe the app's own writes and
+    // the reconcile pass would re-import the library into itself. The resolved
+    // path is what we store and watch.
+    let candidate = std::fs::canonicalize(&path)
+        .map_err(|_| AppError::NotFound(format!("folder not found: {path}")))?;
+    let root =
+        std::fs::canonicalize(library.root()).unwrap_or_else(|_| library.root().to_path_buf());
     if candidate.starts_with(&root) || root.starts_with(&candidate) {
         return Err(AppError::Conflict(
             "cannot watch the library folder or a parent of it".into(),
         ));
     }
+    let path = candidate.to_string_lossy().into_owned();
 
     let row = library
         .write(move |conn| {
