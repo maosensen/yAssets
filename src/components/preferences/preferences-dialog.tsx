@@ -125,6 +125,8 @@ function GeneralPane() {
 	const setWallhavenApiKey = useSourcesStore(
 		(state) => state.setWallhavenApiKey,
 	);
+	const pixabayApiKey = useSourcesStore((state) => state.pixabayApiKey);
+	const setPixabayApiKey = useSourcesStore((state) => state.setPixabayApiKey);
 	const [checking, setChecking] = useState(false);
 
 	const checkUpdates = async () => {
@@ -212,6 +214,20 @@ function GeneralPane() {
 					/>
 					<p className="text-muted-foreground text-xs leading-relaxed">
 						{T.discover.apiKeyHint}
+					</p>
+				</div>
+				<div className="flex flex-col gap-1.5">
+					<span className="text-sm">{T.discover.pixabayApiKeyLabel}</span>
+					<Input
+						type="password"
+						value={pixabayApiKey}
+						onChange={(event) => setPixabayApiKey(event.target.value)}
+						placeholder={T.discover.apiKeyPlaceholder}
+						autoComplete="off"
+						spellCheck={false}
+					/>
+					<p className="text-muted-foreground text-xs leading-relaxed">
+						{T.discover.pixabayApiKeyHint}
 					</p>
 				</div>
 			</Section>

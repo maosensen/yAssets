@@ -572,7 +572,7 @@ export type SourceItem = {
 	license: string | null,
 };
 
-export type SourceProvider = "wallhaven";
+export type SourceProvider = "wallhaven" | "pixabay";
 
 /**  A page of search results. */
 export type SourceSearchResult = {

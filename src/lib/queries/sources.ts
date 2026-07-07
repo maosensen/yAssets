@@ -12,31 +12,30 @@ import {
 } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { toast } from "sonner";
-import { commands, type SourceFilters, type SourceItem } from "@/lib/bindings";
+import {
+	commands,
+	type SourceFilters,
+	type SourceItem,
+	type SourceProvider,
+} from "@/lib/bindings";
 import { describeError } from "@/lib/errors";
 import { unwrap } from "@/lib/tauri";
 import { T } from "@/lib/text";
 import { assetKeys, libraryKeys, sourceKeys } from "./keys";
 
-/** Only provider today. */
-const PROVIDER = "wallhaven" as const;
-
 export function sourceSearchQueryOptions(
+	provider: SourceProvider,
 	query: string,
 	filters: SourceFilters,
 	apiKey: string | null,
+	enabled: boolean,
 ) {
 	return infiniteQueryOptions({
-		queryKey: sourceKeys.search({
-			provider: PROVIDER,
-			query,
-			filters,
-			apiKey,
-		}),
+		queryKey: sourceKeys.search({ provider, query, filters, apiKey }),
 		queryFn: async ({ pageParam }) =>
 			unwrap(
 				await commands.searchSource(
-					PROVIDER,
+					provider,
 					query,
 					pageParam,
 					filters,
@@ -46,17 +45,23 @@ export function sourceSearchQueryOptions(
 		initialPageParam: 1,
 		getNextPageParam: (lastPage) =>
 			lastPage.page < lastPage.last_page ? lastPage.page + 1 : undefined,
-		// Wallhaven results are stable for a while; don't refetch on every focus.
+		// Skip when a provider needs a key that isn't set yet.
+		enabled,
+		// Results are stable for a while; don't refetch on every focus.
 		staleTime: 5 * 60 * 1000,
 	});
 }
 
 export function useSourceSearch(
+	provider: SourceProvider,
 	query: string,
 	filters: SourceFilters,
 	apiKey: string | null,
+	enabled: boolean,
 ) {
-	const q = useInfiniteQuery(sourceSearchQueryOptions(query, filters, apiKey));
+	const q = useInfiniteQuery(
+		sourceSearchQueryOptions(provider, query, filters, apiKey, enabled),
+	);
 	// Flatten pages once per data change (a fresh array every render would
 	// re-run the grid layout memo), de-duplicating by id: overlapping pages
 	// (Random sort re-shuffles each request; date_added shifts as new uploads

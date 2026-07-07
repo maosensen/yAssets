@@ -55,29 +55,36 @@ export const zh: Messages = {
 	},
 	discover: {
 		title: "发现",
-		searchPlaceholder: "搜索 Wallhaven…",
+		searchPlaceholder: "搜索图片…",
 		sortLatest: "最新",
 		sortTop: "热门",
 		sortViews: "浏览量",
 		sortRandom: "随机",
+		sortPopular: "热门",
 		nsfw: "NSFW",
 		add: "添加",
 		addSelected: (n: number) => `添加 ${n} 项到资料库`,
 		clearSelection: "清除",
 		emptyTitle: "暂无内容",
-		emptyHint: "搜索 Wallhaven 浏览壁纸，再把心仪的加入资料库。",
+		emptyHint: "搜索浏览图片，再把心仪的加入资料库。",
 		errorTitle: "无法连接来源",
 		errorHint: "请检查网络后重试。",
+		needsKeyTitle: "需要 API 密钥",
+		needsKeyHint:
+			"请在偏好设置中填写 Pixabay API 密钥后浏览。可在 pixabay.com/api/docs 免费获取。",
 		importDone: (imported: number, duplicates: number, failed: number) => {
 			const parts = [`已添加 ${imported} 项`];
 			if (duplicates > 0) parts.push(`${duplicates} 项已在库中`);
 			if (failed > 0) parts.push(`${failed} 项失败`);
 			return parts.join(" · ");
 		},
+		apiKeyPlaceholder: "API 密钥",
 		apiKeyLabel: "Wallhaven API 密钥",
 		apiKeyHint:
 			"可选。填写后可浏览 NSFW/Sketchy 内容并提高请求频率。可在 wallhaven.cc/settings/account 获取。",
-		apiKeyPlaceholder: "API 密钥",
+		pixabayApiKeyLabel: "Pixabay API 密钥",
+		pixabayApiKeyHint:
+			"浏览 Pixabay 必填。可在 pixabay.com/api/docs 免费获取。",
 	},
 	watched: {
 		description:

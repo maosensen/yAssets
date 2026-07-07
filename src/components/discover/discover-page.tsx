@@ -1,6 +1,6 @@
 /**
- * Discover — browse third-party image sources (Wallhaven) and import favorites.
- * Search + sort + infinite grid of remote thumbnails; click to multi-select,
+ * Discover — browse third-party image sources and import favorites. Pick a
+ * provider (Wallhaven / Pixabay), search + sort, then click to multi-select,
  * hover to add one, or "Add N" for the batch. All network + downloads happen in
  * Rust; imported assets carry the source page as provenance.
  */
@@ -12,47 +12,63 @@ import { IconDiscover, IconSearch, IconWarning } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import type { SourceFilters, SourceItem } from "@/lib/bindings";
+import type { SourceFilters, SourceItem, SourceProvider } from "@/lib/bindings";
 import { useImportSourceItems, useSourceSearch } from "@/lib/queries/sources";
 import { useSourcesStore } from "@/lib/stores/sources-store";
 import { T } from "@/lib/text";
 import { cn } from "@/lib/utils";
 
+/** Brand names — same across locales. */
+const PROVIDERS: Array<{ id: SourceProvider; label: string }> = [
+	{ id: "wallhaven", label: "Wallhaven" },
+	{ id: "pixabay", label: "Pixabay" },
+];
+
 export function DiscoverPage() {
-	const apiKey = useSourcesStore((state) => state.wallhavenApiKey);
+	const wallhavenApiKey = useSourcesStore((state) => state.wallhavenApiKey);
+	const pixabayApiKey = useSourcesStore((state) => state.pixabayApiKey);
+
+	const [provider, setProvider] = useState<SourceProvider>("wallhaven");
 	const [query, setQuery] = useState("");
-	const [sorting, setSorting] = useState("date_added");
+	const [wallhavenSort, setWallhavenSort] = useState("date_added");
+	const [pixabaySort, setPixabaySort] = useState("popular");
 	const [includeNsfw, setIncludeNsfw] = useState(false);
 	const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
 		() => new Set(),
 	);
 
 	const debouncedQuery = useDebouncedValue(query, 400);
+
+	const apiKey = provider === "wallhaven" ? wallhavenApiKey : pixabayApiKey;
 	const hasKey = apiKey.trim().length > 0;
+	const sorting = provider === "wallhaven" ? wallhavenSort : pixabaySort;
+	// Pixabay has no keyless mode; Wallhaven browses SFW without one.
+	const needsKey = provider === "pixabay" && !hasKey;
 
 	const filters: SourceFilters = useMemo(
 		() => ({
 			categories: null,
-			purity: hasKey && includeNsfw ? "111" : "100",
+			purity: provider === "wallhaven" && hasKey && includeNsfw ? "111" : "100",
 			sorting,
 			order: null,
 		}),
-		[sorting, includeNsfw, hasKey],
+		[provider, hasKey, includeNsfw, sorting],
 	);
 
 	const search = useSourceSearch(
+		provider,
 		debouncedQuery,
 		filters,
 		hasKey ? apiKey.trim() : null,
+		!needsKey,
 	);
 	const importItems = useImportSourceItems();
 
-	// A new search/filter set invalidates the old selection (its ids may no
-	// longer be on screen).
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset only when the result set changes, not on every items ref.
+	// A provider/search/filter change invalidates the old selection.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: reset on result-set change, not on every items ref.
 	useEffect(() => {
 		setSelectedIds(new Set());
-	}, [debouncedQuery, filters]);
+	}, [provider, debouncedQuery, filters]);
 
 	const toggleSelect = (id: string) =>
 		setSelectedIds((prev) => {
@@ -72,17 +88,45 @@ export function DiscoverPage() {
 		setSelectedIds(new Set());
 	};
 
-	const sorts = [
-		{ value: "date_added", label: T.discover.sortLatest },
-		{ value: "toplist", label: T.discover.sortTop },
-		{ value: "views", label: T.discover.sortViews },
-		{ value: "random", label: T.discover.sortRandom },
-	];
+	const sortOptions =
+		provider === "wallhaven"
+			? [
+					{ value: "date_added", label: T.discover.sortLatest },
+					{ value: "toplist", label: T.discover.sortTop },
+					{ value: "views", label: T.discover.sortViews },
+					{ value: "random", label: T.discover.sortRandom },
+				]
+			: [
+					{ value: "popular", label: T.discover.sortPopular },
+					{ value: "latest", label: T.discover.sortLatest },
+				];
+	const setSort = provider === "wallhaven" ? setWallhavenSort : setPixabaySort;
 
 	return (
 		<div className="flex h-full flex-col">
 			<header className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
-				<div className="relative min-w-48 flex-1">
+				<div className="flex items-center gap-1">
+					{PROVIDERS.map((option) => (
+						<Button
+							key={option.id}
+							type="button"
+							variant="ghost"
+							size="sm"
+							aria-pressed={provider === option.id}
+							className={cn(
+								"h-8",
+								provider === option.id
+									? "bg-accent text-accent-foreground"
+									: "text-muted-foreground",
+							)}
+							onClick={() => setProvider(option.id)}
+						>
+							{option.label}
+						</Button>
+					))}
+				</div>
+
+				<div className="relative min-w-40 flex-1">
 					<IconSearch className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground/70" />
 					<Input
 						value={query}
@@ -93,7 +137,7 @@ export function DiscoverPage() {
 				</div>
 
 				<div className="flex items-center gap-1">
-					{sorts.map((option) => (
+					{sortOptions.map((option) => (
 						<Button
 							key={option.value}
 							type="button"
@@ -106,14 +150,14 @@ export function DiscoverPage() {
 									? "bg-accent text-accent-foreground"
 									: "text-muted-foreground",
 							)}
-							onClick={() => setSorting(option.value)}
+							onClick={() => setSort(option.value)}
 						>
 							{option.label}
 						</Button>
 					))}
 				</div>
 
-				{hasKey && (
+				{provider === "wallhaven" && hasKey && (
 					<Button
 						type="button"
 						variant="ghost"
@@ -155,7 +199,13 @@ export function DiscoverPage() {
 				)}
 			</header>
 
-			{search.isError ? (
+			{needsKey ? (
+				<EmptyState
+					icon={IconDiscover}
+					title={T.discover.needsKeyTitle}
+					hint={T.discover.needsKeyHint}
+				/>
+			) : search.isError ? (
 				<EmptyState
 					icon={IconWarning}
 					tone="destructive"

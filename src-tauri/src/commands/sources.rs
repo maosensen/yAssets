@@ -10,7 +10,9 @@ use serde::Serialize;
 use crate::error::{AppError, AppResult};
 use crate::import::{process_file_with_source, FileOutcome};
 use crate::library::new_id;
-use crate::sources::{wallhaven, SourceFilters, SourceItem, SourceProvider, SourceSearchResult};
+use crate::sources::{
+    pixabay, wallhaven, SourceFilters, SourceItem, SourceProvider, SourceSearchResult,
+};
 use crate::state::AppState;
 
 /// Hard cap on a single download — defense against a hostile/huge remote file.
@@ -30,6 +32,9 @@ pub async fn search_source(
     match provider {
         SourceProvider::Wallhaven => {
             wallhaven::search(&client, &query, page, &filters, api_key.as_deref()).await
+        }
+        SourceProvider::Pixabay => {
+            pixabay::search(&client, &query, page, &filters, api_key.as_deref()).await
         }
     }
 }

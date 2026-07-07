@@ -3,6 +3,7 @@
 //! show, a full-res URL to download on import, and provenance. ALL network I/O
 //! lives here (via reqwest); the webview only hotlinks provider thumbnails.
 
+pub mod pixabay;
 pub mod wallhaven;
 
 use serde::{Deserialize, Serialize};
@@ -11,6 +12,7 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "snake_case")]
 pub enum SourceProvider {
     Wallhaven,
+    Pixabay,
 }
 
 /// One browsable result from a provider.

@@ -56,29 +56,36 @@ export const en = {
 	},
 	discover: {
 		title: "Discover",
-		searchPlaceholder: "Search Wallhaven…",
+		searchPlaceholder: "Search images…",
 		sortLatest: "Latest",
 		sortTop: "Top",
 		sortViews: "Views",
 		sortRandom: "Random",
+		sortPopular: "Popular",
 		nsfw: "NSFW",
 		add: "Add",
 		addSelected: (n: number) => `Add ${n} to Library`,
 		clearSelection: "Clear",
 		emptyTitle: "Nothing to show",
-		emptyHint: "Search Wallhaven to browse wallpapers, then add favorites.",
+		emptyHint: "Search to browse images, then add favorites to your library.",
 		errorTitle: "Couldn't reach the source",
 		errorHint: "Check your connection and try again.",
+		needsKeyTitle: "API key required",
+		needsKeyHint:
+			"Add a Pixabay API key in Preferences to browse. It's free at pixabay.com/api/docs.",
 		importDone: (imported: number, duplicates: number, failed: number) => {
 			const parts = [`Added ${imported}`];
 			if (duplicates > 0) parts.push(`${duplicates} already in library`);
 			if (failed > 0) parts.push(`${failed} failed`);
 			return parts.join(" · ");
 		},
+		apiKeyPlaceholder: "API key",
 		apiKeyLabel: "Wallhaven API key",
 		apiKeyHint:
 			"Optional. Unlocks NSFW/Sketchy content and a higher rate limit. Get one at wallhaven.cc/settings/account.",
-		apiKeyPlaceholder: "API key",
+		pixabayApiKeyLabel: "Pixabay API key",
+		pixabayApiKeyHint:
+			"Required to browse Pixabay. Free at pixabay.com/api/docs.",
 	},
 	watched: {
 		description:
