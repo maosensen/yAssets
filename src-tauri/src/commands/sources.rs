@@ -11,7 +11,8 @@ use crate::error::{AppError, AppResult};
 use crate::import::{process_file_with_source, FileOutcome};
 use crate::library::new_id;
 use crate::sources::{
-    pixabay, wallhaven, SourceFilters, SourceItem, SourceProvider, SourceSearchResult,
+    openverse, pexels, pixabay, wallhaven, SourceFilters, SourceItem, SourceProvider,
+    SourceSearchResult,
 };
 use crate::state::AppState;
 
@@ -36,6 +37,30 @@ pub async fn search_source(
         SourceProvider::Pixabay => {
             pixabay::search(&client, &query, page, &filters, api_key.as_deref()).await
         }
+        SourceProvider::Openverse => {
+            openverse::search(&client, &query, page, &filters, api_key.as_deref()).await
+        }
+        SourceProvider::Pexels => {
+            pexels::search(&client, &query, page, &filters, api_key.as_deref()).await
+        }
+    }
+}
+
+/// The credit line stored on an imported asset's note. Prefer the provider's
+/// ready-made attribution (Openverse/Pexels); otherwise compose from author +
+/// license. `None` when the provider supplies neither (Wallhaven).
+fn attribution_note(item: &SourceItem) -> Option<String> {
+    if let Some(attribution) = item.attribution.as_deref().filter(|a| !a.is_empty()) {
+        return Some(attribution.to_string());
+    }
+    match (
+        item.author.as_deref().filter(|a| !a.is_empty()),
+        item.license.as_deref().filter(|l| !l.is_empty()),
+    ) {
+        (Some(author), Some(license)) => Some(format!("By {author} · {license}")),
+        (Some(author), None) => Some(format!("By {author}")),
+        (None, Some(license)) => Some(license.to_string()),
+        (None, None) => None,
     }
 }
 
@@ -83,6 +108,7 @@ pub async fn import_source_items(
         let folder = folder_id.clone();
         let ext = sanitize_ext(&item.ext);
         let source = item.source_page_url.clone();
+        let note = attribution_note(&item);
         let outcome = tauri::async_runtime::spawn_blocking(move || {
             let tmp = std::env::temp_dir().join(format!("yassets-dl-{}.{ext}", new_id()));
             // Always remove the temp, even if the write itself fails partway
@@ -95,6 +121,7 @@ pub async fn import_source_items(
                     &seen,
                     false,
                     Some(source.as_str()),
+                    note.as_deref(),
                 ),
                 Err(err) => Err(format!("temp write failed: {err}")),
             };

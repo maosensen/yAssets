@@ -448,11 +448,20 @@ pub(crate) fn process_file(
     seen_hashes: &Mutex<HashSet<String>>,
     keep_duplicates: bool,
 ) -> Result<FileOutcome, String> {
-    process_file_with_source(library, path, folder_id, seen_hashes, keep_duplicates, None)
+    process_file_with_source(
+        library,
+        path,
+        folder_id,
+        seen_hashes,
+        keep_duplicates,
+        None,
+        None,
+    )
 }
 
-/// Like `process_file`, but records `source` (a provenance URL) on the asset.
-/// The Discover feature imports downloaded third-party images this way.
+/// Like `process_file`, but records `source` (a provenance URL) and an optional
+/// `note` (an attribution line) on the asset. The Discover feature imports
+/// downloaded third-party images this way, crediting CC/Pexels sources.
 pub(crate) fn process_file_with_source(
     library: &Library,
     path: &Path,
@@ -460,6 +469,7 @@ pub(crate) fn process_file_with_source(
     seen_hashes: &Mutex<HashSet<String>>,
     keep_duplicates: bool,
     source: Option<&str>,
+    note: Option<&str>,
 ) -> Result<FileOutcome, String> {
     let hash = hash_file(path).map_err(|err| format!("hash failed: {err}"))?;
 
@@ -555,9 +565,9 @@ pub(crate) fn process_file_with_source(
             "INSERT INTO assets (
                id, name, ext, mime, size, width, height, hash_blake3,
                storage, src_path, rel_path, has_thumb, hue, palette, dhash,
-               imported_at, file_mtime, file_ctime, updated_at, url
+               imported_at, file_mtime, file_ctime, updated_at, url, note
              ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
-                       'managed', ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?15, ?18)",
+                       'managed', ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?15, ?18, ?19)",
             rusqlite::params![
                 id,
                 name,
@@ -577,6 +587,7 @@ pub(crate) fn process_file_with_source(
                 system_time_ms(metadata.modified().ok()),
                 system_time_ms(metadata.created().ok()),
                 source,
+                note.unwrap_or(""),
             ],
         )?;
         if let Some(folder) = folder_id {
@@ -826,18 +837,22 @@ mod tests {
             &seen,
             false,
             Some("https://wallhaven.cc/w/abc123"),
+            Some("By Jane Doe · CC BY 4.0"),
         )
         .expect("import");
         assert!(matches!(outcome, FileOutcome::Imported));
 
-        let url: Option<String> = lib
+        let (url, note): (Option<String>, String) = lib
             .with_reader(|conn| {
                 Ok(conn
-                    .query_row("SELECT url FROM assets", [], |row| row.get(0))
+                    .query_row("SELECT url, note FROM assets", [], |row| {
+                        Ok((row.get(0)?, row.get(1)?))
+                    })
                     .expect("row"))
             })
             .expect("reader");
         assert_eq!(url.as_deref(), Some("https://wallhaven.cc/w/abc123"));
+        assert_eq!(note, "By Jane Doe · CC BY 4.0");
     }
 
     #[test]

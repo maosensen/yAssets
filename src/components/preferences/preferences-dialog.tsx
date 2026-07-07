@@ -171,6 +171,8 @@ function GeneralPane() {
 	);
 	const pixabayApiKey = useSourcesStore((state) => state.pixabayApiKey);
 	const setPixabayApiKey = useSourcesStore((state) => state.setPixabayApiKey);
+	const pexelsApiKey = useSourcesStore((state) => state.pexelsApiKey);
+	const setPexelsApiKey = useSourcesStore((state) => state.setPexelsApiKey);
 	const [checking, setChecking] = useState(false);
 
 	const checkUpdates = async () => {
@@ -258,6 +260,19 @@ function GeneralPane() {
 						type="password"
 						value={pixabayApiKey}
 						onChange={(event) => setPixabayApiKey(event.target.value)}
+						placeholder={T.discover.apiKeyPlaceholder}
+						autoComplete="off"
+						spellCheck={false}
+					/>
+				</SettingBlock>
+				<SettingBlock
+					label={T.discover.pexelsApiKeyLabel}
+					hint={T.discover.pexelsApiKeyHint}
+				>
+					<Input
+						type="password"
+						value={pexelsApiKey}
+						onChange={(event) => setPexelsApiKey(event.target.value)}
 						placeholder={T.discover.apiKeyPlaceholder}
 						autoComplete="off"
 						spellCheck={false}

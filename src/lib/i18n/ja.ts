@@ -87,6 +87,11 @@ export const ja: Messages = {
 		pixabayApiKeyLabel: "Pixabay API キー",
 		pixabayApiKeyHint:
 			"Pixabay の閲覧に必須です。pixabay.com/api/docs で無料で取得できます。",
+		pexelsApiKeyLabel: "Pexels API キー",
+		pexelsApiKeyHint:
+			"Pexels の閲覧に必須です。pexels.com/api で無料で取得できます。写真を使う際は撮影者のクレジットを記載してください。",
+		pexelsNeedsKeyHint:
+			"閲覧するには環境設定で Pexels API キーを設定してください。pexels.com/api で無料で取得できます。",
 	},
 	changelog: {
 		title: "新着情報",

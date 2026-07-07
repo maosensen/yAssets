@@ -567,12 +567,19 @@ export type SourceItem = {
 	height: number,
 	/**  File extension of the full-res asset (e.g. "jpg", "png"). */
 	ext: string,
-	/**  Attribution, when the provider supplies it (Pexels/Unsplash later). */
+	/**  Attribution, when the provider supplies it (Pexels/Openverse). */
 	author: string | null,
 	license: string | null,
+	/**
+	 *  A ready-made, human-readable attribution line, when the provider gives
+	 *  one (Openverse). Recorded on the imported asset's note for licenses that
+	 *  require credit. Providers without one leave it `None` and the importer
+	 *  falls back to `author` + `license`.
+	 */
+	attribution: string | null,
 };
 
-export type SourceProvider = "wallhaven" | "pixabay";
+export type SourceProvider = "wallhaven" | "pixabay" | "openverse" | "pexels";
 
 /**  A page of search results. */
 export type SourceSearchResult = {

@@ -86,6 +86,11 @@ export const zh: Messages = {
 		pixabayApiKeyLabel: "Pixabay API 密钥",
 		pixabayApiKeyHint:
 			"浏览 Pixabay 必填。可在 pixabay.com/api/docs 免费获取。",
+		pexelsApiKeyLabel: "Pexels API 密钥",
+		pexelsApiKeyHint:
+			"浏览 Pexels 必填。可在 pexels.com/api 免费获取。使用照片时请为摄影师署名。",
+		pexelsNeedsKeyHint:
+			"请在偏好设置中填写 Pexels API 密钥后浏览。可在 pexels.com/api 免费获取。",
 	},
 	changelog: {
 		title: "更新内容",

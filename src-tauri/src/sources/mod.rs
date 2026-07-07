@@ -3,6 +3,8 @@
 //! show, a full-res URL to download on import, and provenance. ALL network I/O
 //! lives here (via reqwest); the webview only hotlinks provider thumbnails.
 
+pub mod openverse;
+pub mod pexels;
 pub mod pixabay;
 pub mod wallhaven;
 
@@ -13,6 +15,8 @@ use serde::{Deserialize, Serialize};
 pub enum SourceProvider {
     Wallhaven,
     Pixabay,
+    Openverse,
+    Pexels,
 }
 
 /// One browsable result from a provider.
@@ -31,9 +35,14 @@ pub struct SourceItem {
     pub height: u32,
     /// File extension of the full-res asset (e.g. "jpg", "png").
     pub ext: String,
-    /// Attribution, when the provider supplies it (Pexels/Unsplash later).
+    /// Attribution, when the provider supplies it (Pexels/Openverse).
     pub author: Option<String>,
     pub license: Option<String>,
+    /// A ready-made, human-readable attribution line, when the provider gives
+    /// one (Openverse). Recorded on the imported asset's note for licenses that
+    /// require credit. Providers without one leave it `None` and the importer
+    /// falls back to `author` + `license`.
+    pub attribution: Option<String>,
 }
 
 /// A page of search results.

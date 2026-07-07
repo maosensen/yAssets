@@ -98,6 +98,7 @@ fn map_item(item: WhItem) -> SourceItem {
         ext,
         author: None,
         license: None,
+        attribution: None,
     }
 }
 

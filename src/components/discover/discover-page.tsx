@@ -22,11 +22,14 @@ import { cn } from "@/lib/utils";
 const PROVIDERS: Array<{ id: SourceProvider; label: string }> = [
 	{ id: "wallhaven", label: "Wallhaven" },
 	{ id: "pixabay", label: "Pixabay" },
+	{ id: "openverse", label: "Openverse" },
+	{ id: "pexels", label: "Pexels" },
 ];
 
 export function DiscoverPage() {
 	const wallhavenApiKey = useSourcesStore((state) => state.wallhavenApiKey);
 	const pixabayApiKey = useSourcesStore((state) => state.pixabayApiKey);
+	const pexelsApiKey = useSourcesStore((state) => state.pexelsApiKey);
 
 	const [provider, setProvider] = useState<SourceProvider>("wallhaven");
 	const [query, setQuery] = useState("");
@@ -39,16 +42,37 @@ export function DiscoverPage() {
 
 	const debouncedQuery = useDebouncedValue(query, 400);
 
-	const apiKey = provider === "wallhaven" ? wallhavenApiKey : pixabayApiKey;
+	// Per-provider API key (Wallhaven + Openverse are keyless).
+	const apiKey =
+		provider === "wallhaven"
+			? wallhavenApiKey
+			: provider === "pixabay"
+				? pixabayApiKey
+				: provider === "pexels"
+					? pexelsApiKey
+					: "";
 	const hasKey = apiKey.trim().length > 0;
-	const sorting = provider === "wallhaven" ? wallhavenSort : pixabaySort;
-	// Pixabay has no keyless mode; Wallhaven browses SFW without one.
-	const needsKey = provider === "pixabay" && !hasKey;
+	// Only Wallhaven and Pixabay expose sorting; Openverse/Pexels search is
+	// relevance-only.
+	const sorting =
+		provider === "wallhaven"
+			? wallhavenSort
+			: provider === "pixabay"
+				? pixabaySort
+				: null;
+	// Pixabay and Pexels have no keyless mode; Wallhaven/Openverse browse without.
+	const needsKey = (provider === "pixabay" || provider === "pexels") && !hasKey;
 
 	const filters: SourceFilters = useMemo(
 		() => ({
 			categories: null,
-			purity: provider === "wallhaven" && hasKey && includeNsfw ? "111" : "100",
+			// Purity is a Wallhaven concept; other providers are SFW by default.
+			purity:
+				provider === "wallhaven"
+					? hasKey && includeNsfw
+						? "111"
+						: "100"
+					: null,
 			sorting,
 			order: null,
 		}),
@@ -96,10 +120,12 @@ export function DiscoverPage() {
 					{ value: "views", label: T.discover.sortViews },
 					{ value: "random", label: T.discover.sortRandom },
 				]
-			: [
-					{ value: "popular", label: T.discover.sortPopular },
-					{ value: "latest", label: T.discover.sortLatest },
-				];
+			: provider === "pixabay"
+				? [
+						{ value: "popular", label: T.discover.sortPopular },
+						{ value: "latest", label: T.discover.sortLatest },
+					]
+				: [];
 	const setSort = provider === "wallhaven" ? setWallhavenSort : setPixabaySort;
 
 	return (
@@ -203,7 +229,11 @@ export function DiscoverPage() {
 				<EmptyState
 					icon={IconDiscover}
 					title={T.discover.needsKeyTitle}
-					hint={T.discover.needsKeyHint}
+					hint={
+						provider === "pexels"
+							? T.discover.pexelsNeedsKeyHint
+							: T.discover.needsKeyHint
+					}
 				/>
 			) : search.isError ? (
 				<EmptyState

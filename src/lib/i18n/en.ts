@@ -87,6 +87,11 @@ export const en = {
 		pixabayApiKeyLabel: "Pixabay API key",
 		pixabayApiKeyHint:
 			"Required to browse Pixabay. Free at pixabay.com/api/docs.",
+		pexelsApiKeyLabel: "Pexels API key",
+		pexelsApiKeyHint:
+			"Required to browse Pexels. Free at pexels.com/api. Please credit the photographer when you use a photo.",
+		pexelsNeedsKeyHint:
+			"Add a Pexels API key in Preferences to browse. It's free at pexels.com/api.",
 	},
 	changelog: {
 		title: "What's New",

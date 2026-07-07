@@ -64,6 +64,7 @@ fn map_hit(hit: PxHit) -> SourceItem {
             Some(hit.user)
         },
         license: Some("Pixabay Content License".to_string()),
+        attribution: None,
     }
 }
 

@@ -2,8 +2,8 @@
  * Discover source settings — the per-provider API keys.
  *
  * Persisted to localStorage (same pattern as theme / locale / view-prefs). Each
- * key is the user's own, sent only to its provider. Wallhaven works keyless
- * (SFW); Pixabay requires a key. Never logged.
+ * key is the user's own, sent only to its provider. Wallhaven and Openverse
+ * work keyless; Pixabay and Pexels require a key. Never logged.
  */
 
 import { create } from "zustand";
@@ -14,6 +14,8 @@ type SourcesState = {
 	setWallhavenApiKey: (key: string) => void;
 	pixabayApiKey: string;
 	setPixabayApiKey: (key: string) => void;
+	pexelsApiKey: string;
+	setPexelsApiKey: (key: string) => void;
 };
 
 export const useSourcesStore = create<SourcesState>()(
@@ -23,6 +25,8 @@ export const useSourcesStore = create<SourcesState>()(
 			setWallhavenApiKey: (key) => set({ wallhavenApiKey: key.trim() }),
 			pixabayApiKey: "",
 			setPixabayApiKey: (key) => set({ pixabayApiKey: key.trim() }),
+			pexelsApiKey: "",
+			setPexelsApiKey: (key) => set({ pexelsApiKey: key.trim() }),
 		}),
 		{ name: "yassets-sources" },
 	),
