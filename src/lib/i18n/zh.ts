@@ -90,6 +90,9 @@ export const zh: Messages = {
 		title: "更新内容",
 		subtitle: "yAssets 的近期更新",
 		current: "当前版本",
+		kindNew: "新功能",
+		kindImproved: "优化",
+		kindFixed: "修复",
 	},
 	watched: {
 		description:

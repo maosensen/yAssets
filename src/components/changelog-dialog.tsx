@@ -1,13 +1,13 @@
 /**
- * "What's New" — a user-facing changelog. Curated, translated highlights per
- * release (see src/lib/changelog), newest first, with the installed version
- * badged. Opened from the app menu bar and the library switcher; mounted in
- * AppDialogs so it works on every route and re-renders on a locale switch.
+ * "What's New" — a user-facing changelog. Curated, translated, categorized
+ * highlights per release (see src/lib/changelog), newest first, with the
+ * installed version badged. Two-column layout: a version/date rail beside the
+ * categorized changes. Mounted in AppDialogs so it works on every route and
+ * re-renders on a locale switch.
  */
 
 import { getVersion } from "@tauri-apps/api/app";
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
 import {
 	Dialog,
 	DialogContent,
@@ -15,9 +15,10 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { getChangelog } from "@/lib/changelog";
+import { type ChangeKind, getChangelog } from "@/lib/changelog";
 import { useUiStore } from "@/lib/stores/ui-store";
 import { getLocale, T } from "@/lib/text";
+import { cn } from "@/lib/utils";
 
 function formatDate(iso: string, locale: string): string {
 	// Parse as local midnight so the formatted day never shifts across time zones.
@@ -51,41 +52,76 @@ export function ChangelogDialog() {
 	const locale = getLocale();
 	const releases = getChangelog();
 
+	// Colored category tags — built in render so labels track the locale.
+	const kindMeta: Record<ChangeKind, { label: string; className: string }> = {
+		new: {
+			label: T.changelog.kindNew,
+			className:
+				"bg-emerald-500/15 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-400",
+		},
+		improved: {
+			label: T.changelog.kindImproved,
+			className:
+				"bg-sky-500/15 text-sky-600 dark:bg-sky-400/15 dark:text-sky-400",
+		},
+		fixed: {
+			label: T.changelog.kindFixed,
+			className:
+				"bg-amber-500/15 text-amber-600 dark:bg-amber-400/15 dark:text-amber-400",
+		},
+	};
+
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogContent className="flex max-h-[80vh] max-w-lg flex-col gap-0 overflow-hidden p-0">
-				<DialogHeader className="space-y-0.5 border-b px-6 py-4 text-left">
-					<DialogTitle className="text-lg">{T.changelog.title}</DialogTitle>
+			<DialogContent className="relative flex max-h-[80vh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+				{/* Faint accent glow behind the title — quiet chrome to lift the
+				    header off a flat background. */}
+				<div
+					aria-hidden
+					className="pointer-events-none absolute -top-20 left-1/2 h-40 w-80 -translate-x-1/2 rounded-full bg-primary/25 blur-3xl"
+				/>
+
+				<DialogHeader className="relative space-y-1 border-b px-6 py-5 text-left">
+					<DialogTitle className="text-xl tracking-tight">
+						{T.changelog.title}
+					</DialogTitle>
 					<DialogDescription>{T.changelog.subtitle}</DialogDescription>
 				</DialogHeader>
 
-				<ol className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-5">
+				<ol className="flex min-h-0 flex-1 flex-col gap-7 overflow-y-auto px-6 py-6">
 					{releases.map((release) => (
-						<li key={release.version}>
-							<div className="flex items-baseline gap-2">
-								<span className="font-semibold text-sm tabular-nums">
+						<li key={release.version} className="flex gap-5">
+							<div className="w-24 shrink-0 pt-0.5">
+								<div className="font-semibold text-sm tabular-nums">
 									{release.version}
-								</span>
-								{release.version === version && (
-									<Badge
-										variant="secondary"
-										className="px-1.5 py-0 text-[10px]"
-									>
-										{T.changelog.current}
-									</Badge>
-								)}
-								<span className="ml-auto text-muted-foreground text-xs tabular-nums">
+								</div>
+								<div className="mt-0.5 text-muted-foreground text-xs">
 									{formatDate(release.date, locale)}
-								</span>
+								</div>
+								{release.version === version && (
+									<div className="mt-2 inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 font-medium text-[10px] text-primary">
+										{T.changelog.current}
+									</div>
+								)}
 							</div>
-							<ul className="mt-2 flex flex-col gap-1.5">
-								{release.highlights.map((highlight) => (
+
+							<ul className="min-w-0 flex-1 space-y-2.5 border-border/60 border-l pl-5">
+								{release.changes.map((change) => (
 									<li
-										key={highlight}
-										className="flex gap-2.5 text-foreground/90 text-sm leading-relaxed"
+										key={change.text}
+										className="grid grid-cols-[4.5rem_1fr] items-baseline gap-3"
 									>
-										<span className="mt-[0.5rem] size-1 shrink-0 rounded-full bg-primary/70" />
-										<span className="min-w-0">{highlight}</span>
+										<span
+											className={cn(
+												"inline-flex justify-self-start rounded-full px-2 py-0.5 font-medium text-[10px] uppercase tracking-wide",
+												kindMeta[change.kind].className,
+											)}
+										>
+											{kindMeta[change.kind].label}
+										</span>
+										<span className="text-foreground/90 text-sm leading-relaxed">
+											{change.text}
+										</span>
 									</li>
 								))}
 							</ul>

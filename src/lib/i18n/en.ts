@@ -91,6 +91,9 @@ export const en = {
 		title: "What's New",
 		subtitle: "Recent updates to yAssets",
 		current: "Current",
+		kindNew: "New",
+		kindImproved: "Improved",
+		kindFixed: "Fixed",
 	},
 	watched: {
 		description:

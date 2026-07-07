@@ -91,6 +91,9 @@ export const ja: Messages = {
 		title: "新着情報",
 		subtitle: "yAssets の最近のアップデート",
 		current: "使用中",
+		kindNew: "新機能",
+		kindImproved: "改善",
+		kindFixed: "修正",
 	},
 	watched: {
 		description:
