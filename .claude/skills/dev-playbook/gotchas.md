@@ -69,6 +69,15 @@
 - `keep_duplicates = true` 只关**库级**查重；批内 `seen_hashes` 永远生效（同一批拖两份一样的文件仍只进一份）。
 - 嵌套文件夹导入：`DiscoveredFile.folder_components` 相对「拖入目录的父级」计算（所以拖入的目录名本身是链条第一层）；`build_folder_map` 用 BTreeSet 保证父先于子创建，`ensure_folder` 按 `name COLLATE NOCASE + parent_id` 复用——重复导入收敛到同一棵树。
 
+## 网络 / 三方源 (Discover)
+
+- **网络全留在 Rust**（reqwest,rustls 无 OpenSSL）,webview 只 hotlink 缩略图。API 调用/原图下载走 Tauri command,`connect-src` 不用放开;只有缩略图 `<img>` 需要在 CSP `img-src` 加该 provider 的 CDN host(如 `https://th.wallhaven.cc`)。API key 存前端 store 传入 command,永不进日志。
+- **下载防 SSRF 不能只查初始 URL 的 scheme**:reqwest 默认 `Policy::limited(10)` 会跟 302,`https://` 初始 URL 能被重定向到 `http://169.254.169.254`(云 metadata)/`http://localhost`/内网。修法三连:client 建成 `.redirect(Policy::none())` + `.https_only(true)`;download() 里 `Url::parse` 后校验 scheme==https **且** host 不是 loopback/private/link-local/unspecified(`host_is_blocked`,含 IPv6 去括号);`.send()` 后非 2xx 一律当失败(no-redirect 下 3xx 就是失败)。对抗式 review 抓到的 HIGH。
+- **下载体积上限必须在流式读取时判**:`resp.bytes().await` 会把整个 body 先灌进内存,`Content-Length` 缺失/伪造时 100MiB 上限形同虚设(OOM)。改用 `while let Some(chunk)=resp.chunk().await?` 累加,超限即 abort(保留 content-length 预检做快速拒绝)。
+- **下临时文件别用 `?` 提前返回**:`std::fs::write(&tmp,..)?` 失败会跳过后面的 `remove_file` → 泄漏(可能是空/半包)临时文件到 `std::env::temp_dir()`。用 `match` 写,无论成败都走一次 `remove_file`。`tempfile` crate 只在 dev-deps,生产用裸 `std::fs`。
+- **infinite query 展平要按 id 去重**:三方源分页会重叠(wallhaven `sorting=random` 每次请求重新洗牌、`date_added` 随新上传漂移),`pages.flatMap` 不去重会出现重复 React key + 重复卡片 + 多选串味。展平时用 `Set<id>` 去重。搜索 query key 要**带 apiKey 值**(react-query key 仅内存),否则改了无效 key 不会 refetch,卡在错误态。
+- **schema 列名别信注释**:v5 迁移注释写「source URL」,实际列名是 `url`(不是 `source`)。写 INSERT 前 grep `migrations.rs` 确认真实列名——Rust 测试当场会以「table has no column named X」炸出来。
+
 ## 工具 / 多智能体 review
 
 - **后台 review Workflow 会在共享工作树里跑 `git stash`/`checkout`**（为了 diff 历史提交），把你**未提交**的改动在中途 revert 掉——我亲眼看到一个新文件在两条命令间闪现消失。**规矩：spawn 后台 review workflow 之前先把在做的活 commit**，让工作树干净；review 只读已提交代码，也更准。对抗式 review 每个阶段都抓到过真 bug（B 组 zip-bomb/PSD panic、E 组 Next 按钮、D+E-2 的 Windows 删库/watcher 竞态）——值得每个 milestone 批次跑一次，但务必先 commit。
