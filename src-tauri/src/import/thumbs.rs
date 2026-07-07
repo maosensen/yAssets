@@ -171,16 +171,7 @@ fn rasterize_svg(src: &Path) -> AppResult<(u32, u32, u32, u32, Vec<u8>)> {
     // Monochrome icon SVGs (Iconify & co.) paint with `currentColor`, which
     // rasterizes to black — invisible on the dark theme. Substitute a neutral
     // gray in the thumbnail render only; the stored asset keeps currentColor.
-    let data = if data
-        .windows(b"currentColor".len())
-        .any(|w| w == b"currentColor")
-    {
-        String::from_utf8_lossy(&data)
-            .replace("currentColor", "#8f959e")
-            .into_bytes()
-    } else {
-        data
-    };
+    let data = substitute_current_color(&data).unwrap_or(data);
     let tree = resvg::usvg::Tree::from_data(&data, &resvg::usvg::Options::default())
         .map_err(|err| AppError::Io(format!("svg parse failed: {err}")))?;
 
@@ -209,6 +200,29 @@ fn rasterize_svg(src: &Path) -> AppResult<(u32, u32, u32, u32, Vec<u8>)> {
         thumb_h,
         pixmap.data().to_vec(),
     ))
+}
+
+/// Replace every `currentColor` (CSS keywords are case-INsensitive, so
+/// `currentcolor` is equally valid — and usvg falls back to black for it too)
+/// with a neutral gray that reads on both themes. Returns `None` when the
+/// data contains no occurrence, so callers can keep the original allocation.
+fn substitute_current_color(data: &[u8]) -> Option<Vec<u8>> {
+    const NEEDLE: &[u8] = b"currentColor";
+    let mut out = Vec::with_capacity(data.len());
+    let mut i = 0;
+    let mut replaced = false;
+    while i < data.len() {
+        if i + NEEDLE.len() <= data.len() && data[i..i + NEEDLE.len()].eq_ignore_ascii_case(NEEDLE)
+        {
+            out.extend_from_slice(b"#8f959e");
+            i += NEEDLE.len();
+            replaced = true;
+        } else {
+            out.push(data[i]);
+            i += 1;
+        }
+    }
+    replaced.then_some(out)
 }
 
 /// PSD/PSB path: take the document's flattened composite (the "merged image
@@ -499,5 +513,18 @@ mod tests {
             px[0] > 0x60 && px[0] < 0xc0 && px[3] == 0xff,
             "expected neutral gray, got {px:?}"
         );
+    }
+
+    #[test]
+    fn substitute_current_color_is_case_insensitive() {
+        // CSS keywords are case-insensitive: `currentcolor` is valid too (and
+        // usvg would fall back to black for it, defeating the substitution).
+        let mixed = br##"<svg><rect fill="currentcolor"/><path stroke="CURRENTCOLOR"/></svg>"##;
+        let out = substitute_current_color(mixed).expect("replaced");
+        let text = String::from_utf8(out).expect("utf8");
+        assert!(!text.to_ascii_lowercase().contains("currentcolor"));
+        assert_eq!(text.matches("#8f959e").count(), 2);
+        // No occurrence → None, so callers keep the original buffer.
+        assert!(substitute_current_color(b"<svg fill=\"#fff\"/>").is_none());
     }
 }

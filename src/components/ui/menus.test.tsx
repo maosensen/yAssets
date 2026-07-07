@@ -84,8 +84,10 @@ describe("ContextMenu", () => {
 
 	it("fires item onClick under a realistic pointer sequence", async () => {
 		// A real click is pointerdown → mousedown → pointerup → mouseup → click.
-		// If the popup's dismiss logic misfires on the item's pointerdown, the
-		// menu closes before `click` and every action silently no-ops.
+		// This pins the MENU side only (dismiss logic must not misfire on the
+		// item's own pointerdown); the grid-side marquee/pointer-capture bug is
+		// pinned by src/lib/pointer.test.tsx (jsdom has no capture retargeting,
+		// so it cannot be reproduced here end to end).
 		const onAction = vi.fn();
 		render(
 			<ContextMenu>

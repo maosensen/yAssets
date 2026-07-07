@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
-	DropdownMenuGroup,
 	DropdownMenuItem,
 	DropdownMenuLabel,
 	DropdownMenuSeparator,
@@ -74,29 +73,26 @@ export function LibrarySwitcher() {
 				<DropdownMenuContent align="start" className="w-64">
 					{otherRecents.length > 0 && (
 						<>
-							{/* Base UI hard-requires GroupLabel to live inside a Group —
-						    a bare label throws MenuGroupContext at runtime. */}
-							<DropdownMenuGroup>
-								<DropdownMenuLabel>
-									{T.sidebar.switcher.recentGroup}
-								</DropdownMenuLabel>
-								{otherRecents.map((entry) => (
-									<DropdownMenuItem
-										key={entry.path}
-										disabled={entry.missing}
-										onClick={() => actions.openPath(entry.path)}
-									>
-										<span className="min-w-0 flex-1 truncate">
-											{entry.name}
+							{/* DropdownMenuLabel wraps itself in a Group (Base UI requires
+							    it); nesting it in another DropdownMenuGroup would shadow
+							    that group's accessible name. */}
+							<DropdownMenuLabel>
+								{T.sidebar.switcher.recentGroup}
+							</DropdownMenuLabel>
+							{otherRecents.map((entry) => (
+								<DropdownMenuItem
+									key={entry.path}
+									disabled={entry.missing}
+									onClick={() => actions.openPath(entry.path)}
+								>
+									<span className="min-w-0 flex-1 truncate">{entry.name}</span>
+									{entry.missing && (
+										<span className="text-muted-foreground text-xs">
+											{T.welcome.missingBadge}
 										</span>
-										{entry.missing && (
-											<span className="text-muted-foreground text-xs">
-												{T.welcome.missingBadge}
-											</span>
-										)}
-									</DropdownMenuItem>
-								))}
-							</DropdownMenuGroup>
+									)}
+								</DropdownMenuItem>
+							))}
 							<DropdownMenuSeparator />
 						</>
 					)}

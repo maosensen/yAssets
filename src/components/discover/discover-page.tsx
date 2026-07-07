@@ -497,7 +497,10 @@ export function DiscoverPage() {
 							: T.discover.needsKeyHint
 					}
 				/>
-			) : search.isError ? (
+			) : search.isError && search.items.length === 0 ? (
+				// Full-screen error states only when there is nothing to show — a
+				// failed next-page fetch (e.g. a 429 mid-scroll) must not blank out
+				// the results already on screen.
 				isCommandError(search.error) && search.error.code === "RateLimited" ? (
 					<EmptyState
 						icon={IconWarning}

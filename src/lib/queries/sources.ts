@@ -18,7 +18,7 @@ import {
 	type SourceItem,
 	type SourceProvider,
 } from "@/lib/bindings";
-import { describeError } from "@/lib/errors";
+import { describeError, isCommandError } from "@/lib/errors";
 import { unwrap } from "@/lib/tauri";
 import { T } from "@/lib/text";
 import { assetKeys, libraryKeys, sourceKeys } from "./keys";
@@ -49,6 +49,12 @@ export function sourceSearchQueryOptions(
 		enabled,
 		// Results are stable for a while; don't refetch on every focus.
 		staleTime: 5 * 60 * 1000,
+		// A 429 means "slow down" — auto-retrying against the source that just
+		// rate-limited us only digs the hole deeper. Everything else keeps the
+		// default single retry.
+		retry: (failureCount, error) =>
+			!(isCommandError(error) && error.code === "RateLimited") &&
+			failureCount < 1,
 	});
 }
 

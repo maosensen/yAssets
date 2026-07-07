@@ -30,6 +30,7 @@ import { useElementWidth } from "@/hooks/use-element-width";
 import type { AssetSummary } from "@/lib/bindings";
 import { formatBytes, formatDimensions } from "@/lib/format";
 import { computeJustifiedLayout, itemsInRect, type Rect } from "@/lib/masonry";
+import { pressWithin } from "@/lib/pointer";
 import { useSelectionStore } from "@/lib/stores/selection-store";
 import { useViewPrefsStore } from "@/lib/stores/view-prefs-store";
 
@@ -295,7 +296,7 @@ export function AssetGrid({
 		// marquee would setPointerCapture on this container and steal the
 		// menu item's pointerup/click — every menu action would silently
 		// no-op. Only track presses physically inside the scroll container.
-		if (!event.currentTarget.contains(event.target as Node)) return;
+		if (!pressWithin(event.currentTarget, event.target)) return;
 		const point = toContentPoint(event);
 		if (!point) return;
 		marqueeStart.current = point;
