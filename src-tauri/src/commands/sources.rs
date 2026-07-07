@@ -80,15 +80,19 @@ pub async fn import_source_items(
         let source = item.source_page_url.clone();
         let outcome = tauri::async_runtime::spawn_blocking(move || {
             let tmp = std::env::temp_dir().join(format!("yassets-dl-{}.{ext}", new_id()));
-            std::fs::write(&tmp, &bytes).map_err(|err| format!("temp write failed: {err}"))?;
-            let result = process_file_with_source(
-                &lib,
-                &tmp,
-                folder.as_deref(),
-                &seen,
-                false,
-                Some(source.as_str()),
-            );
+            // Always remove the temp, even if the write itself fails partway
+            // (a `?` here would leak it).
+            let result = match std::fs::write(&tmp, &bytes) {
+                Ok(()) => process_file_with_source(
+                    &lib,
+                    &tmp,
+                    folder.as_deref(),
+                    &seen,
+                    false,
+                    Some(source.as_str()),
+                ),
+                Err(err) => Err(format!("temp write failed: {err}")),
+            };
             let _ = std::fs::remove_file(&tmp);
             result
         })
@@ -109,23 +113,65 @@ pub async fn import_source_items(
 }
 
 async fn download(client: &reqwest::Client, url: &str) -> AppResult<Vec<u8>> {
-    // Only fetch over TLS. The URL comes from a provider's own response, but
-    // this keeps a spoofed/compromised result from reaching http / file / an
-    // internal host.
-    if !url.starts_with("https://") {
+    // The URL comes from a provider response — treat it as untrusted. Require
+    // https to a public host: this (plus the client's no-redirect + https-only
+    // policy) blocks SSRF to loopback/link-local/private/plaintext targets.
+    let parsed =
+        reqwest::Url::parse(url).map_err(|_| AppError::Conflict("invalid source URL".into()))?;
+    if parsed.scheme() != "https" {
         return Err(AppError::Conflict("refusing non-https source URL".into()));
     }
-    let resp = client.get(url).send().await?.error_for_status()?;
+    if host_is_blocked(parsed.host_str()) {
+        return Err(AppError::Conflict("refusing private/loopback host".into()));
+    }
+
+    let mut resp = client.get(parsed).send().await?;
+    // No-redirect client: a 3xx (or any non-2xx) is a failure, not a follow.
+    if !resp.status().is_success() {
+        return Err(AppError::Network(format!(
+            "unexpected status: {}",
+            resp.status()
+        )));
+    }
+    // Reject early if the server declares an over-limit size…
     if let Some(len) = resp.content_length() {
         if len > MAX_DOWNLOAD_BYTES {
             return Err(AppError::Conflict("remote file too large".into()));
         }
     }
-    let bytes = resp.bytes().await?;
-    if bytes.len() as u64 > MAX_DOWNLOAD_BYTES {
-        return Err(AppError::Conflict("remote file too large".into()));
+    // …and enforce the cap while streaming, so an absent/lying Content-Length
+    // can't buffer unbounded bytes into memory.
+    let mut buf: Vec<u8> = Vec::new();
+    while let Some(chunk) = resp.chunk().await? {
+        if buf.len() as u64 + chunk.len() as u64 > MAX_DOWNLOAD_BYTES {
+            return Err(AppError::Conflict("remote file too large".into()));
+        }
+        buf.extend_from_slice(&chunk);
     }
-    Ok(bytes.to_vec())
+    Ok(buf)
+}
+
+/// Block loopback / private / link-local / unspecified hosts (SSRF defense).
+/// Domain names other than "localhost" are allowed (public providers); we can't
+/// resolve them here without a DNS round-trip, and the no-redirect + https-only
+/// client already prevents the classic redirect-to-internal pivot.
+fn host_is_blocked(host: Option<&str>) -> bool {
+    let Some(host) = host else {
+        return true;
+    };
+    if host.eq_ignore_ascii_case("localhost") {
+        return true;
+    }
+    // `host_str` keeps IPv6 brackets — strip them before parsing.
+    let bare = host.trim_start_matches('[').trim_end_matches(']');
+    match bare.parse::<std::net::IpAddr>() {
+        Ok(std::net::IpAddr::V4(ip)) => {
+            ip.is_loopback() || ip.is_private() || ip.is_link_local() || ip.is_unspecified()
+        }
+        Ok(std::net::IpAddr::V6(ip)) => ip.is_loopback() || ip.is_unspecified(),
+        // Not an IP literal → a domain; allow (public provider CDN).
+        Err(_) => false,
+    }
 }
 
 /// Keep only a short alphanumeric extension (mirrors the import pipeline).
@@ -139,5 +185,41 @@ fn sanitize_ext(ext: &str) -> String {
         "jpg".to_string()
     } else {
         clean.to_lowercase()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{host_is_blocked, sanitize_ext};
+
+    #[test]
+    fn blocks_loopback_private_and_metadata_hosts() {
+        for host in [
+            "localhost",
+            "127.0.0.1",
+            "169.254.169.254", // cloud metadata
+            "10.0.0.5",
+            "192.168.1.2",
+            "172.16.0.1",
+            "0.0.0.0",
+            "[::1]",
+        ] {
+            assert!(host_is_blocked(Some(host)), "should block {host}");
+        }
+        assert!(host_is_blocked(None));
+    }
+
+    #[test]
+    fn allows_public_hosts() {
+        assert!(!host_is_blocked(Some("w.wallhaven.cc")));
+        assert!(!host_is_blocked(Some("th.wallhaven.cc")));
+        assert!(!host_is_blocked(Some("8.8.8.8")));
+    }
+
+    #[test]
+    fn sanitize_ext_falls_back_and_strips() {
+        assert_eq!(sanitize_ext("PNG"), "png");
+        assert_eq!(sanitize_ext("../evil"), "evil");
+        assert_eq!(sanitize_ext(""), "jpg");
     }
 }

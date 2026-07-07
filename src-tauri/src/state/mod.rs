@@ -117,6 +117,12 @@ impl Default for AppState {
             http: reqwest::Client::builder()
                 .user_agent(concat!("yAssets/", env!("CARGO_PKG_VERSION")))
                 .timeout(std::time::Duration::from_secs(30))
+                // Security: never downgrade to http, and never follow redirects
+                // (an image CDN serves the bytes directly). Together with the
+                // per-request host check in `commands::sources::download`, this
+                // closes the SSRF-via-redirect hole — a 3xx just fails the fetch.
+                .https_only(true)
+                .redirect(reqwest::redirect::Policy::none())
                 .build()
                 .expect("failed to build HTTP client"),
         }

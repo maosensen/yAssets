@@ -31,7 +31,7 @@ export function sourceSearchQueryOptions(
 			provider: PROVIDER,
 			query,
 			filters,
-			hasKey: !!apiKey,
+			apiKey,
 		}),
 		queryFn: async ({ pageParam }) =>
 			unwrap(
@@ -58,11 +58,22 @@ export function useSourceSearch(
 ) {
 	const q = useInfiniteQuery(sourceSearchQueryOptions(query, filters, apiKey));
 	// Flatten pages once per data change (a fresh array every render would
-	// re-run the grid layout memo).
-	const items = useMemo(
-		() => q.data?.pages.flatMap((page) => page.items) ?? [],
-		[q.data],
-	);
+	// re-run the grid layout memo), de-duplicating by id: overlapping pages
+	// (Random sort re-shuffles each request; date_added shifts as new uploads
+	// arrive) would otherwise yield duplicate React keys + duplicate cards.
+	const items = useMemo(() => {
+		const seen = new Set<string>();
+		const out: SourceItem[] = [];
+		for (const page of q.data?.pages ?? []) {
+			for (const item of page.items) {
+				if (!seen.has(item.id)) {
+					seen.add(item.id);
+					out.push(item);
+				}
+			}
+		}
+		return out;
+	}, [q.data]);
 	return {
 		items,
 		isLoading: q.isLoading,

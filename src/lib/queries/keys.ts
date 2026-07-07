@@ -65,12 +65,13 @@ export const maintenanceKeys = {
 };
 
 export const sourceKeys = {
-	/** Discover search results. `hasKey` (not the key itself) is in the key so
-	 *  results differ with/without an API key without caching the secret. */
+	/** Discover search results. The API key is part of the key so changing it
+	 *  (e.g. fixing an invalid one) refetches; react-query keys are in-memory
+	 *  only, and the key already lives in the persisted sources store. */
 	search: (params: {
 		provider: string;
 		query: string;
 		filters: unknown;
-		hasKey: boolean;
+		apiKey: string | null;
 	}) => ["sources", "search", params] as const,
 };
