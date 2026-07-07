@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const ja: ChangelogRelease[] = [
 	{
+		version: "0.1.11",
+		date: "2026-07-07",
+		changes: [
+			{
+				kind: "new",
+				text: "新着情報——メニューバーから開けるアプリ内変更履歴で、各リリースの要点を確認できます。",
+			},
+			{
+				kind: "improved",
+				text: "環境設定のレイアウトを刷新：タイトル付きセクションヘッダー、カード分けされた設定、テーマと言語のセグメントコントロール。",
+			},
+		],
+	},
+	{
 		version: "0.1.10",
 		date: "2026-07-07",
 		changes: [

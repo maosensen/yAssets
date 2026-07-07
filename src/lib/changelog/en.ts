@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.11",
+		date: "2026-07-07",
+		changes: [
+			{
+				kind: "new",
+				text: "What's New — an in-app changelog you can open from the menu bar to see each release's highlights.",
+			},
+			{
+				kind: "improved",
+				text: "Preferences has a fresh layout: a titled section header, settings grouped into cards, and segmented controls for theme and language.",
+			},
+		],
+	},
+	{
 		version: "0.1.10",
 		date: "2026-07-07",
 		changes: [

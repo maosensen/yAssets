@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.11",
+		date: "2026-07-07",
+		changes: [
+			{
+				kind: "new",
+				text: "更新日志——可从菜单栏打开的应用内更新日志，查看每个版本的更新要点。",
+			},
+			{
+				kind: "improved",
+				text: "偏好设置界面焕新：带标题的分区栏、卡片式分组，以及主题与语言的分段控件。",
+			},
+		],
+	},
+	{
 		version: "0.1.10",
 		date: "2026-07-07",
 		changes: [

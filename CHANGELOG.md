@@ -9,6 +9,20 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.11] - 2026-07-07
+
+### Added
+
+- **What's New** — an in-app changelog. Open it from the menu bar (yAssets ▸
+  What's New) or the library switcher to see the highlights of each release, in
+  your language, with the version you're running badged.
+
+### Changed
+
+- **Preferences, redesigned** — a clearer layout with a titled section header,
+  settings grouped into cards, and macOS-style segmented controls for theme and
+  language.
+
 ## [0.1.10] - 2026-07-07
 
 ### Added
@@ -145,7 +159,8 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.10...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.11...HEAD
+[0.1.11]: https://github.com/maosensen/yAssets/releases/tag/v0.1.11
 [0.1.10]: https://github.com/maosensen/yAssets/releases/tag/v0.1.10
 [0.1.9]: https://github.com/maosensen/yAssets/releases/tag/v0.1.9
 [0.1.8]: https://github.com/maosensen/yAssets/releases/tag/v0.1.8
