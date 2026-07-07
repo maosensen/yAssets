@@ -10,8 +10,10 @@ use crate::error::{AppError, AppResult};
 use crate::sources::{SourceFilters, SourceItem, SourceProvider, SourceSearchResult};
 
 const SEARCH_URL: &str = "https://api.openverse.org/v1/images/";
-/// Openverse allows up to 500; keep pages modest for the anonymous rate limit.
-const PAGE_SIZE: u32 = 40;
+/// HARD anonymous cap: `page_size` above 20 is rejected with a 401
+/// ("page_size may not exceed 20 for anonymous requests") — not a rate limit,
+/// an outright refusal. Only registered OAuth apps may request more.
+const PAGE_SIZE: u32 = 20;
 
 #[derive(Debug, Deserialize)]
 struct OvResponse {
@@ -242,6 +244,32 @@ mod tests {
         let result = parse_response(body).expect("parse must not fail on null dims");
         assert_eq!(result.items.len(), 1);
         assert_eq!((result.items[0].width, result.items[0].height), (0, 0));
+    }
+
+    /// Live probe with the app's exact client config — run explicitly:
+    /// `cargo test --lib live_openverse_probe -- --ignored --nocapture`
+    #[test]
+    #[ignore = "live network"]
+    fn live_openverse_probe() {
+        let client = reqwest::Client::builder()
+            .user_agent(concat!("yAssets/", env!("CARGO_PKG_VERSION")))
+            .timeout(std::time::Duration::from_secs(30))
+            .https_only(true)
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+            .expect("client");
+        let result = tauri::async_runtime::block_on(async {
+            search(&client, "cat", 1, &SourceFilters::default(), None).await
+        });
+        match result {
+            Ok(page) => println!(
+                "OK: {} items, page {}/{}",
+                page.items.len(),
+                page.page,
+                page.last_page
+            ),
+            Err(err) => panic!("PROBE FAILED: {err:?}"),
+        }
     }
 
     #[test]
