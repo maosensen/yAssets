@@ -11,7 +11,8 @@
 
 ## 流程（以 0.1.1 实际发版为准）
 
-1. **bump 版本**：`src-tauri/tauri.conf.json` 的 `version`（发布版本以它为准），`package.json` 同步改保持一致。
+1. **bump 版本**：`src-tauri/tauri.conf.json` 的 `version`（发布版本以它为准）、`package.json`、`src-tauri/Cargo.toml`（+ `Cargo.lock` 里的 `yassets`）四处同步一致。
+1b. **更新 `CHANGELOG.md`**：把 `## [Unreleased]` 的条目挪到 `## [X.Y.Z] - YYYY-MM-DD` 新小节（Unreleased 清空留给下一轮），并在文件底部加一行 `[X.Y.Z]: …releases/tag/vX.Y.Z` 链接。这一小节会被 `release.yml` 的 `create-release` 原样当作 GitHub Release 的 body（外部 changelog dashboard 读的就是它）；漏填则回退到 GitHub 自动生成的 notes，别让 body 空着。
 2. 功能 / 修复 commit 齐全，`pnpm check` 全绿。
 3. push main 后打 tag：`git tag vX.Y.Z && git push origin vX.Y.Z`（tag 触发 `.github/workflows/release.yml`）。
 4. **盯 CI**：`gh run watch <run-id>`——四平台矩阵（macOS aarch64/x64、Windows、Linux）→ 产出 **draft** Release。失败先在本地复现同一条命令（见 gotchas.md 的 CI 小节）再改。
