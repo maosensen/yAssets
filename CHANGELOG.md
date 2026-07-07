@@ -9,6 +9,8 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.9] - 2026-07-07
+
 ### Added
 
 - **Discover** — browse Wallhaven from inside the app and add wallpapers straight
@@ -135,7 +137,8 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.8...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.9...HEAD
+[0.1.9]: https://github.com/maosensen/yAssets/releases/tag/v0.1.9
 [0.1.8]: https://github.com/maosensen/yAssets/releases/tag/v0.1.8
 [0.1.7]: https://github.com/maosensen/yAssets/releases/tag/v0.1.7
 [0.1.6]: https://github.com/maosensen/yAssets/releases/tag/v0.1.6
