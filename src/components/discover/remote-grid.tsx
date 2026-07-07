@@ -26,6 +26,8 @@ type RemoteGridProps = {
 	selectedIds: ReadonlySet<string>;
 	onToggleSelect: (id: string) => void;
 	onAddOne: (item: SourceItem) => void;
+	/** Hex color for Iconify thumbnails (their SVGs use currentColor). */
+	iconColor: string;
 	hasNextPage: boolean;
 	isFetchingNextPage: boolean;
 	onLoadMore: () => void;
@@ -36,6 +38,7 @@ export function RemoteGrid({
 	selectedIds,
 	onToggleSelect,
 	onAddOne,
+	iconColor,
 	hasNextPage,
 	isFetchingNextPage,
 	onLoadMore,
@@ -134,6 +137,7 @@ export function RemoteGrid({
 										left={cell.left}
 										width={cell.width}
 										height={cell.imageHeight}
+										iconColor={iconColor}
 										selected={selectedIds.has(item.id)}
 										onToggle={() => onToggleSelect(item.id)}
 										onAdd={() => onAddOne(item)}
@@ -158,6 +162,7 @@ function RemoteCard({
 	left,
 	width,
 	height,
+	iconColor,
 	selected,
 	onToggle,
 	onAdd,
@@ -166,10 +171,17 @@ function RemoteCard({
 	left: number;
 	width: number;
 	height: number;
+	iconColor: string;
 	selected: boolean;
 	onToggle: () => void;
 	onAdd: () => void;
 }) {
+	// Iconify thumbnails are SVGs; color them (currentColor → theme neutral) and
+	// contain-fit with padding so glyphs sit centered instead of being cropped.
+	const isIcon = item.provider === "iconify";
+	const src = isIcon
+		? `${item.thumb_url}?color=${encodeURIComponent(iconColor)}&height=100`
+		: item.thumb_url;
 	return (
 		<div
 			className={cn(
@@ -186,11 +198,14 @@ function RemoteCard({
 				onClick={onToggle}
 			>
 				<img
-					src={item.thumb_url}
+					src={src}
 					alt=""
 					loading="lazy"
 					draggable={false}
-					className="size-full object-cover"
+					className={cn(
+						"size-full",
+						isIcon ? "object-contain p-3" : "object-cover",
+					)}
 				/>
 			</button>
 

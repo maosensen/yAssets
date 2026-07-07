@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { RemoteGrid } from "@/components/discover/remote-grid";
 import { EmptyState } from "@/components/empty-state";
 import { IconDiscover, IconSearch, IconWarning } from "@/components/icons";
+import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -24,12 +25,24 @@ const PROVIDERS: Array<{ id: SourceProvider; label: string }> = [
 	{ id: "pixabay", label: "Pixabay" },
 	{ id: "openverse", label: "Openverse" },
 	{ id: "pexels", label: "Pexels" },
+	{ id: "iconify", label: "Iconify" },
 ];
 
 export function DiscoverPage() {
 	const wallhavenApiKey = useSourcesStore((state) => state.wallhavenApiKey);
 	const pixabayApiKey = useSourcesStore((state) => state.pixabayApiKey);
 	const pexelsApiKey = useSourcesStore((state) => state.pexelsApiKey);
+	const { theme } = useTheme();
+
+	// Iconify monochrome icons use currentColor, which renders black in an <img>.
+	// Color the thumbnails with a neutral that reads on the active theme (the
+	// imported original SVG keeps currentColor, so it stays recolorable).
+	const resolvedDark =
+		theme === "dark" ||
+		(theme === "system" &&
+			typeof window !== "undefined" &&
+			window.matchMedia("(prefers-color-scheme: dark)").matches);
+	const iconColor = resolvedDark ? "#c9ccd1" : "#3f4247";
 
 	const [provider, setProvider] = useState<SourceProvider>("wallhaven");
 	const [query, setQuery] = useState("");
@@ -157,7 +170,11 @@ export function DiscoverPage() {
 					<Input
 						value={query}
 						onChange={(event) => setQuery(event.target.value)}
-						placeholder={T.discover.searchPlaceholder}
+						placeholder={
+							provider === "iconify"
+								? T.discover.searchIconsPlaceholder
+								: T.discover.searchPlaceholder
+						}
 						className="pl-8"
 					/>
 				</div>
@@ -254,6 +271,7 @@ export function DiscoverPage() {
 					selectedIds={selectedIds}
 					onToggleSelect={toggleSelect}
 					onAddOne={addOne}
+					iconColor={iconColor}
 					hasNextPage={search.hasNextPage}
 					isFetchingNextPage={search.isFetchingNextPage}
 					onLoadMore={search.fetchNextPage}

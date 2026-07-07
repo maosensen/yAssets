@@ -57,6 +57,7 @@ export const ja: Messages = {
 	discover: {
 		title: "見つける",
 		searchPlaceholder: "画像を検索…",
+		searchIconsPlaceholder: "アイコンを検索…",
 		sortLatest: "最新",
 		sortTop: "人気",
 		sortViews: "閲覧数",

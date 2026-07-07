@@ -3,6 +3,7 @@
 //! show, a full-res URL to download on import, and provenance. ALL network I/O
 //! lives here (via reqwest); the webview only hotlinks provider thumbnails.
 
+pub mod iconify;
 pub mod openverse;
 pub mod pexels;
 pub mod pixabay;
@@ -17,6 +18,7 @@ pub enum SourceProvider {
     Pixabay,
     Openverse,
     Pexels,
+    Iconify,
 }
 
 /// One browsable result from a provider.

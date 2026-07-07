@@ -57,6 +57,7 @@ export const zh: Messages = {
 	discover: {
 		title: "发现",
 		searchPlaceholder: "搜索图片…",
+		searchIconsPlaceholder: "搜索图标…",
 		sortLatest: "最新",
 		sortTop: "热门",
 		sortViews: "浏览量",

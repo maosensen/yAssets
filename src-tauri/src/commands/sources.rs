@@ -11,7 +11,7 @@ use crate::error::{AppError, AppResult};
 use crate::import::{process_file_with_source, FileOutcome};
 use crate::library::new_id;
 use crate::sources::{
-    openverse, pexels, pixabay, wallhaven, SourceFilters, SourceItem, SourceProvider,
+    iconify, openverse, pexels, pixabay, wallhaven, SourceFilters, SourceItem, SourceProvider,
     SourceSearchResult,
 };
 use crate::state::AppState;
@@ -42,6 +42,9 @@ pub async fn search_source(
         }
         SourceProvider::Pexels => {
             pexels::search(&client, &query, page, &filters, api_key.as_deref()).await
+        }
+        SourceProvider::Iconify => {
+            iconify::search(&client, &query, page, &filters, api_key.as_deref()).await
         }
     }
 }

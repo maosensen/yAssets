@@ -58,6 +58,7 @@ export const en = {
 	discover: {
 		title: "Discover",
 		searchPlaceholder: "Search images…",
+		searchIconsPlaceholder: "Search icons…",
 		sortLatest: "Latest",
 		sortTop: "Top",
 		sortViews: "Views",

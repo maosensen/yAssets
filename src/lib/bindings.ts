@@ -579,7 +579,7 @@ export type SourceItem = {
 	attribution: string | null,
 };
 
-export type SourceProvider = "wallhaven" | "pixabay" | "openverse" | "pexels";
+export type SourceProvider = "wallhaven" | "pixabay" | "openverse" | "pexels" | "iconify";
 
 /**  A page of search results. */
 export type SourceSearchResult = {
