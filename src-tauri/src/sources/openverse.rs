@@ -116,15 +116,24 @@ pub async fn search(
     client: &reqwest::Client,
     query: &str,
     page: u32,
-    _filters: &SourceFilters,
+    filters: &SourceFilters,
     _api_key: Option<&str>,
 ) -> AppResult<SourceSearchResult> {
     let page = page.max(1);
-    let params = [
+    let mut params = vec![
         ("q", query.to_string()),
         ("page", page.to_string()),
         ("page_size", PAGE_SIZE.to_string()),
     ];
+    if let Some(license_type) = &filters.license_type {
+        params.push(("license_type", license_type.clone()));
+    }
+    if let Some(category) = &filters.category {
+        params.push(("category", category.clone()));
+    }
+    if let Some(aspect_ratio) = &filters.aspect_ratio {
+        params.push(("aspect_ratio", aspect_ratio.clone()));
+    }
     let body = client
         .get(SEARCH_URL)
         .query(&params)

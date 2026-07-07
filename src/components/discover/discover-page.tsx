@@ -12,6 +12,10 @@ import { IconDiscover, IconSearch, IconWarning } from "@/components/icons";
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+	NativeSelect,
+	NativeSelectOption,
+} from "@/components/ui/native-select";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type { SourceFilters, SourceItem, SourceProvider } from "@/lib/bindings";
 import { isCommandError } from "@/lib/errors";
@@ -28,6 +32,62 @@ const PROVIDERS: Array<{ id: SourceProvider; label: string }> = [
 	{ id: "pexels", label: "Pexels" },
 	{ id: "iconify", label: "Iconify" },
 ];
+
+/** Popular Iconify set prefixes — brand names, same across locales. */
+const ICON_SETS: Array<{ value: string; label: string }> = [
+	{ value: "mdi", label: "Material Design Icons" },
+	{ value: "material-symbols", label: "Material Symbols" },
+	{ value: "solar", label: "Solar" },
+	{ value: "tabler", label: "Tabler" },
+	{ value: "lucide", label: "Lucide" },
+	{ value: "ph", label: "Phosphor" },
+	{ value: "ri", label: "Remix Icon" },
+	{ value: "heroicons", label: "Heroicons" },
+];
+
+/** UI-side filter fields; each provider reads its own subset. */
+type UiFilterKey =
+	| "categories"
+	| "ratios"
+	| "atleast"
+	| "imageType"
+	| "orientation"
+	| "size"
+	| "licenseType"
+	| "category"
+	| "aspectRatio"
+	| "prefix"
+	| "style";
+type UiFilters = Partial<Record<UiFilterKey, string>>;
+
+/** Compact filter dropdown: the unset option shows the filter's name. */
+function FilterSelect({
+	label,
+	value,
+	options,
+	onChange,
+}: {
+	label: string;
+	value: string;
+	options: Array<{ value: string; label: string }>;
+	onChange: (value: string) => void;
+}) {
+	return (
+		<NativeSelect
+			size="sm"
+			aria-label={label}
+			value={value}
+			onChange={(event) => onChange(event.target.value)}
+		>
+			<NativeSelectOption value="">{label}</NativeSelectOption>
+			{options.map((option) => (
+				<NativeSelectOption key={option.value} value={option.value}>
+					{option.label}
+				</NativeSelectOption>
+			))}
+		</NativeSelect>
+	);
+}
 
 export function DiscoverPage() {
 	const wallhavenApiKey = useSourcesStore((state) => state.wallhavenApiKey);
@@ -50,6 +110,22 @@ export function DiscoverPage() {
 	const [wallhavenSort, setWallhavenSort] = useState("date_added");
 	const [pixabaySort, setPixabaySort] = useState("popular");
 	const [includeNsfw, setIncludeNsfw] = useState(false);
+	// Per-provider filter selections — remembered across provider switches.
+	const [uiFilters, setUiFilters] = useState<Record<SourceProvider, UiFilters>>(
+		() => ({
+			wallhaven: {},
+			pixabay: {},
+			openverse: {},
+			pexels: {},
+			iconify: {},
+		}),
+	);
+	const currentFilters = uiFilters[provider];
+	const setFilter = (key: UiFilterKey, value: string) =>
+		setUiFilters((prev) => ({
+			...prev,
+			[provider]: { ...prev[provider], [key]: value || undefined },
+		}));
 	const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
 		() => new Set(),
 	);
@@ -79,7 +155,8 @@ export function DiscoverPage() {
 
 	const filters: SourceFilters = useMemo(
 		() => ({
-			categories: null,
+			categories:
+				provider === "wallhaven" ? (currentFilters.categories ?? null) : null,
 			// Purity is a Wallhaven concept; other providers are SFW by default.
 			purity:
 				provider === "wallhaven"
@@ -89,8 +166,33 @@ export function DiscoverPage() {
 					: null,
 			sorting,
 			order: null,
+			atleast:
+				provider === "wallhaven" ? (currentFilters.atleast ?? null) : null,
+			ratios: provider === "wallhaven" ? (currentFilters.ratios ?? null) : null,
+			image_type:
+				provider === "pixabay" ? (currentFilters.imageType ?? null) : null,
+			orientation:
+				provider === "pixabay" || provider === "pexels"
+					? (currentFilters.orientation ?? null)
+					: null,
+			size: provider === "pexels" ? (currentFilters.size ?? null) : null,
+			license_type:
+				provider === "openverse" ? (currentFilters.licenseType ?? null) : null,
+			category:
+				provider === "openverse" ? (currentFilters.category ?? null) : null,
+			aspect_ratio:
+				provider === "openverse" ? (currentFilters.aspectRatio ?? null) : null,
+			prefix: provider === "iconify" ? (currentFilters.prefix ?? null) : null,
+			palette:
+				provider === "iconify"
+					? currentFilters.style === "color"
+						? true
+						: currentFilters.style === "mono"
+							? false
+							: null
+					: null,
 		}),
-		[provider, hasKey, includeNsfw, sorting],
+		[provider, hasKey, includeNsfw, sorting, currentFilters],
 	);
 
 	const search = useSourceSearch(
@@ -142,10 +244,139 @@ export function DiscoverPage() {
 				: [];
 	const setSort = provider === "wallhaven" ? setWallhavenSort : setPixabaySort;
 
+	// Per-provider filter dropdowns — built in render so labels track the locale.
+	const providerSelects: Array<{
+		key: UiFilterKey;
+		label: string;
+		options: Array<{ value: string; label: string }>;
+	}> =
+		provider === "wallhaven"
+			? [
+					{
+						key: "categories",
+						label: T.discover.filterCategory,
+						options: [
+							{ value: "100", label: T.discover.catGeneral },
+							{ value: "010", label: T.discover.catAnime },
+							{ value: "001", label: T.discover.catPeople },
+						],
+					},
+					{
+						key: "ratios",
+						label: T.discover.filterAspect,
+						options: [
+							{ value: "landscape", label: T.discover.aspectLandscape },
+							{ value: "portrait", label: T.discover.aspectPortrait },
+							{ value: "1x1", label: T.discover.aspectSquare },
+						],
+					},
+					{
+						key: "atleast",
+						label: T.discover.filterMinRes,
+						options: [
+							{ value: "1920x1080", label: "≥ 1080p" },
+							{ value: "2560x1440", label: "≥ 1440p" },
+							{ value: "3840x2160", label: "≥ 4K" },
+						],
+					},
+				]
+			: provider === "pixabay"
+				? [
+						{
+							key: "imageType",
+							label: T.discover.filterType,
+							options: [
+								{ value: "photo", label: T.discover.typePhoto },
+								{ value: "illustration", label: T.discover.typeIllustration },
+								{ value: "vector", label: T.discover.typeVector },
+							],
+						},
+						{
+							key: "orientation",
+							label: T.discover.filterAspect,
+							options: [
+								{ value: "horizontal", label: T.discover.aspectLandscape },
+								{ value: "vertical", label: T.discover.aspectPortrait },
+							],
+						},
+					]
+				: provider === "openverse"
+					? [
+							{
+								key: "licenseType",
+								label: T.discover.filterLicense,
+								options: [
+									{ value: "commercial", label: T.discover.licenseCommercial },
+									{
+										value: "modification",
+										label: T.discover.licenseModification,
+									},
+								],
+							},
+							{
+								key: "category",
+								label: T.discover.filterType,
+								options: [
+									{ value: "photograph", label: T.discover.typePhoto },
+									{
+										value: "illustration",
+										label: T.discover.typeIllustration,
+									},
+									{ value: "digitized_artwork", label: T.discover.typeArtwork },
+								],
+							},
+							{
+								key: "aspectRatio",
+								label: T.discover.filterAspect,
+								options: [
+									{ value: "wide", label: T.discover.aspectLandscape },
+									{ value: "tall", label: T.discover.aspectPortrait },
+									{ value: "square", label: T.discover.aspectSquare },
+								],
+							},
+						]
+					: provider === "pexels"
+						? [
+								{
+									key: "orientation",
+									label: T.discover.filterAspect,
+									options: [
+										{ value: "landscape", label: T.discover.aspectLandscape },
+										{ value: "portrait", label: T.discover.aspectPortrait },
+										{ value: "square", label: T.discover.aspectSquare },
+									],
+								},
+								{
+									key: "size",
+									label: T.discover.filterSize,
+									options: [
+										{ value: "large", label: T.discover.sizeLarge },
+										{ value: "medium", label: T.discover.sizeMedium },
+										{ value: "small", label: T.discover.sizeSmall },
+									],
+								},
+							]
+						: [
+								{
+									key: "prefix",
+									label: T.discover.filterIconSet,
+									options: ICON_SETS,
+								},
+								{
+									key: "style",
+									label: T.discover.filterStyle,
+									options: [
+										{ value: "mono", label: T.discover.styleMono },
+										{ value: "color", label: T.discover.styleColor },
+									],
+								},
+							];
+
 	return (
 		<div className="flex h-full flex-col">
-			<header className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
-				<div className="flex items-center gap-1">
+			<header className="border-b">
+				{/* Tier 1 — source menu (+ batch actions when a selection exists). */}
+				<div className="flex flex-wrap items-center gap-1 px-3 pt-2">
 					{PROVIDERS.map((option) => (
 						<Button
 							key={option.id}
@@ -164,83 +395,96 @@ export function DiscoverPage() {
 							{option.label}
 						</Button>
 					))}
+
+					{selectedIds.size > 0 && (
+						<div className="ml-auto flex items-center gap-2">
+							<Button
+								type="button"
+								size="sm"
+								className="h-8"
+								disabled={importItems.isPending}
+								onClick={addSelected}
+							>
+								{T.discover.addSelected(selectedIds.size)}
+							</Button>
+							<Button
+								type="button"
+								variant="ghost"
+								size="sm"
+								className="h-8"
+								onClick={() => setSelectedIds(new Set())}
+							>
+								{T.discover.clearSelection}
+							</Button>
+						</div>
+					)}
 				</div>
 
-				<div className="relative min-w-40 flex-1">
-					<IconSearch className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground/70" />
-					<Input
-						value={query}
-						onChange={(event) => setQuery(event.target.value)}
-						placeholder={
-							provider === "iconify"
-								? T.discover.searchIconsPlaceholder
-								: T.discover.searchPlaceholder
-						}
-						className="pl-8"
-					/>
-				</div>
+				{/* Tier 2 — search + this source's own filters. */}
+				<div className="flex flex-wrap items-center gap-2 px-3 py-2">
+					<div className="relative min-w-40 flex-1">
+						<IconSearch className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground/70" />
+						<Input
+							value={query}
+							onChange={(event) => setQuery(event.target.value)}
+							placeholder={
+								provider === "iconify"
+									? T.discover.searchIconsPlaceholder
+									: T.discover.searchPlaceholder
+							}
+							className="pl-8"
+						/>
+					</div>
 
-				<div className="flex items-center gap-1">
-					{sortOptions.map((option) => (
+					{providerSelects.map((select) => (
+						<FilterSelect
+							key={`${provider}-${select.key}`}
+							label={select.label}
+							value={currentFilters[select.key] ?? ""}
+							options={select.options}
+							onChange={(value) => setFilter(select.key, value)}
+						/>
+					))}
+
+					<div className="flex items-center gap-1">
+						{sortOptions.map((option) => (
+							<Button
+								key={option.value}
+								type="button"
+								variant="ghost"
+								size="sm"
+								aria-pressed={sorting === option.value}
+								className={cn(
+									"h-8",
+									sorting === option.value
+										? "bg-accent text-accent-foreground"
+										: "text-muted-foreground",
+								)}
+								onClick={() => setSort(option.value)}
+							>
+								{option.label}
+							</Button>
+						))}
+					</div>
+
+					{provider === "wallhaven" && hasKey && (
 						<Button
-							key={option.value}
 							type="button"
 							variant="ghost"
 							size="sm"
-							aria-pressed={sorting === option.value}
+							aria-pressed={includeNsfw}
 							className={cn(
 								"h-8",
-								sorting === option.value
+								includeNsfw
 									? "bg-accent text-accent-foreground"
 									: "text-muted-foreground",
 							)}
-							onClick={() => setSort(option.value)}
+							onClick={() => setIncludeNsfw((value) => !value)}
 						>
-							{option.label}
+							{T.discover.nsfw}
 						</Button>
-					))}
+					)}
 				</div>
-
-				{provider === "wallhaven" && hasKey && (
-					<Button
-						type="button"
-						variant="ghost"
-						size="sm"
-						aria-pressed={includeNsfw}
-						className={cn(
-							"h-8",
-							includeNsfw
-								? "bg-accent text-accent-foreground"
-								: "text-muted-foreground",
-						)}
-						onClick={() => setIncludeNsfw((value) => !value)}
-					>
-						{T.discover.nsfw}
-					</Button>
-				)}
-
-				{selectedIds.size > 0 && (
-					<div className="ml-auto flex items-center gap-2">
-						<Button
-							type="button"
-							size="sm"
-							className="h-8"
-							disabled={importItems.isPending}
-							onClick={addSelected}
-						>
-							{T.discover.addSelected(selectedIds.size)}
-						</Button>
-						<Button
-							type="button"
-							variant="ghost"
-							size="sm"
-							className="h-8"
-							onClick={() => setSelectedIds(new Set())}
-						>
-							{T.discover.clearSelection}
-						</Button>
-					</div>
-				)}
 			</header>
 
 			{needsKey ? (

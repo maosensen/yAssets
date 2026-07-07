@@ -109,7 +109,7 @@ pub async fn search(
     client: &reqwest::Client,
     query: &str,
     page: u32,
-    _filters: &SourceFilters,
+    filters: &SourceFilters,
     _api_key: Option<&str>,
 ) -> AppResult<SourceSearchResult> {
     let page = page.max(1);
@@ -123,11 +123,17 @@ pub async fn search(
         });
     }
     let start = (page - 1) * PER_PAGE;
-    let params = [
+    let mut params = vec![
         ("query", trimmed.to_string()),
         ("limit", PER_PAGE.to_string()),
         ("start", start.to_string()),
     ];
+    if let Some(prefix) = &filters.prefix {
+        params.push(("prefix", prefix.clone()));
+    }
+    if let Some(palette) = filters.palette {
+        params.push(("palette", palette.to_string()));
+    }
     let body = client
         .get(SEARCH_URL)
         .query(&params)

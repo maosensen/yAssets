@@ -78,6 +78,12 @@ fn build_query(
     if let Some(order) = &filters.order {
         params.push(("order".to_string(), order.clone()));
     }
+    if let Some(atleast) = &filters.atleast {
+        params.push(("atleast".to_string(), atleast.clone()));
+    }
+    if let Some(ratios) = &filters.ratios {
+        params.push(("ratios".to_string(), ratios.clone()));
+    }
     if has_key {
         // unwrap: has_key implies Some(non-empty).
         params.push(("apikey".to_string(), api_key.unwrap().to_string()));
@@ -199,6 +205,18 @@ mod tests {
         assert_eq!(key, Some(&"secret".to_string()));
         let page = params.iter().find(|(k, _)| k == "page").map(|(_, v)| v);
         assert_eq!(page, Some(&"3".to_string()));
+    }
+
+    #[test]
+    fn includes_resolution_and_ratio_filters() {
+        let filters = SourceFilters {
+            atleast: Some("1920x1080".into()),
+            ratios: Some("landscape".into()),
+            ..Default::default()
+        };
+        let params = build_query("cats", 1, &filters, None);
+        assert!(params.contains(&("atleast".to_string(), "1920x1080".to_string())));
+        assert!(params.contains(&("ratios".to_string(), "landscape".to_string())));
     }
 
     #[test]

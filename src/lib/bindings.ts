@@ -541,8 +541,9 @@ export type SortDir = "Asc" | "Desc";
 export type SortKey = "ImportedAt" | "Name" | "Size" | "Rating" | "UpdatedAt";
 
 /**
- *  Provider-agnostic search filters (Wallhaven-shaped for now). All optional so
- *  the frontend can send only what the user changed.
+ *  Provider-agnostic search filters. A flat bag of optionals: each provider
+ *  reads only the fields it understands and ignores the rest, so the frontend
+ *  can keep one filter state per provider without a type per source.
  */
 export type SourceFilters = {
 	/**  Wallhaven category bitmask "general/anime/people", e.g. "111". */
@@ -556,6 +557,26 @@ export type SourceFilters = {
 	sorting: string | null,
 	/**  "desc" | "asc". */
 	order: string | null,
+	/**  Wallhaven minimum resolution, e.g. "1920x1080". */
+	atleast: string | null,
+	/**  Wallhaven aspect ratios, e.g. "landscape" | "portrait" | "1x1". */
+	ratios: string | null,
+	/**  Pixabay image type: "photo" | "illustration" | "vector". */
+	image_type: string | null,
+	/**  Pixabay "horizontal" | "vertical"; Pexels "landscape" | "portrait" | "square". */
+	orientation: string | null,
+	/**  Pexels minimum size: "large" | "medium" | "small". */
+	size: string | null,
+	/**  Openverse license bucket: "commercial" | "modification". */
+	license_type: string | null,
+	/**  Openverse category: "photograph" | "illustration" | "digitized_artwork". */
+	category: string | null,
+	/**  Openverse aspect ratio: "wide" | "tall" | "square". */
+	aspect_ratio: string | null,
+	/**  Iconify icon-set prefix, e.g. "mdi". */
+	prefix: string | null,
+	/**  Iconify: true = color icon sets only, false = monochrome only. */
+	palette: boolean | null,
 };
 
 /**  One browsable result from a provider. */

@@ -101,7 +101,7 @@ pub async fn search(
     client: &reqwest::Client,
     query: &str,
     page: u32,
-    _filters: &SourceFilters,
+    filters: &SourceFilters,
     api_key: Option<&str>,
 ) -> AppResult<SourceSearchResult> {
     let key = api_key.filter(|k| !k.is_empty()).ok_or_else(|| {
@@ -112,17 +112,25 @@ pub async fn search(
     let per_page = PER_PAGE.to_string();
     let trimmed = query.trim();
 
-    // Search needs a term; with none, show the curated feed instead of erroring.
+    // Search needs a term; with none, show the curated feed instead of erroring
+    // (the curated endpoint accepts no filters, so they apply to search only).
     let request = if trimmed.is_empty() {
         client
             .get(CURATED_URL)
             .query(&[("page", page_s.as_str()), ("per_page", per_page.as_str())])
     } else {
-        client.get(SEARCH_URL).query(&[
-            ("query", trimmed),
-            ("page", page_s.as_str()),
-            ("per_page", per_page.as_str()),
-        ])
+        let mut params = vec![
+            ("query", trimmed.to_string()),
+            ("page", page_s.clone()),
+            ("per_page", per_page.clone()),
+        ];
+        if let Some(orientation) = &filters.orientation {
+            params.push(("orientation", orientation.clone()));
+        }
+        if let Some(size) = &filters.size {
+            params.push(("size", size.clone()));
+        }
+        client.get(SEARCH_URL).query(&params)
     };
 
     let body = request

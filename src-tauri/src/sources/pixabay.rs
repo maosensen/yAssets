@@ -98,7 +98,7 @@ pub async fn search(
         AppError::Conflict("Pixabay requires an API key (set it in Preferences)".into())
     })?;
     let page = page.max(1);
-    let params = [
+    let mut params = vec![
         ("key", key.to_string()),
         ("q", query.to_string()),
         ("page", page.to_string()),
@@ -106,6 +106,12 @@ pub async fn search(
         ("safesearch", "true".to_string()),
         ("order", order_param(filters).to_string()),
     ];
+    if let Some(image_type) = &filters.image_type {
+        params.push(("image_type", image_type.clone()));
+    }
+    if let Some(orientation) = &filters.orientation {
+        params.push(("orientation", orientation.clone()));
+    }
     let body = client
         .get(SEARCH_URL)
         .query(&params)

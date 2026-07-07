@@ -55,8 +55,9 @@ pub struct SourceSearchResult {
     pub last_page: u32,
 }
 
-/// Provider-agnostic search filters (Wallhaven-shaped for now). All optional so
-/// the frontend can send only what the user changed.
+/// Provider-agnostic search filters. A flat bag of optionals: each provider
+/// reads only the fields it understands and ignores the rest, so the frontend
+/// can keep one filter state per provider without a type per source.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, specta::Type)]
 pub struct SourceFilters {
     /// Wallhaven category bitmask "general/anime/people", e.g. "111".
@@ -68,4 +69,24 @@ pub struct SourceFilters {
     pub sorting: Option<String>,
     /// "desc" | "asc".
     pub order: Option<String>,
+    /// Wallhaven minimum resolution, e.g. "1920x1080".
+    pub atleast: Option<String>,
+    /// Wallhaven aspect ratios, e.g. "landscape" | "portrait" | "1x1".
+    pub ratios: Option<String>,
+    /// Pixabay image type: "photo" | "illustration" | "vector".
+    pub image_type: Option<String>,
+    /// Pixabay "horizontal" | "vertical"; Pexels "landscape" | "portrait" | "square".
+    pub orientation: Option<String>,
+    /// Pexels minimum size: "large" | "medium" | "small".
+    pub size: Option<String>,
+    /// Openverse license bucket: "commercial" | "modification".
+    pub license_type: Option<String>,
+    /// Openverse category: "photograph" | "illustration" | "digitized_artwork".
+    pub category: Option<String>,
+    /// Openverse aspect ratio: "wide" | "tall" | "square".
+    pub aspect_ratio: Option<String>,
+    /// Iconify icon-set prefix, e.g. "mdi".
+    pub prefix: Option<String>,
+    /// Iconify: true = color icon sets only, false = monochrome only.
+    pub palette: Option<bool>,
 }
