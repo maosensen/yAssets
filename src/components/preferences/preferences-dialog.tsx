@@ -1,9 +1,11 @@
 /**
- * Preferences dialog — Eagle-style left nav + right content pane.
+ * Preferences dialog — Eagle-style shell: a left nav column and a right pane
+ * whose top bar names the active section and hosts the close button, with the
+ * settings themselves grouped into rounded cards.
  *
- * Phase 1.5 ships only General ▸ Appearance ▸ Theme. The section list and
- * the content switch are deliberately data-driven so new panes (Sidebar,
- * Shortcuts, …) drop in without restructuring.
+ * The section list and the content switch are data-driven so new panes drop in
+ * without restructuring. Everything applies instantly (theme/locale/api keys
+ * persist on change), so there is deliberately no Save/Apply footer.
  */
 
 import { useQuery } from "@tanstack/react-query";
@@ -11,6 +13,7 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import {
 	IconArchive,
+	IconClose,
 	type IconComponent,
 	IconFolderAdd,
 	IconFolderOpen,
@@ -21,9 +24,14 @@ import {
 	IconSun,
 	IconTrash,
 } from "@/components/icons";
-import { useTheme } from "@/components/theme-provider";
+import { type Theme, useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import {
+	Dialog,
+	DialogClose,
+	DialogContent,
+	DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { pickDirectory } from "@/lib/dialogs";
@@ -79,38 +87,74 @@ export function PreferencesDialog({
 				icon: IconArchive,
 			},
 		];
+	const activeLabel = sections.find((s) => s.id === section)?.label ?? "";
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="flex h-[440px] max-w-2xl gap-0 overflow-hidden p-0 sm:max-w-2xl">
+			<DialogContent
+				showCloseButton={false}
+				className="flex h-[560px] max-h-[85vh] w-full max-w-3xl gap-0 overflow-hidden p-0 sm:max-w-3xl"
+			>
 				<DialogTitle className="sr-only">{T.preferences.title}</DialogTitle>
 
-				<nav className="flex w-44 shrink-0 flex-col gap-0.5 border-r bg-sidebar/40 p-2">
-					<span className="px-2 py-1.5 font-semibold text-sm">
-						{T.preferences.title}
-					</span>
-					{sections.map(({ id, label, icon: Icon }) => (
-						<button
-							key={id}
-							type="button"
-							className={cn(
-								"flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm",
-								section === id
-									? "bg-accent font-medium text-accent-foreground"
-									: "text-foreground/80 hover:bg-accent/60",
-							)}
-							onClick={() => setSection(id)}
-						>
-							<Icon className="size-4" />
-							{label}
-						</button>
-					))}
+				<nav className="flex w-48 shrink-0 flex-col border-r bg-sidebar/40">
+					<div className="flex h-14 shrink-0 items-center px-4">
+						<span className="font-heading font-semibold text-sm">
+							{T.preferences.title}
+						</span>
+					</div>
+					<div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2">
+						{sections.map(({ id, label, icon: Icon }) => {
+							const active = section === id;
+							return (
+								<button
+									key={id}
+									type="button"
+									onClick={() => setSection(id)}
+									className={cn(
+										"flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
+										active
+											? "bg-accent font-medium text-accent-foreground"
+											: "text-foreground/70 hover:bg-accent/50 hover:text-foreground",
+									)}
+								>
+									<Icon
+										className={cn(
+											"size-4 shrink-0",
+											active ? "text-foreground" : "text-muted-foreground",
+										)}
+									/>
+									{label}
+								</button>
+							);
+						})}
+					</div>
 				</nav>
 
-				<div className="min-w-0 flex-1 overflow-y-auto p-5">
-					{section === "general" && <GeneralPane />}
-					{section === "watched" && <WatchedFoldersPane />}
-					{section === "maintenance" && <MaintenancePane />}
+				<div className="flex min-w-0 flex-1 flex-col">
+					<header className="flex h-14 shrink-0 items-center justify-between border-b px-5">
+						<h2 className="font-heading font-medium text-base">
+							{activeLabel}
+						</h2>
+						<DialogClose
+							render={
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									className="rounded-full text-muted-foreground hover:text-foreground"
+								/>
+							}
+						>
+							<IconClose />
+							<span className="sr-only">{T.common.close}</span>
+						</DialogClose>
+					</header>
+
+					<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+						{section === "general" && <GeneralPane />}
+						{section === "watched" && <WatchedFoldersPane />}
+						{section === "maintenance" && <MaintenancePane />}
+					</div>
 				</div>
 			</DialogContent>
 		</Dialog>
@@ -140,53 +184,44 @@ function GeneralPane() {
 
 	return (
 		<div className="flex flex-col gap-5">
-			<Section title={T.preferences.sectionAppearance}>
-				<Row label={T.preferences.theme}>
-					<div className="flex gap-1.5">
-						<ThemeChip
-							active={theme === "light"}
-							icon={<IconSun className="size-4" />}
-							label={T.preferences.themeLight}
-							onClick={() => setTheme("light")}
-						/>
-						<ThemeChip
-							active={theme === "dark"}
-							icon={<IconMoon className="size-4" />}
-							label={T.preferences.themeDark}
-							onClick={() => setTheme("dark")}
-						/>
-						<ThemeChip
-							active={theme === "system"}
-							icon={<IconMonitor className="size-4" />}
-							label={T.preferences.themeSystem}
-							onClick={() => setTheme("system")}
-						/>
-					</div>
-				</Row>
-				<Row label={T.preferences.language}>
-					<div className="flex gap-1.5">
-						{localeCodes.map((code) => (
-							<button
-								key={code}
-								type="button"
-								aria-pressed={locale === code}
-								onClick={() => setLocale(code)}
-								className={cn(
-									"rounded-md border px-2.5 py-1.5 text-sm transition-colors",
-									locale === code
-										? "border-primary bg-primary/10 text-foreground"
-										: "border-transparent bg-muted/50 text-foreground/80 hover:bg-muted",
-								)}
-							>
-								{LANGUAGE_NAMES[code]}
-							</button>
-						))}
-					</div>
-				</Row>
-			</Section>
+			<SettingsCard title={T.preferences.sectionAppearance}>
+				<SettingRow label={T.preferences.theme}>
+					<Segmented<Theme>
+						value={theme}
+						onChange={setTheme}
+						options={[
+							{
+								value: "light",
+								label: T.preferences.themeLight,
+								icon: <IconSun className="size-3.5" />,
+							},
+							{
+								value: "dark",
+								label: T.preferences.themeDark,
+								icon: <IconMoon className="size-3.5" />,
+							},
+							{
+								value: "system",
+								label: T.preferences.themeSystem,
+								icon: <IconMonitor className="size-3.5" />,
+							},
+						]}
+					/>
+				</SettingRow>
+				<SettingRow label={T.preferences.language}>
+					<Segmented<LocaleCode>
+						value={locale}
+						onChange={setLocale}
+						options={localeCodes.map((code) => ({
+							value: code,
+							label: LANGUAGE_NAMES[code],
+						}))}
+					/>
+				</SettingRow>
+			</SettingsCard>
 
-			<Section title={T.preferences.sectionUpdates}>
-				<Row label={T.app.name}>
+			<SettingsCard title={T.preferences.sectionUpdates}>
+				<SettingRow label={T.app.name}>
 					<Button
 						variant="outline"
 						size="sm"
@@ -198,12 +233,14 @@ function GeneralPane() {
 							? T.preferences.checkingUpdates
 							: T.preferences.checkUpdates}
 					</Button>
-				</Row>
-			</Section>
+				</SettingRow>
+			</SettingsCard>
 
-			<Section title={T.discover.title}>
-				<div className="flex flex-col gap-1.5">
-					<span className="text-sm">{T.discover.apiKeyLabel}</span>
+			<SettingsCard title={T.discover.title}>
+				<SettingBlock
+					label={T.discover.apiKeyLabel}
+					hint={T.discover.apiKeyHint}
+				>
 					<Input
 						type="password"
 						value={wallhavenApiKey}
@@ -212,12 +249,11 @@ function GeneralPane() {
 						autoComplete="off"
 						spellCheck={false}
 					/>
-					<p className="text-muted-foreground text-xs leading-relaxed">
-						{T.discover.apiKeyHint}
-					</p>
-				</div>
-				<div className="flex flex-col gap-1.5">
-					<span className="text-sm">{T.discover.pixabayApiKeyLabel}</span>
+				</SettingBlock>
+				<SettingBlock
+					label={T.discover.pixabayApiKeyLabel}
+					hint={T.discover.pixabayApiKeyHint}
+				>
 					<Input
 						type="password"
 						value={pixabayApiKey}
@@ -226,11 +262,8 @@ function GeneralPane() {
 						autoComplete="off"
 						spellCheck={false}
 					/>
-					<p className="text-muted-foreground text-xs leading-relaxed">
-						{T.discover.pixabayApiKeyHint}
-					</p>
-				</div>
-			</Section>
+				</SettingBlock>
+			</SettingsCard>
 		</div>
 	);
 }
@@ -248,21 +281,21 @@ function WatchedFoldersPane() {
 
 	const rows = folders ?? [];
 	return (
-		<div className="flex flex-col gap-4">
-			<Section title={T.preferences.navWatched}>
+		<SettingsCard title={T.preferences.navWatched}>
+			<div className="flex flex-col gap-3 px-4 py-3.5">
 				<p className="text-muted-foreground text-xs leading-relaxed">
 					{T.watched.description}
 				</p>
-				<div className="flex flex-col gap-1.5">
-					{rows.length === 0 ? (
-						<p className="py-2 text-muted-foreground text-sm">
-							{T.watched.empty}
-						</p>
-					) : (
-						rows.map((folder) => (
+				{rows.length === 0 ? (
+					<p className="py-2 text-muted-foreground text-sm">
+						{T.watched.empty}
+					</p>
+				) : (
+					<div className="flex flex-col gap-1.5">
+						{rows.map((folder) => (
 							<div
 								key={folder.id}
-								className="flex items-center gap-3 rounded-md border px-3 py-2"
+								className="flex items-center gap-3 rounded-lg border border-border/60 bg-background/40 px-3 py-2"
 							>
 								<div className="min-w-0 flex-1">
 									<div className="truncate text-sm" title={folder.path}>
@@ -289,9 +322,9 @@ function WatchedFoldersPane() {
 									<IconTrash className="size-4" />
 								</Button>
 							</div>
-						))
-					)}
-				</div>
+						))}
+					</div>
+				)}
 				<Button
 					variant="outline"
 					size="sm"
@@ -302,8 +335,8 @@ function WatchedFoldersPane() {
 					<IconFolderAdd className="size-4" />
 					{T.watched.add}
 				</Button>
-			</Section>
-		</div>
+			</div>
+		</SettingsCard>
 	);
 }
 
@@ -319,116 +352,172 @@ function MaintenancePane() {
 	const busy = vacuum.isPending || verify.isPending || clean.isPending;
 
 	return (
-		<div className="flex flex-col gap-5">
-			<Section title={T.preferences.navMaintenance}>
+		<SettingsCard title={T.preferences.navMaintenance}>
+			<div className="flex flex-col gap-3 px-4 py-3.5">
 				<p className="text-muted-foreground text-xs leading-relaxed">
 					{T.maintenance.description}
 				</p>
-				<div className="flex flex-col gap-1.5 text-sm">
+				<dl className="flex flex-col gap-2 text-sm">
 					<div className="flex items-center justify-between">
-						<span>{T.maintenance.databaseSize}</span>
-						<span className="text-muted-foreground tabular-nums">
+						<dt>{T.maintenance.databaseSize}</dt>
+						<dd className="text-muted-foreground tabular-nums">
 							{report ? formatBytes(report.db_bytes ?? 0) : "—"}
-						</span>
+						</dd>
 					</div>
 					<div className="flex items-center justify-between">
-						<span>
+						<dt className="text-muted-foreground">
 							{orphanCount > 0
 								? T.maintenance.orphans(orphanCount)
 								: T.maintenance.noOrphans}
-						</span>
+						</dt>
 					</div>
-				</div>
-				<div className="flex flex-wrap gap-2">
-					<Button
-						variant="outline"
-						size="sm"
-						disabled={busy}
-						onClick={() => vacuum.mutate()}
-					>
-						<IconArchive className="size-3.5" />
-						{vacuum.isPending ? T.maintenance.busy : T.maintenance.vacuum}
-					</Button>
-					<Button
-						variant="outline"
-						size="sm"
-						disabled={busy}
-						onClick={() => verify.mutate()}
-					>
-						<IconReload className="size-3.5" />
-						{verify.isPending ? T.maintenance.busy : T.maintenance.verify}
-					</Button>
-					<Button
-						variant={confirmClean ? "destructive" : "outline"}
-						size="sm"
-						disabled={busy || orphanCount === 0}
-						onClick={() => {
-							if (confirmClean) {
-								clean.mutate();
-								setConfirmClean(false);
-							} else {
-								setConfirmClean(true);
-							}
-						}}
-					>
-						<IconTrash className="size-3.5" />
-						{clean.isPending
-							? T.maintenance.busy
-							: confirmClean
-								? T.maintenance.cleanConfirm
-								: T.maintenance.clean}
-					</Button>
-				</div>
-			</Section>
-		</div>
+				</dl>
+			</div>
+			<div className="flex flex-wrap gap-2 px-4 py-3.5">
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={busy}
+					onClick={() => vacuum.mutate()}
+				>
+					<IconArchive className="size-3.5" />
+					{vacuum.isPending ? T.maintenance.busy : T.maintenance.vacuum}
+				</Button>
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={busy}
+					onClick={() => verify.mutate()}
+				>
+					<IconReload className="size-3.5" />
+					{verify.isPending ? T.maintenance.busy : T.maintenance.verify}
+				</Button>
+				<Button
+					variant={confirmClean ? "destructive" : "outline"}
+					size="sm"
+					disabled={busy || orphanCount === 0}
+					onClick={() => {
+						if (confirmClean) {
+							clean.mutate();
+							setConfirmClean(false);
+						} else {
+							setConfirmClean(true);
+						}
+					}}
+				>
+					<IconTrash className="size-3.5" />
+					{clean.isPending
+						? T.maintenance.busy
+						: confirmClean
+							? T.maintenance.cleanConfirm
+							: T.maintenance.clean}
+				</Button>
+			</div>
+		</SettingsCard>
 	);
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+/** A bordered, rounded group of settings with an optional header — the visual
+ *  unit the Eagle-style pane is built from. */
+function SettingsCard({
+	title,
+	children,
+}: {
+	title?: string;
+	children: ReactNode;
+}) {
 	return (
-		<section className="flex flex-col gap-3">
-			<h3 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
-				{title}
-			</h3>
-			{children}
+		<section className="overflow-hidden rounded-xl border border-border/60 bg-background/30">
+			{title && (
+				<div className="border-b border-border/50 px-4 py-2.5">
+					<h3 className="font-medium text-[13px] text-foreground/90">
+						{title}
+					</h3>
+				</div>
+			)}
+			<div className="divide-y divide-border/40">{children}</div>
 		</section>
 	);
 }
 
-function Row({ label, children }: { label: string; children: ReactNode }) {
+/** A label-left / control-right row inside a card. */
+function SettingRow({
+	label,
+	description,
+	children,
+}: {
+	label: string;
+	description?: string;
+	children: ReactNode;
+}) {
 	return (
-		<div className="flex items-center justify-between gap-4">
-			<span className="text-sm">{label}</span>
-			{children}
+		<div className="flex items-center justify-between gap-4 px-4 py-3">
+			<div className="min-w-0">
+				<div className="text-sm">{label}</div>
+				{description && (
+					<p className="mt-0.5 text-muted-foreground text-xs leading-relaxed">
+						{description}
+					</p>
+				)}
+			</div>
+			<div className="shrink-0">{children}</div>
 		</div>
 	);
 }
 
-function ThemeChip({
-	active,
-	icon,
+/** A full-width stacked field (label ▸ control ▸ hint) inside a card. */
+function SettingBlock({
 	label,
-	onClick,
+	hint,
+	children,
 }: {
-	active: boolean;
-	icon: ReactNode;
 	label: string;
-	onClick: () => void;
+	hint?: string;
+	children: ReactNode;
 }) {
 	return (
-		<button
-			type="button"
-			aria-pressed={active}
-			onClick={onClick}
-			className={cn(
-				"flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm transition-colors",
-				active
-					? "border-primary bg-primary/10 text-foreground"
-					: "border-transparent bg-muted/50 text-foreground/80 hover:bg-muted",
+		<div className="flex flex-col gap-1.5 px-4 py-3.5">
+			<span className="text-sm">{label}</span>
+			{children}
+			{hint && (
+				<p className="text-muted-foreground text-xs leading-relaxed">{hint}</p>
 			)}
-		>
-			{icon}
-			{label}
-		</button>
+		</div>
+	);
+}
+
+/** macOS-style segmented control for a small set of mutually exclusive options. */
+function Segmented<T extends string>({
+	value,
+	onChange,
+	options,
+}: {
+	value: T;
+	onChange: (value: T) => void;
+	options: Array<{ value: T; label: string; icon?: ReactNode }>;
+}) {
+	return (
+		<div className="inline-flex items-center gap-0.5 rounded-lg bg-muted/60 p-0.5">
+			{options.map((opt) => {
+				const active = opt.value === value;
+				return (
+					<button
+						key={opt.value}
+						type="button"
+						aria-pressed={active}
+						onClick={() => onChange(opt.value)}
+						className={cn(
+							"inline-flex items-center gap-1.5 rounded-[0.4rem] px-2.5 py-1 text-sm transition-colors",
+							active
+								? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
+								: "text-muted-foreground hover:text-foreground",
+						)}
+					>
+						{opt.icon}
+						{opt.label}
+					</button>
+				);
+			})}
+		</div>
 	);
 }

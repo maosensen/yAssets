@@ -22,6 +22,7 @@ export const en = {
 		cancel: "Cancel",
 		confirm: "Confirm",
 		remove: "Remove",
+		close: "Close",
 		loading: "Loading…",
 	},
 	preferences: {

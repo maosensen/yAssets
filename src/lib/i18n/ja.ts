@@ -21,6 +21,7 @@ export const ja: Messages = {
 		cancel: "キャンセル",
 		confirm: "確定",
 		remove: "削除",
+		close: "閉じる",
 		loading: "読み込み中…",
 	},
 	preferences: {

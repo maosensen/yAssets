@@ -21,6 +21,7 @@ export const zh: Messages = {
 		cancel: "取消",
 		confirm: "确认",
 		remove: "移除",
+		close: "关闭",
 		loading: "加载中…",
 	},
 	preferences: {
