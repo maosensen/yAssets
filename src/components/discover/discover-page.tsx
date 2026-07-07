@@ -57,7 +57,8 @@ type UiFilterKey =
 	| "category"
 	| "aspectRatio"
 	| "prefix"
-	| "style";
+	| "style"
+	| "mediaType";
 type UiFilters = Partial<Record<UiFilterKey, string>>;
 
 /** Compact filter dropdown: the unset option shows the filter's name. */
@@ -122,10 +123,19 @@ export function DiscoverPage() {
 	);
 	const currentFilters = uiFilters[provider];
 	const setFilter = (key: UiFilterKey, value: string) =>
-		setUiFilters((prev) => ({
-			...prev,
-			[provider]: { ...prev[provider], [key]: value || undefined },
-		}));
+		setUiFilters((prev) => {
+			const next: UiFilters = {
+				...prev[provider],
+				[key]: value || undefined,
+			};
+			// Image and audio categories are different vocabularies, and aspect
+			// is image-only — a stale value would 400 on the other endpoint.
+			if (key === "mediaType") {
+				next.category = undefined;
+				next.aspectRatio = undefined;
+			}
+			return { ...prev, [provider]: next };
+		});
 	const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(
 		() => new Set(),
 	);
@@ -191,6 +201,8 @@ export function DiscoverPage() {
 							? false
 							: null
 					: null,
+			media_type:
+				provider === "openverse" ? (currentFilters.mediaType ?? null) : null,
 		}),
 		[provider, hasKey, includeNsfw, sorting, currentFilters],
 	);
@@ -303,7 +315,17 @@ export function DiscoverPage() {
 				: provider === "openverse"
 					? [
 							{
-								key: "licenseType",
+								key: "mediaType" as const,
+								label: T.discover.filterMedia,
+								options: [
+									// The backend only branches on "audio"; "images" is an
+									// explicit way to come back to the default.
+									{ value: "images", label: T.discover.mediaImages },
+									{ value: "audio", label: T.discover.mediaAudio },
+								],
+							},
+							{
+								key: "licenseType" as const,
 								label: T.discover.filterLicense,
 								options: [
 									{ value: "commercial", label: T.discover.licenseCommercial },
@@ -313,27 +335,52 @@ export function DiscoverPage() {
 									},
 								],
 							},
-							{
-								key: "category",
-								label: T.discover.filterType,
-								options: [
-									{ value: "photograph", label: T.discover.typePhoto },
-									{
-										value: "illustration",
-										label: T.discover.typeIllustration,
-									},
-									{ value: "digitized_artwork", label: T.discover.typeArtwork },
-								],
-							},
-							{
-								key: "aspectRatio",
-								label: T.discover.filterAspect,
-								options: [
-									{ value: "wide", label: T.discover.aspectLandscape },
-									{ value: "tall", label: T.discover.aspectPortrait },
-									{ value: "square", label: T.discover.aspectSquare },
-								],
-							},
+							// Category values differ per media kind; aspect is image-only.
+							...(currentFilters.mediaType === "audio"
+								? [
+										{
+											key: "category" as const,
+											label: T.discover.filterType,
+											options: [
+												{ value: "music", label: T.discover.catMusic },
+												{
+													value: "sound_effect",
+													label: T.discover.catSoundEffect,
+												},
+												{ value: "podcast", label: T.discover.catPodcast },
+												{
+													value: "audiobook",
+													label: T.discover.catAudiobook,
+												},
+											],
+										},
+									]
+								: [
+										{
+											key: "category" as const,
+											label: T.discover.filterType,
+											options: [
+												{ value: "photograph", label: T.discover.typePhoto },
+												{
+													value: "illustration",
+													label: T.discover.typeIllustration,
+												},
+												{
+													value: "digitized_artwork",
+													label: T.discover.typeArtwork,
+												},
+											],
+										},
+										{
+											key: "aspectRatio" as const,
+											label: T.discover.filterAspect,
+											options: [
+												{ value: "wide", label: T.discover.aspectLandscape },
+												{ value: "tall", label: T.discover.aspectPortrait },
+												{ value: "square", label: T.discover.aspectSquare },
+											],
+										},
+									]),
 						]
 					: provider === "pexels"
 						? [

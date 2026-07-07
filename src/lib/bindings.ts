@@ -577,6 +577,8 @@ export type SourceFilters = {
 	prefix: string | null,
 	/**  Iconify: true = color icon sets only, false = monochrome only. */
 	palette: boolean | null,
+	/**  Openverse media kind: "audio" routes to /v1/audio/; unset = images. */
+	media_type: string | null,
 };
 
 /**  One browsable result from a provider. */
@@ -604,6 +606,8 @@ export type SourceItem = {
 	 *  falls back to `author` + `license`.
 	 */
 	attribution: string | null,
+	/**  Track length for audio results (Openverse audio), in milliseconds. */
+	duration_ms: number | null,
 };
 
 export type SourceProvider = "wallhaven" | "pixabay" | "openverse" | "pexels" | "iconify";

@@ -86,6 +86,7 @@ fn map_icon(id: &str, collections: &HashMap<String, IcCollection>) -> Option<Sou
         author,
         license,
         attribution,
+        duration_ms: None,
     })
 }
 

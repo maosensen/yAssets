@@ -12,6 +12,7 @@ import { IconCheck, IconImportImages } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { useElementWidth } from "@/hooks/use-element-width";
 import type { SourceItem } from "@/lib/bindings";
+import { formatDuration } from "@/lib/format";
 import { computeJustifiedLayout } from "@/lib/masonry";
 import { useViewPrefsStore } from "@/lib/stores/view-prefs-store";
 import { T } from "@/lib/text";
@@ -184,8 +185,11 @@ function RemoteCard({
 		: item.thumb_url;
 	// Dead thumbnails happen (proxy failures, CSP-blocked hosts, removed
 	// upstreams) — degrade to a labeled tile instead of a broken-image glyph.
+	// Audio without artwork ships an empty thumb_url and goes straight there.
 	// The item usually still imports fine: Rust fetches the full file directly.
 	const [broken, setBroken] = useState(false);
+	const showFallback = broken || item.thumb_url === "";
+	const duration = formatDuration(item.duration_ms);
 	return (
 		<div
 			className={cn(
@@ -201,7 +205,7 @@ function RemoteCard({
 				className="block size-full"
 				onClick={onToggle}
 			>
-				{broken ? (
+				{showFallback ? (
 					<span className="flex size-full items-center justify-center font-medium text-muted-foreground text-xs uppercase">
 						{item.ext}
 					</span>
@@ -217,6 +221,12 @@ function RemoteCard({
 							isIcon ? "object-contain p-3" : "object-cover",
 						)}
 					/>
+				)}
+
+				{duration && (
+					<span className="pointer-events-none absolute bottom-1.5 left-1.5 rounded bg-black/60 px-1 py-0.5 font-medium text-[10px] text-white tabular-nums">
+						{duration}
+					</span>
 				)}
 			</button>
 

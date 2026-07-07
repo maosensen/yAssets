@@ -105,6 +105,7 @@ fn map_item(item: WhItem) -> SourceItem {
         author: None,
         license: None,
         attribution: None,
+        duration_ms: None,
     }
 }
 

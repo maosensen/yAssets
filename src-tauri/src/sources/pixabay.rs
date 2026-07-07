@@ -65,6 +65,7 @@ fn map_hit(hit: PxHit) -> SourceItem {
         },
         license: Some("Pixabay Content License".to_string()),
         attribution: None,
+        duration_ms: None,
     }
 }
 

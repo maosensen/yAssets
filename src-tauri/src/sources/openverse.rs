@@ -10,6 +10,7 @@ use crate::error::{AppError, AppResult};
 use crate::sources::{SourceFilters, SourceItem, SourceProvider, SourceSearchResult};
 
 const SEARCH_URL: &str = "https://api.openverse.org/v1/images/";
+const AUDIO_URL: &str = "https://api.openverse.org/v1/audio/";
 /// HARD anonymous cap: `page_size` above 20 is rejected with a 401
 /// ("page_size may not exceed 20 for anonymous requests") — not a rate limit,
 /// an outright refusal. Only registered OAuth apps may request more.
@@ -47,6 +48,9 @@ struct OvResult {
     width: Option<u32>,
     #[serde(default)]
     height: Option<u32>,
+    /// Audio results only: track length in milliseconds.
+    #[serde(default)]
+    duration: Option<u64>,
 }
 
 fn ext_from_url(url: &str) -> String {
@@ -73,16 +77,26 @@ fn license_label(code: &str, version: Option<&str>) -> String {
     }
 }
 
-/// Map a result, dropping any that lack a usable image or thumbnail.
-fn map_result(r: OvResult) -> Option<SourceItem> {
+/// Map a result, dropping any that lack a downloadable file. A missing
+/// thumbnail (common for audio without artwork) becomes an empty string —
+/// the grid shows a labeled tile for it.
+fn map_result(r: OvResult, audio: bool) -> Option<SourceItem> {
     let full_url = r.url?;
-    let thumb_url = r.thumbnail?;
+    let thumb_url = r.thumbnail.unwrap_or_default();
     let ext = r
         .filetype
         .as_deref()
         .filter(|f| !f.is_empty())
         .map(|f| f.to_ascii_lowercase())
-        .unwrap_or_else(|| ext_from_url(&full_url));
+        // Jamendo reports "mp32" (their 320kbps format token), not a real ext.
+        .map(|f| if f == "mp32" { "mp3".to_string() } else { f })
+        .unwrap_or_else(|| {
+            if audio {
+                "mp3".to_string()
+            } else {
+                ext_from_url(&full_url)
+            }
+        });
     // Openverse's thumbnail proxy can't rasterize SVG upstreams — it answers
     // 424 for every one (most of the illustration category). Hotlink the
     // upstream file itself instead; browsers render SVG in <img> natively.
@@ -109,14 +123,19 @@ fn map_result(r: OvResult) -> Option<SourceItem> {
         author: r.creator.filter(|c| !c.is_empty()),
         license,
         attribution: r.attribution.filter(|a| !a.is_empty()),
+        duration_ms: r.duration.map(|d| d.min(u32::MAX as u64) as u32),
     })
 }
 
-fn parse_response(body: &str) -> AppResult<SourceSearchResult> {
+fn parse_response(body: &str, audio: bool) -> AppResult<SourceSearchResult> {
     let resp: OvResponse = serde_json::from_str(body)
         .map_err(|err| AppError::Network(format!("openverse: unexpected response: {err}")))?;
     Ok(SourceSearchResult {
-        items: resp.results.into_iter().filter_map(map_result).collect(),
+        items: resp
+            .results
+            .into_iter()
+            .filter_map(|r| map_result(r, audio))
+            .collect(),
         page: resp.page,
         last_page: resp.page_count.max(1),
     })
@@ -130,6 +149,7 @@ pub async fn search(
     _api_key: Option<&str>,
 ) -> AppResult<SourceSearchResult> {
     let page = page.max(1);
+    let audio = filters.media_type.as_deref() == Some("audio");
     let mut params = vec![
         ("q", query.to_string()),
         ("page", page.to_string()),
@@ -141,18 +161,21 @@ pub async fn search(
     if let Some(category) = &filters.category {
         params.push(("category", category.clone()));
     }
-    if let Some(aspect_ratio) = &filters.aspect_ratio {
-        params.push(("aspect_ratio", aspect_ratio.clone()));
+    // Aspect ratio is an image-only concept.
+    if !audio {
+        if let Some(aspect_ratio) = &filters.aspect_ratio {
+            params.push(("aspect_ratio", aspect_ratio.clone()));
+        }
     }
     let body = client
-        .get(SEARCH_URL)
+        .get(if audio { AUDIO_URL } else { SEARCH_URL })
         .query(&params)
         .send()
         .await?
         .error_for_status()?
         .text()
         .await?;
-    parse_response(&body)
+    parse_response(&body, audio)
 }
 
 #[cfg(test)]
@@ -197,7 +220,7 @@ mod tests {
 
     #[test]
     fn parses_results_and_pagination() {
-        let result = parse_response(FIXTURE).expect("parse");
+        let result = parse_response(FIXTURE, false).expect("parse");
         assert_eq!(result.page, 1);
         assert_eq!(result.last_page, 6);
         // The second result has no `url` and is dropped.
@@ -229,6 +252,61 @@ mod tests {
     }
 
     #[test]
+    fn parses_audio_results() {
+        // Real-world quirks: freesound has no artwork (thumbnail null),
+        // Jamendo reports filetype "mp32" and an extension-less URL.
+        let body = r#"{
+          "result_count": 240,
+          "page_count": 80,
+          "page": 1,
+          "results": [
+            {
+              "id": "aud-1",
+              "foreign_landing_url": "https://freesound.org/people/benpm/sounds/186942",
+              "url": "https://cdn.freesound.org/previews/186/186942_2594536-hq.mp3",
+              "thumbnail": null,
+              "creator": "benpm",
+              "license": "by",
+              "license_version": "4.0",
+              "filetype": "mp3",
+              "duration": 10193,
+              "attribution": "\"Piano Melody\" by benpm is licensed under CC BY 4.0."
+            },
+            {
+              "id": "aud-2",
+              "foreign_landing_url": "https://www.jamendo.com/track/923463",
+              "url": "https://prod-1.storage.jamendo.com/?trackid=923463&format=mp32",
+              "thumbnail": "https://api.openverse.org/v1/audio/aud-2/thumb/",
+              "creator": "Akashic Records",
+              "license": "by-nc-nd",
+              "license_version": "3.0",
+              "filetype": "mp32",
+              "duration": 72000
+            }
+          ]
+        }"#;
+        let result = parse_response(body, true).expect("parse");
+        assert_eq!(result.last_page, 80);
+        assert_eq!(result.items.len(), 2);
+
+        let freesound = &result.items[0];
+        // No artwork → empty thumb; the grid renders a labeled tile.
+        assert_eq!(freesound.thumb_url, "");
+        assert_eq!(freesound.ext, "mp3");
+        assert_eq!(freesound.duration_ms, Some(10_193));
+        assert_eq!(freesound.author.as_deref(), Some("benpm"));
+
+        let jamendo = &result.items[1];
+        assert_eq!(
+            jamendo.thumb_url,
+            "https://api.openverse.org/v1/audio/aud-2/thumb/"
+        );
+        // "mp32" is Jamendo's format token, not an extension.
+        assert_eq!(jamendo.ext, "mp3");
+        assert_eq!(jamendo.duration_ms, Some(72_000));
+    }
+
+    #[test]
     fn svg_results_bypass_the_broken_thumbnail_proxy() {
         // The Openverse thumb proxy answers 424 for every SVG upstream, so SVG
         // results hotlink the upstream file itself as the thumbnail.
@@ -249,7 +327,7 @@ mod tests {
             }
           ]
         }"#;
-        let result = parse_response(body).expect("parse");
+        let result = parse_response(body, false).expect("parse");
         assert_eq!(result.items.len(), 1);
         let item = &result.items[0];
         assert_eq!(item.ext, "svg");
@@ -280,7 +358,7 @@ mod tests {
             }
           ]
         }"#;
-        let result = parse_response(body).expect("parse must not fail on null dims");
+        let result = parse_response(body, false).expect("parse must not fail on null dims");
         assert_eq!(result.items.len(), 1);
         assert_eq!((result.items[0].width, result.items[0].height), (0, 0));
     }

@@ -45,6 +45,8 @@ pub struct SourceItem {
     /// require credit. Providers without one leave it `None` and the importer
     /// falls back to `author` + `license`.
     pub attribution: Option<String>,
+    /// Track length for audio results (Openverse audio), in milliseconds.
+    pub duration_ms: Option<u32>,
 }
 
 /// A page of search results.
@@ -89,4 +91,6 @@ pub struct SourceFilters {
     pub prefix: Option<String>,
     /// Iconify: true = color icon sets only, false = monochrome only.
     pub palette: Option<bool>,
+    /// Openverse media kind: "audio" routes to /v1/audio/; unset = images.
+    pub media_type: Option<String>,
 }

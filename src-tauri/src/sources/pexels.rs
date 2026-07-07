@@ -76,6 +76,7 @@ fn map_photo(photo: PxlPhoto) -> SourceItem {
         author,
         license: Some("Pexels License".to_string()),
         attribution,
+        duration_ms: None,
     }
 }
 
