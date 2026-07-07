@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.12",
+		date: "2026-07-07",
+		changes: [
+			{
+				kind: "new",
+				text: "Discover adds Openverse (Creative-Commons, no key) and Pexels (free key) alongside Wallhaven and Pixabay.",
+			},
+			{
+				kind: "improved",
+				text: "Imported images now record their attribution — creator and license — for sources that ask for credit.",
+			},
+		],
+	},
+	{
 		version: "0.1.11",
 		date: "2026-07-07",
 		changes: [

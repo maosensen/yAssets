@@ -9,6 +9,15 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-07-07
+
+### Added
+
+- **Discover: Openverse and Pexels** — two more image sources. Openverse browses
+  Creative-Commons and public-domain images with no API key; Pexels needs a free
+  key (Preferences ▸ Discover). Imported images now record their attribution
+  (creator and license) on the asset, for sources that ask for credit.
+
 ## [0.1.11] - 2026-07-07
 
 ### Added
@@ -159,7 +168,8 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.11...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.12...HEAD
+[0.1.12]: https://github.com/maosensen/yAssets/releases/tag/v0.1.12
 [0.1.11]: https://github.com/maosensen/yAssets/releases/tag/v0.1.11
 [0.1.10]: https://github.com/maosensen/yAssets/releases/tag/v0.1.10
 [0.1.9]: https://github.com/maosensen/yAssets/releases/tag/v0.1.9

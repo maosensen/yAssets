@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.12",
+		date: "2026-07-07",
+		changes: [
+			{
+				kind: "new",
+				text: "发现页在 Wallhaven、Pixabay 之外新增 Openverse（知识共享，无需密钥）和 Pexels（免费密钥）。",
+			},
+			{
+				kind: "improved",
+				text: "导入的图片会记录署名信息——作者与许可协议——以满足需要署名的来源。",
+			},
+		],
+	},
+	{
 		version: "0.1.11",
 		date: "2026-07-07",
 		changes: [

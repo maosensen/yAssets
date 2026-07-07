@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const ja: ChangelogRelease[] = [
 	{
+		version: "0.1.12",
+		date: "2026-07-07",
+		changes: [
+			{
+				kind: "new",
+				text: "「見つける」に Wallhaven・Pixabay に加えて Openverse（クリエイティブ・コモンズ、キー不要）と Pexels（無料キー）が加わりました。",
+			},
+			{
+				kind: "improved",
+				text: "取り込んだ画像に帰属情報（作者とライセンス）を記録するようになりました。クレジットが必要なソースに対応します。",
+			},
+		],
+	},
+	{
 		version: "0.1.11",
 		date: "2026-07-07",
 		changes: [
