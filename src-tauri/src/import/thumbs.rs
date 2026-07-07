@@ -168,17 +168,34 @@ fn decode_bitmap(src: &Path) -> AppResult<(u32, u32, u32, u32, Vec<u8>)> {
 /// thumbnail (no separate resize step).
 fn rasterize_svg(src: &Path) -> AppResult<(u32, u32, u32, u32, Vec<u8>)> {
     let data = std::fs::read(src)?;
+    // Monochrome icon SVGs (Iconify & co.) paint with `currentColor`, which
+    // rasterizes to black — invisible on the dark theme. Substitute a neutral
+    // gray in the thumbnail render only; the stored asset keeps currentColor.
+    let data = if data
+        .windows(b"currentColor".len())
+        .any(|w| w == b"currentColor")
+    {
+        String::from_utf8_lossy(&data)
+            .replace("currentColor", "#8f959e")
+            .into_bytes()
+    } else {
+        data
+    };
     let tree = resvg::usvg::Tree::from_data(&data, &resvg::usvg::Options::default())
         .map_err(|err| AppError::Io(format!("svg parse failed: {err}")))?;
 
     let size = tree.size();
     let (src_w, src_h) = (size.width().max(1.0), size.height().max(1.0));
-    let (thumb_w, thumb_h) =
-        fit_long_edge(src_w.ceil() as u32, src_h.ceil() as u32, THUMB_LONG_EDGE);
+    // Vectors scale losslessly — always render AT the thumbnail edge. Icon
+    // SVGs often declare a tiny intrinsic size (Iconify defaults to 1em ≈
+    // 12px); rasterizing at that size and letting the grid stretch it would
+    // be a blurry smudge.
+    let scale = THUMB_LONG_EDGE as f32 / src_w.max(src_h);
+    let thumb_w = ((src_w * scale).round() as u32).max(1);
+    let thumb_h = ((src_h * scale).round() as u32).max(1);
 
-    let mut pixmap = resvg::tiny_skia::Pixmap::new(thumb_w.max(1), thumb_h.max(1))
+    let mut pixmap = resvg::tiny_skia::Pixmap::new(thumb_w, thumb_h)
         .ok_or_else(|| AppError::Io("svg pixmap alloc failed".into()))?;
-    let scale = thumb_w as f32 / src_w;
     resvg::render(
         &tree,
         resvg::tiny_skia::Transform::from_scale(scale, scale),
@@ -457,5 +474,30 @@ mod tests {
         assert_eq!((outcome.width, outcome.height), (200, 100));
         assert!(dest.is_file());
         assert_eq!(outcome.hue, Some(7)); // #2244cc ≈ 228° → blue slice
+    }
+
+    #[test]
+    fn generate_upscales_tiny_svg_and_substitutes_current_color() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let src = tmp.path().join("icon.svg");
+        let dest = tmp.path().join("th.webp");
+        // An Iconify-style icon: tiny 1em intrinsic size, painted with
+        // currentColor (which would rasterize black on transparent).
+        std::fs::write(
+            &src,
+            br##"<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 24 24"><rect width="24" height="24" fill="currentColor"/></svg>"##,
+        )
+        .expect("fixture");
+
+        generate(&src, &dest, "svg").expect("generate svg");
+        let thumb = image::open(&dest).expect("decode thumb");
+        // Rendered at the thumbnail edge (vector upscale), not a 12px smudge…
+        assert_eq!(thumb.width().max(thumb.height()), THUMB_LONG_EDGE);
+        // …and currentColor became a visible neutral gray, not black.
+        let px = thumb.to_rgba8().get_pixel(256, 256).0;
+        assert!(
+            px[0] > 0x60 && px[0] < 0xc0 && px[3] == 0xff,
+            "expected neutral gray, got {px:?}"
+        );
     }
 }

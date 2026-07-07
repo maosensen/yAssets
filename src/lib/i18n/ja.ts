@@ -71,6 +71,12 @@ export const ja: Messages = {
 		emptyHint: "検索して画像を閲覧し、お気に入りをライブラリに追加しましょう。",
 		errorTitle: "ソースに接続できません",
 		errorHint: "接続を確認して再試行してください。",
+		rateLimitedTitle: "レート制限に達しました",
+		rateLimitedHint:
+			"ソースがリクエストを制限しています。1分ほど待ってからもう一度お試しください。",
+		iconifyEmptyTitle: "20万点以上のアイコンを検索",
+		iconifyEmptyHint:
+			"「home」や「arrow」などのキーワードを入力すると、150以上のオープンソースアイコンセットを閲覧できます。",
 		needsKeyTitle: "API キーが必要です",
 		needsKeyHint:
 			"閲覧するには環境設定で Pixabay API キーを設定してください。pixabay.com/api/docs で無料で取得できます。",
@@ -493,6 +499,7 @@ export const ja: Messages = {
 			"有効なライブラリフォルダではないか、新しいバージョンのアプリで作成されています",
 		Conflict: "この操作は現在の状態と競合しています",
 		Network: "ネットワークリクエストに失敗しました",
+		RateLimited: "リクエストが多すぎます。ソース側で制限されています",
 		Internal: "内部エラーが発生しました",
 		unknown: "不明なエラーが発生しました",
 		withDetail: (summary: string, detail: string) => `${summary}（${detail}）`,

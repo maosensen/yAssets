@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import type { SourceFilters, SourceItem, SourceProvider } from "@/lib/bindings";
+import { isCommandError } from "@/lib/errors";
 import { useImportSourceItems, useSourceSearch } from "@/lib/queries/sources";
 import { useSourcesStore } from "@/lib/stores/sources-store";
 import { T } from "@/lib/text";
@@ -253,18 +254,34 @@ export function DiscoverPage() {
 					}
 				/>
 			) : search.isError ? (
-				<EmptyState
-					icon={IconWarning}
-					tone="destructive"
-					title={T.discover.errorTitle}
-					hint={T.discover.errorHint}
-				/>
+				isCommandError(search.error) && search.error.code === "RateLimited" ? (
+					<EmptyState
+						icon={IconWarning}
+						title={T.discover.rateLimitedTitle}
+						hint={T.discover.rateLimitedHint}
+					/>
+				) : (
+					<EmptyState
+						icon={IconWarning}
+						tone="destructive"
+						title={T.discover.errorTitle}
+						hint={T.discover.errorHint}
+					/>
+				)
 			) : search.items.length === 0 && !search.isLoading ? (
-				<EmptyState
-					icon={IconDiscover}
-					title={T.discover.emptyTitle}
-					hint={T.discover.emptyHint}
-				/>
+				provider === "iconify" && debouncedQuery.trim() === "" ? (
+					<EmptyState
+						icon={IconSearch}
+						title={T.discover.iconifyEmptyTitle}
+						hint={T.discover.iconifyEmptyHint}
+					/>
+				) : (
+					<EmptyState
+						icon={IconDiscover}
+						title={T.discover.emptyTitle}
+						hint={T.discover.emptyHint}
+					/>
+				)
 			) : (
 				<RemoteGrid
 					items={search.items}

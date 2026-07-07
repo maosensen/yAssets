@@ -78,16 +78,20 @@ function ContextMenuLabel({
 }: ContextMenuPrimitive.GroupLabel.Props & {
 	inset?: boolean;
 }) {
+	// Base UI 1.6 hard-requires GroupLabel to live inside a Group — a bare
+	// label throws MenuGroupContext (error #31) the moment the menu opens.
 	return (
-		<ContextMenuPrimitive.GroupLabel
-			data-slot="context-menu-label"
-			data-inset={inset}
-			className={cn(
-				"px-3 py-2.5 text-xs text-muted-foreground data-inset:pl-9.5",
-				className,
-			)}
-			{...props}
-		/>
+		<ContextMenuPrimitive.Group>
+			<ContextMenuPrimitive.GroupLabel
+				data-slot="context-menu-label"
+				data-inset={inset}
+				className={cn(
+					"px-3 py-2.5 text-xs text-muted-foreground data-inset:pl-9.5",
+					className,
+				)}
+				{...props}
+			/>
+		</ContextMenuPrimitive.Group>
 	);
 }
 

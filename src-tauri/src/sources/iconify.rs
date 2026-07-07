@@ -75,7 +75,9 @@ fn map_icon(id: &str, collections: &HashMap<String, IcCollection>) -> Option<Sou
         // The plain SVG endpoint: raw currentColor for import; the grid appends
         // a `?color=` for a visible, theme-following thumbnail.
         thumb_url: format!("https://api.iconify.design/{prefix}/{name}.svg"),
-        full_url: format!("https://api.iconify.design/{prefix}/{name}.svg"),
+        // `height=auto` writes the viewBox size (e.g. 24) into width/height —
+        // without it the SVG says `1em` and imports as a 12×12 asset.
+        full_url: format!("https://api.iconify.design/{prefix}/{name}.svg?height=auto"),
         source_page_url: format!("https://icon-sets.iconify.design/{prefix}/{name}/"),
         // Icons are square; a 1:1 ratio lays them out cleanly in the grid.
         width: 1,
@@ -173,7 +175,10 @@ mod tests {
         assert_eq!(mdi.provider, SourceProvider::Iconify);
         assert_eq!(mdi.id, "mdi:home");
         assert_eq!(mdi.thumb_url, "https://api.iconify.design/mdi/home.svg");
-        assert_eq!(mdi.full_url, "https://api.iconify.design/mdi/home.svg");
+        assert_eq!(
+            mdi.full_url,
+            "https://api.iconify.design/mdi/home.svg?height=auto"
+        );
         assert_eq!(
             mdi.source_page_url,
             "https://icon-sets.iconify.design/mdi/home/"

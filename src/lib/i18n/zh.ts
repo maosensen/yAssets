@@ -71,6 +71,10 @@ export const zh: Messages = {
 		emptyHint: "搜索浏览图片，再把心仪的加入资料库。",
 		errorTitle: "无法连接来源",
 		errorHint: "请检查网络后重试。",
+		rateLimitedTitle: "已触发限流",
+		rateLimitedHint: "该来源正在限制请求频率,请稍等一分钟再试。",
+		iconifyEmptyTitle: "搜索 20 万+ 图标",
+		iconifyEmptyHint: "输入关键词(如 home、arrow)即可浏览 150+ 开源图标集。",
 		needsKeyTitle: "需要 API 密钥",
 		needsKeyHint:
 			"请在偏好设置中填写 Pixabay API 密钥后浏览。可在 pixabay.com/api/docs 免费获取。",
@@ -483,6 +487,7 @@ export const zh: Messages = {
 		LibraryIncompatible: "不是有效的资料库文件夹，或它是由更新版本的应用创建的",
 		Conflict: "该操作与当前状态冲突",
 		Network: "网络请求失败",
+		RateLimited: "请求过于频繁,来源已限流",
 		Internal: "发生了内部错误",
 		unknown: "发生了未知错误",
 		withDetail: (summary: string, detail: string) => `${summary}（${detail}）`,

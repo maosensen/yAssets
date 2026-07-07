@@ -72,6 +72,12 @@ export const en = {
 		emptyHint: "Search to browse images, then add favorites to your library.",
 		errorTitle: "Couldn't reach the source",
 		errorHint: "Check your connection and try again.",
+		rateLimitedTitle: "Rate limit reached",
+		rateLimitedHint:
+			"The source is limiting requests. Wait a minute, then try again.",
+		iconifyEmptyTitle: "Search 200,000+ icons",
+		iconifyEmptyHint:
+			"Type a keyword like “home” or “arrow” to browse icons from 150+ open-source sets.",
 		needsKeyTitle: "API key required",
 		needsKeyHint:
 			"Add a Pixabay API key in Preferences to browse. It's free at pixabay.com/api/docs.",
@@ -488,6 +494,7 @@ export const en = {
 			"Not a valid library folder, or it was created by a newer version of the app",
 		Conflict: "The operation conflicts with the current state",
 		Network: "Network request failed",
+		RateLimited: "Too many requests — the source is rate limiting",
 		Internal: "An internal error occurred",
 		unknown: "An unknown error occurred",
 		withDetail: (summary: string, detail: string) => `${summary} (${detail})`,

@@ -227,6 +227,12 @@ export type AppError = { code: "NotFound"; detail: string } | { code: "Io"; deta
 { code: "Conflict"; detail: string } | 
 /**  A third-party source request failed (offline, timeout, bad response). */
 { code: "Network"; detail: string } | 
+/**
+ *  A third-party source answered 429 — the caller should wait and retry.
+ *  Split from `Network` so the UI can say "slow down" instead of
+ *  "check your connection".
+ */
+{ code: "RateLimited"; detail: string } | 
 /**  User-visible catch-all. Internal details belong in the logs, not here. */
 { code: "Internal" };
 

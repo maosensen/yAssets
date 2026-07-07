@@ -31,6 +31,11 @@ pub enum AppError {
     /// A third-party source request failed (offline, timeout, bad response).
     #[error("network error: {0}")]
     Network(String),
+    /// A third-party source answered 429 — the caller should wait and retry.
+    /// Split from `Network` so the UI can say "slow down" instead of
+    /// "check your connection".
+    #[error("rate limited: {0}")]
+    RateLimited(String),
     /// User-visible catch-all. Internal details belong in the logs, not here.
     #[error("internal error")]
     Internal,
@@ -72,6 +77,16 @@ impl From<reqwest::Error> for AppError {
         // land in both the log file and the IPC error payload. `without_url`
         // clears it while keeping the useful kind (status/timeout/etc.).
         let err = err.without_url();
+        // 429 gets its own variant: every source API rate-limits (Openverse
+        // allows only 20 req/min anonymously), and "check your connection" is
+        // the wrong advice for it.
+        if err
+            .status()
+            .is_some_and(|s| s == reqwest::StatusCode::TOO_MANY_REQUESTS)
+        {
+            log::warn!("rate limited: {err}");
+            return AppError::RateLimited(err.to_string());
+        }
         // Network failures are expected (offline, timeouts) — warn, don't error.
         log::warn!("network error: {err}");
         AppError::Network(err.to_string())

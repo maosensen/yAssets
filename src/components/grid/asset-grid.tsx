@@ -290,6 +290,12 @@ export function AssetGrid({
 		if (event.button !== 0) return;
 		// Cards (and anything interactive) own their own clicks.
 		if ((event.target as HTMLElement).closest("button")) return;
+		// Portaled popups (the card context menu) React-bubble their events up
+		// here even though their DOM lives under document.body. Starting a
+		// marquee would setPointerCapture on this container and steal the
+		// menu item's pointerup/click — every menu action would silently
+		// no-op. Only track presses physically inside the scroll container.
+		if (!event.currentTarget.contains(event.target as Node)) return;
 		const point = toContentPoint(event);
 		if (!point) return;
 		marqueeStart.current = point;
