@@ -2,6 +2,16 @@ import type { ChangelogRelease } from "./index";
 
 export const ja: ChangelogRelease[] = [
 	{
+		version: "0.1.13",
+		date: "2026-07-07",
+		changes: [
+			{
+				kind: "new",
+				text: "「見つける」に Iconify が加わりました。20 万点以上のオープンソースアイコンをキー不要で検索し、SVG としてライブラリに追加できます。",
+			},
+		],
+	},
+	{
 		version: "0.1.12",
 		date: "2026-07-07",
 		changes: [

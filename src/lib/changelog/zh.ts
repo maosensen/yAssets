@@ -2,6 +2,16 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.13",
+		date: "2026-07-07",
+		changes: [
+			{
+				kind: "new",
+				text: "发现页新增 Iconify——搜索 20 万+ 开源图标,免密钥,一键作为 SVG 加入素材库。",
+			},
+		],
+	},
+	{
 		version: "0.1.12",
 		date: "2026-07-07",
 		changes: [

@@ -2,6 +2,16 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.13",
+		date: "2026-07-07",
+		changes: [
+			{
+				kind: "new",
+				text: "Discover adds Iconify — search 200,000+ open-source icons and add them to your library as SVG, no key required.",
+			},
+		],
+	},
+	{
 		version: "0.1.12",
 		date: "2026-07-07",
 		changes: [

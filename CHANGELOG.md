@@ -9,6 +9,14 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-07-07
+
+### Added
+
+- **Discover: Iconify** — search 200,000+ open-source icons from 150+ sets and
+  add them straight to your library as SVG. No API key. Imported icons keep
+  their original color (recolorable), and record their set and license.
+
 ## [0.1.12] - 2026-07-07
 
 ### Added
@@ -168,7 +176,8 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.12...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.13...HEAD
+[0.1.13]: https://github.com/maosensen/yAssets/releases/tag/v0.1.13
 [0.1.12]: https://github.com/maosensen/yAssets/releases/tag/v0.1.12
 [0.1.11]: https://github.com/maosensen/yAssets/releases/tag/v0.1.11
 [0.1.10]: https://github.com/maosensen/yAssets/releases/tag/v0.1.10
