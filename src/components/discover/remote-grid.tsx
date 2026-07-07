@@ -7,7 +7,7 @@
  */
 
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { IconCheck, IconImportImages } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { useElementWidth } from "@/hooks/use-element-width";
@@ -182,6 +182,10 @@ function RemoteCard({
 	const src = isIcon
 		? `${item.thumb_url}?color=${encodeURIComponent(iconColor)}&height=100`
 		: item.thumb_url;
+	// Dead thumbnails happen (proxy failures, CSP-blocked hosts, removed
+	// upstreams) — degrade to a labeled tile instead of a broken-image glyph.
+	// The item usually still imports fine: Rust fetches the full file directly.
+	const [broken, setBroken] = useState(false);
 	return (
 		<div
 			className={cn(
@@ -197,16 +201,23 @@ function RemoteCard({
 				className="block size-full"
 				onClick={onToggle}
 			>
-				<img
-					src={src}
-					alt=""
-					loading="lazy"
-					draggable={false}
-					className={cn(
-						"size-full",
-						isIcon ? "object-contain p-3" : "object-cover",
-					)}
-				/>
+				{broken ? (
+					<span className="flex size-full items-center justify-center font-medium text-muted-foreground text-xs uppercase">
+						{item.ext}
+					</span>
+				) : (
+					<img
+						src={src}
+						alt=""
+						loading="lazy"
+						draggable={false}
+						onError={() => setBroken(true)}
+						className={cn(
+							"size-full",
+							isIcon ? "object-contain p-3" : "object-cover",
+						)}
+					/>
+				)}
 			</button>
 
 			{selected && (

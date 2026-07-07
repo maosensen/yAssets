@@ -83,6 +83,14 @@ fn map_result(r: OvResult) -> Option<SourceItem> {
         .filter(|f| !f.is_empty())
         .map(|f| f.to_ascii_lowercase())
         .unwrap_or_else(|| ext_from_url(&full_url));
+    // Openverse's thumbnail proxy can't rasterize SVG upstreams — it answers
+    // 424 for every one (most of the illustration category). Hotlink the
+    // upstream file itself instead; browsers render SVG in <img> natively.
+    let thumb_url = if ext == "svg" {
+        full_url.clone()
+    } else {
+        thumb_url
+    };
     let source_page_url = r.foreign_landing_url.unwrap_or_else(|| full_url.clone());
     let license = r
         .license
@@ -217,6 +225,37 @@ mod tests {
         assert_eq!(
             item.attribution.as_deref(),
             Some("\"Mountains\" by Kamil Porembinski is licensed under CC BY-SA 2.0.")
+        );
+    }
+
+    #[test]
+    fn svg_results_bypass_the_broken_thumbnail_proxy() {
+        // The Openverse thumb proxy answers 424 for every SVG upstream, so SVG
+        // results hotlink the upstream file itself as the thumbnail.
+        let body = r#"{
+          "result_count": 1,
+          "page_count": 1,
+          "page": 1,
+          "results": [
+            {
+              "id": "vector",
+              "foreign_landing_url": "https://commons.wikimedia.org/wiki/File:X.svg",
+              "url": "https://upload.wikimedia.org/wikipedia/commons/a/a1/X.svg",
+              "thumbnail": "https://api.openverse.org/v1/images/vector/thumb/",
+              "license": "cc0",
+              "filetype": "svg",
+              "width": 512,
+              "height": 512
+            }
+          ]
+        }"#;
+        let result = parse_response(body).expect("parse");
+        assert_eq!(result.items.len(), 1);
+        let item = &result.items[0];
+        assert_eq!(item.ext, "svg");
+        assert_eq!(
+            item.thumb_url,
+            "https://upload.wikimedia.org/wikipedia/commons/a/a1/X.svg"
         );
     }
 
