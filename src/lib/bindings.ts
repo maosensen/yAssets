@@ -201,6 +201,8 @@ export const commands = {
 	cleanOrphans: () => typedError<OrphanCleanup, AppError>(__TAURI_INVOKE("clean_orphans")),
 	/**  Copy `ids` into `dest_dir`. Returns the number of files written. */
 	exportAssets: (ids: string[], destDir: string) => typedError<number, AppError>(__TAURI_INVOKE("export_assets", { ids, destDir })),
+	searchSource: (provider: SourceProvider, query: string, page: number, filters: SourceFilters, apiKey: string | null) => typedError<SourceSearchResult, AppError>(__TAURI_INVOKE("search_source", { provider, query, page, filters, apiKey })),
+	importSourceItems: (items: SourceItem[], folderId: string | null) => typedError<ImportSummary, AppError>(__TAURI_INVOKE("import_source_items", { items, folderId })),
 };
 
 /** Events */
@@ -223,6 +225,8 @@ export type AppError = { code: "NotFound"; detail: string } | { code: "Io"; deta
  *  cycle, import in flight while switching libraries, …).
  */
 { code: "Conflict"; detail: string } | 
+/**  A third-party source request failed (offline, timeout, bad response). */
+{ code: "Network"; detail: string } | 
 /**  User-visible catch-all. Internal details belong in the logs, not here. */
 { code: "Internal" };
 
@@ -433,6 +437,16 @@ export type ImportStarted = {
 	job_id: string,
 };
 
+/**  Outcome tally for a batch "Add to Library". */
+export type ImportSummary = {
+	imported: number,
+	/**  Batch-local repeats (the same item twice in one add). */
+	skipped: number,
+	/**  Already in the library (exact content) — the existing asset is kept. */
+	duplicates: number,
+	failed: number,
+};
+
 /**  Library descriptor crossing the IPC boundary. */
 export type LibraryInfo = {
 	path: string,
@@ -519,6 +533,53 @@ export type SmartRules = {
 export type SortDir = "Asc" | "Desc";
 
 export type SortKey = "ImportedAt" | "Name" | "Size" | "Rating" | "UpdatedAt";
+
+/**
+ *  Provider-agnostic search filters (Wallhaven-shaped for now). All optional so
+ *  the frontend can send only what the user changed.
+ */
+export type SourceFilters = {
+	/**  Wallhaven category bitmask "general/anime/people", e.g. "111". */
+	categories: string | null,
+	/**
+	 *  Wallhaven purity bitmask "sfw/sketchy/nsfw", e.g. "100". Enforced to SFW
+	 *  server-side when no API key is present.
+	 */
+	purity: string | null,
+	/**  e.g. "date_added" | "relevance" | "views" | "toplist". */
+	sorting: string | null,
+	/**  "desc" | "asc". */
+	order: string | null,
+};
+
+/**  One browsable result from a provider. */
+export type SourceItem = {
+	provider: SourceProvider,
+	/**  Provider-native id (grid key + dedupe). */
+	id: string,
+	/**  Remote thumbnail URL, shown directly in an `<img>` (CSP-allowlisted host). */
+	thumb_url: string,
+	/**  Full-resolution URL — downloaded by Rust on import, never by the webview. */
+	full_url: string,
+	/**  The provider page for this item; stored as the imported asset's `source`. */
+	source_page_url: string,
+	width: number,
+	height: number,
+	/**  File extension of the full-res asset (e.g. "jpg", "png"). */
+	ext: string,
+	/**  Attribution, when the provider supplies it (Pexels/Unsplash later). */
+	author: string | null,
+	license: string | null,
+};
+
+export type SourceProvider = "wallhaven";
+
+/**  A page of search results. */
+export type SourceSearchResult = {
+	items: SourceItem[],
+	page: number,
+	last_page: number,
+};
 
 export type Tag = {
 	id: string,

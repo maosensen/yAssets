@@ -5,6 +5,7 @@ mod events;
 mod import;
 mod library;
 mod media_protocol;
+mod sources;
 mod state;
 
 use state::AppState;
@@ -73,7 +74,9 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::maintenance::vacuum_database,
             commands::maintenance::verify_integrity,
             commands::maintenance::clean_orphans,
-            commands::export::export_assets
+            commands::export::export_assets,
+            commands::sources::search_source,
+            commands::sources::import_source_items
         ])
         .events(collect_events![
             events::ImportProgress,

@@ -24,6 +24,7 @@ import {
 import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { pickDirectory } from "@/lib/dialogs";
 import { formatBytes } from "@/lib/format";
@@ -40,6 +41,7 @@ import {
 	watchedFoldersQueryOptions,
 } from "@/lib/queries/watched-folders";
 import { useLocaleStore } from "@/lib/stores/locale-store";
+import { useSourcesStore } from "@/lib/stores/sources-store";
 import { type LocaleCode, localeCodes, T } from "@/lib/text";
 import { runUpdateCheck } from "@/lib/update-actions";
 import { cn } from "@/lib/utils";
@@ -119,6 +121,10 @@ function GeneralPane() {
 	const { theme, setTheme } = useTheme();
 	const locale = useLocaleStore((state) => state.locale);
 	const setLocale = useLocaleStore((state) => state.setLocale);
+	const wallhavenApiKey = useSourcesStore((state) => state.wallhavenApiKey);
+	const setWallhavenApiKey = useSourcesStore(
+		(state) => state.setWallhavenApiKey,
+	);
 	const [checking, setChecking] = useState(false);
 
 	const checkUpdates = async () => {
@@ -191,6 +197,23 @@ function GeneralPane() {
 							: T.preferences.checkUpdates}
 					</Button>
 				</Row>
+			</Section>
+
+			<Section title={T.discover.title}>
+				<div className="flex flex-col gap-1.5">
+					<span className="text-sm">{T.discover.apiKeyLabel}</span>
+					<Input
+						type="password"
+						value={wallhavenApiKey}
+						onChange={(event) => setWallhavenApiKey(event.target.value)}
+						placeholder={T.discover.apiKeyPlaceholder}
+						autoComplete="off"
+						spellCheck={false}
+					/>
+					<p className="text-muted-foreground text-xs leading-relaxed">
+						{T.discover.apiKeyHint}
+					</p>
+				</div>
 			</Section>
 		</div>
 	);

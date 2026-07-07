@@ -63,3 +63,14 @@ export const watchedFolderKeys = {
 export const maintenanceKeys = {
 	report: ["maintenance", "report"] as const,
 };
+
+export const sourceKeys = {
+	/** Discover search results. `hasKey` (not the key itself) is in the key so
+	 *  results differ with/without an API key without caching the secret. */
+	search: (params: {
+		provider: string;
+		query: string;
+		filters: unknown;
+		hasKey: boolean;
+	}) => ["sources", "search", params] as const,
+};

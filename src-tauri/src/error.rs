@@ -28,6 +28,9 @@ pub enum AppError {
     /// cycle, import in flight while switching libraries, …).
     #[error("conflict: {0}")]
     Conflict(String),
+    /// A third-party source request failed (offline, timeout, bad response).
+    #[error("network error: {0}")]
+    Network(String),
     /// User-visible catch-all. Internal details belong in the logs, not here.
     #[error("internal error")]
     Internal,
@@ -58,5 +61,13 @@ impl From<serde_json::Error> for AppError {
     fn from(err: serde_json::Error) -> Self {
         log::error!("json (de)serialization error: {err}");
         AppError::LibraryIncompatible(format!("invalid library metadata: {err}"))
+    }
+}
+
+impl From<reqwest::Error> for AppError {
+    fn from(err: reqwest::Error) -> Self {
+        // Network failures are expected (offline, timeouts) — warn, don't error.
+        log::warn!("network error: {err}");
+        AppError::Network(err.to_string())
     }
 }

@@ -53,6 +53,33 @@ export const ja: Messages = {
 		copyright: "© 2026 maosensen",
 		ok: "OK",
 	},
+	discover: {
+		title: "見つける",
+		searchPlaceholder: "Wallhaven を検索…",
+		sortLatest: "最新",
+		sortTop: "人気",
+		sortViews: "閲覧数",
+		sortRandom: "ランダム",
+		nsfw: "NSFW",
+		add: "追加",
+		addSelected: (n: number) => `${n} 件をライブラリに追加`,
+		clearSelection: "クリア",
+		emptyTitle: "表示するものがありません",
+		emptyHint: "Wallhaven を検索して壁紙を閲覧し、お気に入りを追加しましょう。",
+		errorTitle: "ソースに接続できません",
+		errorHint: "接続を確認して再試行してください。",
+		importDone: (imported: number, duplicates: number, failed: number) => {
+			const parts = [`${imported} 件を追加`];
+			if (duplicates > 0)
+				parts.push(`${duplicates} 件は既にライブラリにあります`);
+			if (failed > 0) parts.push(`${failed} 件失敗`);
+			return parts.join(" · ");
+		},
+		apiKeyLabel: "Wallhaven API キー",
+		apiKeyHint:
+			"任意。NSFW/Sketchy コンテンツの閲覧とレート上限の緩和に使えます。wallhaven.cc/settings/account で取得できます。",
+		apiKeyPlaceholder: "API キー",
+	},
 	watched: {
 		description:
 			"これらのフォルダに追加されたファイルは自動的にインポートされます。ネストしたフォルダや重複は通常のインポートと同様に処理されます。",
@@ -443,6 +470,7 @@ export const ja: Messages = {
 		LibraryIncompatible:
 			"有効なライブラリフォルダではないか、新しいバージョンのアプリで作成されています",
 		Conflict: "この操作は現在の状態と競合しています",
+		Network: "ネットワークリクエストに失敗しました",
 		Internal: "内部エラーが発生しました",
 		unknown: "不明なエラーが発生しました",
 		withDetail: (summary: string, detail: string) => `${summary}（${detail}）`,

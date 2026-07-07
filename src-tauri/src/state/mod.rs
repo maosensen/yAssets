@@ -30,6 +30,10 @@ pub struct AppState {
     /// RAII handle — replacing/clearing it drops the previous, stopping its
     /// thread. Reset on every library open/close and after a watched-folder edit.
     watcher: Mutex<Option<Box<dyn std::any::Any + Send>>>,
+    /// Shared HTTP client for the Discover feature (third-party source APIs +
+    /// full-res downloads). Built once for connection-pool reuse; cloning is
+    /// cheap (Arc inside).
+    http: reqwest::Client,
 }
 
 impl AppState {
@@ -97,6 +101,11 @@ impl AppState {
             *slot = handle;
         }
     }
+
+    /// A clone of the shared HTTP client (Arc-backed — cheap).
+    pub fn http(&self) -> reqwest::Client {
+        self.http.clone()
+    }
 }
 
 impl Default for AppState {
@@ -105,6 +114,11 @@ impl Default for AppState {
             library: RwLock::new(None),
             imports: Mutex::new(HashMap::new()),
             watcher: Mutex::new(None),
+            http: reqwest::Client::builder()
+                .user_agent(concat!("yAssets/", env!("CARGO_PKG_VERSION")))
+                .timeout(std::time::Duration::from_secs(30))
+                .build()
+                .expect("failed to build HTTP client"),
         }
     }
 }

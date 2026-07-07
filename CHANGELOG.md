@@ -9,6 +9,13 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+### Added
+
+- **Discover** — browse Wallhaven from inside the app and add wallpapers straight
+  to your library (each import records its source page). Search, sort, and
+  multi-select; an optional Wallhaven API key (Preferences) unlocks NSFW/Sketchy
+  content and a higher rate limit.
+
 ## [0.1.8] - 2026-07-07
 
 ### Added

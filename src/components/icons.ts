@@ -30,6 +30,8 @@ export {
 export { default as IconRecent } from "~icons/solar/clock-circle-line-duotone";
 export { default as IconClose } from "~icons/solar/close-circle-line-duotone";
 export { default as IconCode } from "~icons/solar/code-line-duotone";
+// Discover (browse third-party sources).
+export { default as IconDiscover } from "~icons/solar/compass-line-duotone";
 export { default as IconCopy } from "~icons/solar/copy-line-duotone";
 export { default as IconError } from "~icons/solar/danger-circle-line-duotone";
 export { default as IconWarning } from "~icons/solar/danger-triangle-line-duotone";

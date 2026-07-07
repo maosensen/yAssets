@@ -448,6 +448,19 @@ pub(crate) fn process_file(
     seen_hashes: &Mutex<HashSet<String>>,
     keep_duplicates: bool,
 ) -> Result<FileOutcome, String> {
+    process_file_with_source(library, path, folder_id, seen_hashes, keep_duplicates, None)
+}
+
+/// Like `process_file`, but records `source` (a provenance URL) on the asset.
+/// The Discover feature imports downloaded third-party images this way.
+pub(crate) fn process_file_with_source(
+    library: &Library,
+    path: &Path,
+    folder_id: Option<&str>,
+    seen_hashes: &Mutex<HashSet<String>>,
+    keep_duplicates: bool,
+    source: Option<&str>,
+) -> Result<FileOutcome, String> {
     let hash = hash_file(path).map_err(|err| format!("hash failed: {err}"))?;
 
     // Batch-local dedupe (two copies of the same file in one drop).
@@ -542,9 +555,9 @@ pub(crate) fn process_file(
             "INSERT INTO assets (
                id, name, ext, mime, size, width, height, hash_blake3,
                storage, src_path, rel_path, has_thumb, hue, palette, dhash,
-               imported_at, file_mtime, file_ctime, updated_at
+               imported_at, file_mtime, file_ctime, updated_at, url
              ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
-                       'managed', ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?15)",
+                       'managed', ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?15, ?18)",
             rusqlite::params![
                 id,
                 name,
@@ -563,6 +576,7 @@ pub(crate) fn process_file(
                 now,
                 system_time_ms(metadata.modified().ok()),
                 system_time_ms(metadata.created().ok()),
+                source,
             ],
         )?;
         if let Some(folder) = folder_id {
@@ -796,6 +810,34 @@ mod tests {
             .filter(|e| e.file_type().is_file())
             .count();
         assert_eq!(thumb_count, 1);
+    }
+
+    #[test]
+    fn process_file_with_source_records_provenance_url() {
+        let (tmp, lib) = test_library();
+        let src = tmp.path().join("remote.png");
+        write_png(&src, 320, 200, 7);
+
+        let seen = Mutex::new(HashSet::new());
+        let outcome = process_file_with_source(
+            &lib,
+            &src,
+            None,
+            &seen,
+            false,
+            Some("https://wallhaven.cc/w/abc123"),
+        )
+        .expect("import");
+        assert!(matches!(outcome, FileOutcome::Imported));
+
+        let url: Option<String> = lib
+            .with_reader(|conn| {
+                Ok(conn
+                    .query_row("SELECT url FROM assets", [], |row| row.get(0))
+                    .expect("row"))
+            })
+            .expect("reader");
+        assert_eq!(url.as_deref(), Some("https://wallhaven.cc/w/abc123"));
     }
 
     #[test]

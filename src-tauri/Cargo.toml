@@ -72,6 +72,14 @@ clipboard-rs = "0.3.5"
 base64 = "0.22.1"
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-process = "2.3.1"
+# HTTP client for the Discover feature (third-party source APIs + full-res
+# downloads). All network lives in Rust — the webview only hotlinks provider
+# thumbnails. rustls (no system OpenSSL) to stay pure-Rust across platforms.
+reqwest = { version = "0.12", default-features = false, features = [
+    "json",
+    "rustls-tls",
+    "gzip",
+] }
 
 [dev-dependencies]
 tempfile = "3"

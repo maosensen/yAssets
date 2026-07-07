@@ -20,6 +20,7 @@ import { IconFilter } from "@/components/icons";
 import { DropOverlay } from "@/components/import/drop-overlay";
 import { DuplicateAlertDialog } from "@/components/import/duplicate-alert-dialog";
 import { InspectorPanel } from "@/components/inspector/inspector-panel";
+import { DiscoverNav } from "@/components/sidebar/discover-nav";
 import { FolderTree } from "@/components/sidebar/folder-tree";
 import { LibrarySwitcher } from "@/components/sidebar/library-switcher";
 import { SmartFolderList } from "@/components/sidebar/smart-folder-list";
@@ -97,6 +98,7 @@ function Sidebar() {
 			</header>
 			<div className="flex min-h-0 flex-1 flex-col gap-3 px-2 pt-1">
 				<SmartViews />
+				<DiscoverNav />
 				<SmartFolderList />
 				<FolderTree filter={filter} />
 				<TagList />

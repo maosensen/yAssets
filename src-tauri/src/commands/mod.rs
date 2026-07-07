@@ -19,6 +19,7 @@ pub mod import;
 pub mod library;
 pub mod maintenance;
 pub mod smart_folders;
+pub mod sources;
 pub mod tags;
 pub mod trash;
 pub mod watched_folders;

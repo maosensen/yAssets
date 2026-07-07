@@ -53,6 +53,32 @@ export const zh: Messages = {
 		copyright: "© 2026 maosensen",
 		ok: "确定",
 	},
+	discover: {
+		title: "发现",
+		searchPlaceholder: "搜索 Wallhaven…",
+		sortLatest: "最新",
+		sortTop: "热门",
+		sortViews: "浏览量",
+		sortRandom: "随机",
+		nsfw: "NSFW",
+		add: "添加",
+		addSelected: (n: number) => `添加 ${n} 项到资料库`,
+		clearSelection: "清除",
+		emptyTitle: "暂无内容",
+		emptyHint: "搜索 Wallhaven 浏览壁纸，再把心仪的加入资料库。",
+		errorTitle: "无法连接来源",
+		errorHint: "请检查网络后重试。",
+		importDone: (imported: number, duplicates: number, failed: number) => {
+			const parts = [`已添加 ${imported} 项`];
+			if (duplicates > 0) parts.push(`${duplicates} 项已在库中`);
+			if (failed > 0) parts.push(`${failed} 项失败`);
+			return parts.join(" · ");
+		},
+		apiKeyLabel: "Wallhaven API 密钥",
+		apiKeyHint:
+			"可选。填写后可浏览 NSFW/Sketchy 内容并提高请求频率。可在 wallhaven.cc/settings/account 获取。",
+		apiKeyPlaceholder: "API 密钥",
+	},
 	watched: {
 		description:
 			"放入这些文件夹的新文件会自动导入。嵌套文件夹与重复文件将按普通导入方式处理。",
@@ -434,6 +460,7 @@ export const zh: Messages = {
 		NoLibraryOpen: "没有打开的资料库",
 		LibraryIncompatible: "不是有效的资料库文件夹，或它是由更新版本的应用创建的",
 		Conflict: "该操作与当前状态冲突",
+		Network: "网络请求失败",
 		Internal: "发生了内部错误",
 		unknown: "发生了未知错误",
 		withDetail: (summary: string, detail: string) => `${summary}（${detail}）`,

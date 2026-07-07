@@ -34,7 +34,11 @@ export function describeError(error: unknown): string {
 		if ("detail" in error && typeof error.detail === "string") {
 			// Detail is user-displayable per the error model, but only add it
 			// where it carries actionable context (paths, versions).
-			if (error.code === "LibraryIncompatible" || error.code === "Conflict") {
+			if (
+				error.code === "LibraryIncompatible" ||
+				error.code === "Conflict" ||
+				error.code === "Network"
+			) {
 				return T.errors.withDetail(summary, error.detail);
 			}
 		}

@@ -54,6 +54,32 @@ export const en = {
 		copyright: "© 2026 maosensen",
 		ok: "OK",
 	},
+	discover: {
+		title: "Discover",
+		searchPlaceholder: "Search Wallhaven…",
+		sortLatest: "Latest",
+		sortTop: "Top",
+		sortViews: "Views",
+		sortRandom: "Random",
+		nsfw: "NSFW",
+		add: "Add",
+		addSelected: (n: number) => `Add ${n} to Library`,
+		clearSelection: "Clear",
+		emptyTitle: "Nothing to show",
+		emptyHint: "Search Wallhaven to browse wallpapers, then add favorites.",
+		errorTitle: "Couldn't reach the source",
+		errorHint: "Check your connection and try again.",
+		importDone: (imported: number, duplicates: number, failed: number) => {
+			const parts = [`Added ${imported}`];
+			if (duplicates > 0) parts.push(`${duplicates} already in library`);
+			if (failed > 0) parts.push(`${failed} failed`);
+			return parts.join(" · ");
+		},
+		apiKeyLabel: "Wallhaven API key",
+		apiKeyHint:
+			"Optional. Unlocks NSFW/Sketchy content and a higher rate limit. Get one at wallhaven.cc/settings/account.",
+		apiKeyPlaceholder: "API key",
+	},
 	watched: {
 		description:
 			"New files dropped into these folders import automatically. Nested folders and duplicates are handled like a normal import.",
@@ -439,6 +465,7 @@ export const en = {
 		LibraryIncompatible:
 			"Not a valid library folder, or it was created by a newer version of the app",
 		Conflict: "The operation conflicts with the current state",
+		Network: "Network request failed",
 		Internal: "An internal error occurred",
 		unknown: "An unknown error occurred",
 		withDetail: (summary: string, detail: string) => `${summary} (${detail})`,
