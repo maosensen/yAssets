@@ -9,6 +9,14 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.10] - 2026-07-07
+
+### Added
+
+- **Discover: Pixabay** — a second source alongside Wallhaven. Switch providers
+  from the Discover toolbar; Pixabay needs a free API key (Preferences ▸
+  Discover), with Popular / Latest sorting.
+
 ## [0.1.9] - 2026-07-07
 
 ### Added
@@ -137,7 +145,8 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.9...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.10...HEAD
+[0.1.10]: https://github.com/maosensen/yAssets/releases/tag/v0.1.10
 [0.1.9]: https://github.com/maosensen/yAssets/releases/tag/v0.1.9
 [0.1.8]: https://github.com/maosensen/yAssets/releases/tag/v0.1.8
 [0.1.7]: https://github.com/maosensen/yAssets/releases/tag/v0.1.7
