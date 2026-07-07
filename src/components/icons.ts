@@ -51,6 +51,8 @@ export {
 	default as IconImageFile,
 	default as IconAll,
 } from "~icons/solar/gallery-line-duotone";
+// "What's New" / changelog.
+export { default as IconChangelog } from "~icons/solar/history-line-duotone";
 export { default as IconHome } from "~icons/solar/home-2-line-duotone";
 export { default as IconUncategorized } from "~icons/solar/inbox-line-duotone";
 export { default as IconInfo } from "~icons/solar/info-circle-line-duotone";

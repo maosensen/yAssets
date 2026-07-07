@@ -87,6 +87,11 @@ export const ja: Messages = {
 		pixabayApiKeyHint:
 			"Pixabay の閲覧に必須です。pixabay.com/api/docs で無料で取得できます。",
 	},
+	changelog: {
+		title: "新着情報",
+		subtitle: "yAssets の最近のアップデート",
+		current: "使用中",
+	},
 	watched: {
 		description:
 			"これらのフォルダに追加されたファイルは自動的にインポートされます。ネストしたフォルダや重複は通常のインポートと同様に処理されます。",

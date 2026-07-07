@@ -86,6 +86,11 @@ export const zh: Messages = {
 		pixabayApiKeyHint:
 			"浏览 Pixabay 必填。可在 pixabay.com/api/docs 免费获取。",
 	},
+	changelog: {
+		title: "更新内容",
+		subtitle: "yAssets 的近期更新",
+		current: "当前版本",
+	},
 	watched: {
 		description:
 			"放入这些文件夹的新文件会自动导入。嵌套文件夹与重复文件将按普通导入方式处理。",

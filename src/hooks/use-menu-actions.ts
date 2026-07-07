@@ -29,6 +29,9 @@ export function useMenuActions() {
 				case "check-updates":
 					void runUpdateCheck();
 					break;
+				case "changelog":
+					ui.setChangelogOpen(true);
+					break;
 			}
 		}).then((unlisten) => {
 			if (cancelled) unlisten();

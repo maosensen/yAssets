@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { DuplicatesDialog } from "@/components/duplicates/duplicates-dialog";
 import {
+	IconChangelog,
 	IconClose,
 	IconCopy,
 	IconFolderAdd,
@@ -45,6 +46,7 @@ export function LibrarySwitcher() {
 	// alike. This menu only needs the setters.
 	const setPrefsOpen = useUiStore((state) => state.setPreferencesOpen);
 	const setAboutOpen = useUiStore((state) => state.setAboutOpen);
+	const setChangelogOpen = useUiStore((state) => state.setChangelogOpen);
 	const [duplicatesOpen, setDuplicatesOpen] = useState(false);
 
 	const otherRecents = (recents ?? []).filter(
@@ -119,6 +121,10 @@ export function LibrarySwitcher() {
 					<DropdownMenuItem onClick={() => void runUpdateCheck()}>
 						<IconReload className="size-4" />
 						{T.preferences.checkUpdates}
+					</DropdownMenuItem>
+					<DropdownMenuItem onClick={() => setChangelogOpen(true)}>
+						<IconChangelog className="size-4" />
+						{T.changelog.title}
 					</DropdownMenuItem>
 					<DropdownMenuItem onClick={() => setAboutOpen(true)}>
 						<IconInfo className="size-4" />

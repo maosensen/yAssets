@@ -49,12 +49,17 @@ export async function subscribeDragDrop(
 
 /** Global actions the native app menu (macOS menu bar) dispatches into the
  *  webview. The Rust side emits `menu://<action>` on click (see lib.rs). */
-export type MenuAction = "preferences" | "about" | "check-updates";
+export type MenuAction =
+	| "preferences"
+	| "about"
+	| "check-updates"
+	| "changelog";
 
 const MENU_ACTIONS: readonly MenuAction[] = [
 	"preferences",
 	"about",
 	"check-updates",
+	"changelog",
 ];
 
 /** Subscribe to native-menu actions. Returns unlisten. */

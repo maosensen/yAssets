@@ -18,6 +18,8 @@ type UiState = {
 	setPreferencesOpen: (open: boolean) => void;
 	aboutOpen: boolean;
 	setAboutOpen: (open: boolean) => void;
+	changelogOpen: boolean;
+	setChangelogOpen: (open: boolean) => void;
 };
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -28,4 +30,6 @@ export const useUiStore = create<UiState>()((set) => ({
 	setPreferencesOpen: (open) => set({ preferencesOpen: open }),
 	aboutOpen: false,
 	setAboutOpen: (open) => set({ aboutOpen: open }),
+	changelogOpen: false,
+	setChangelogOpen: (open) => set({ changelogOpen: open }),
 }));

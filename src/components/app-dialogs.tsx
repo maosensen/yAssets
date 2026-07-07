@@ -6,6 +6,7 @@
  */
 
 import { AboutDialog } from "@/components/about-dialog";
+import { ChangelogDialog } from "@/components/changelog-dialog";
 import { PreferencesDialog } from "@/components/preferences/preferences-dialog";
 import { useUiStore } from "@/lib/stores/ui-store";
 
@@ -16,6 +17,7 @@ export function AppDialogs() {
 		<>
 			<PreferencesDialog open={prefsOpen} onOpenChange={setPrefsOpen} />
 			<AboutDialog />
+			<ChangelogDialog />
 		</>
 	);
 }

@@ -87,6 +87,11 @@ export const en = {
 		pixabayApiKeyHint:
 			"Required to browse Pixabay. Free at pixabay.com/api/docs.",
 	},
+	changelog: {
+		title: "What's New",
+		subtitle: "Recent updates to yAssets",
+		current: "Current",
+	},
 	watched: {
 		description:
 			"New files dropped into these folders import automatically. Nested folders and duplicates are handled like a normal import.",

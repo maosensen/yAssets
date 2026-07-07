@@ -154,26 +154,33 @@ pub fn run() {
             // would otherwise drop.
             #[cfg(target_os = "macos")]
             {
-                use tauri::menu::{MenuBuilder, MenuItemBuilder, SubmenuBuilder};
+                use tauri::menu::{
+                    MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder,
+                };
                 use tauri::Emitter;
 
                 let handle = app.handle();
                 let preferences = MenuItemBuilder::with_id("preferences", "Preferences…")
                     .accelerator("CmdOrCtrl+,")
                     .build(handle)?;
+                // Give hide/quit explicit text — the predefined defaults use the
+                // lowercase executable name ("yassets"), not the product name.
+                let hide = PredefinedMenuItem::hide(handle, Some("Hide yAssets"))?;
+                let quit = PredefinedMenuItem::quit(handle, Some("Quit yAssets"))?;
                 let app_menu = SubmenuBuilder::new(handle, "yAssets")
                     .text("about", "About yAssets")
                     .text("check-updates", "Check for Updates…")
+                    .text("changelog", "What's New")
                     .separator()
                     .item(&preferences)
                     .separator()
                     .services()
                     .separator()
-                    .hide()
+                    .item(&hide)
                     .hide_others()
                     .show_all()
                     .separator()
-                    .quit()
+                    .item(&quit)
                     .build()?;
                 let edit_menu = SubmenuBuilder::new(handle, "Edit")
                     .undo()
@@ -196,7 +203,7 @@ pub fn run() {
                 app.set_menu(menu)?;
                 app.on_menu_event(move |app, event| {
                     let id = event.id().as_ref();
-                    if matches!(id, "about" | "preferences" | "check-updates") {
+                    if matches!(id, "about" | "preferences" | "check-updates" | "changelog") {
                         let _ = app.emit(&format!("menu://{id}"), ());
                     }
                 });
