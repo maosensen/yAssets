@@ -2,6 +2,24 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.14",
+		date: "2026-07-07",
+		changes: [
+			{
+				kind: "improved",
+				text: "Discover gets a two-tier toolbar: sources on top, search plus each source's own filters below.",
+			},
+			{
+				kind: "fixed",
+				text: "Right-click menu actions work again, and the sort menu no longer crashes.",
+			},
+			{
+				kind: "fixed",
+				text: "Openverse loads now, and imported icons are sharp and visible in both themes.",
+			},
+		],
+	},
+	{
 		version: "0.1.13",
 		date: "2026-07-07",
 		changes: [

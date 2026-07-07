@@ -2,6 +2,24 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.14",
+		date: "2026-07-07",
+		changes: [
+			{
+				kind: "improved",
+				text: "发现页改为两层工具栏:上层选来源,下层是搜索与各来源专属的筛选条件。",
+			},
+			{
+				kind: "fixed",
+				text: "右键菜单的操作恢复正常,排序菜单不再导致崩溃。",
+			},
+			{
+				kind: "fixed",
+				text: "Openverse 可以正常加载了;导入的图标在深浅主题下都清晰可见。",
+			},
+		],
+	},
+	{
 		version: "0.1.13",
 		date: "2026-07-07",
 		changes: [

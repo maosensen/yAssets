@@ -9,6 +9,30 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.14] - 2026-07-07
+
+### Fixed
+
+- **Context-menu actions work again** — the grid's rubber-band selection was
+  silently capturing the pointer out from under the menu, so every action
+  (Add to Folder, Export, Move to Trash, …) no-oped.
+- **Sort menu no longer crashes** the window when opened.
+- **Openverse loads now** — searches were being rejected outright (the
+  anonymous API caps page size at 20; we asked for more). Rate limiting also
+  gets a clearer message, and hitting it mid-scroll no longer blanks the
+  results already on screen.
+- **Imported icons are legible** — Iconify icons now import at their real
+  size, and SVG thumbnails render sharp at full thumbnail resolution with
+  monochrome (currentColor) artwork drawn in a visible neutral gray. The
+  stored file is untouched and stays recolorable.
+
+### Changed
+
+- **Discover toolbar, two tiers** — sources on top; search plus each source's
+  own filters below. Wallhaven: category / aspect / minimum resolution;
+  Pixabay: type / orientation; Openverse: license / type / aspect;
+  Pexels: orientation / size; Iconify: icon set / style.
+
 ## [0.1.13] - 2026-07-07
 
 ### Added
@@ -176,7 +200,8 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.13...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.14...HEAD
+[0.1.14]: https://github.com/maosensen/yAssets/releases/tag/v0.1.14
 [0.1.13]: https://github.com/maosensen/yAssets/releases/tag/v0.1.13
 [0.1.12]: https://github.com/maosensen/yAssets/releases/tag/v0.1.12
 [0.1.11]: https://github.com/maosensen/yAssets/releases/tag/v0.1.11

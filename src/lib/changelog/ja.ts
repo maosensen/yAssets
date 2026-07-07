@@ -2,6 +2,24 @@ import type { ChangelogRelease } from "./index";
 
 export const ja: ChangelogRelease[] = [
 	{
+		version: "0.1.14",
+		date: "2026-07-07",
+		changes: [
+			{
+				kind: "improved",
+				text: "「見つける」のツールバーが2段構成になりました。上段でソースを選び、下段で検索とソースごとの絞り込みができます。",
+			},
+			{
+				kind: "fixed",
+				text: "右クリックメニューの操作が復活し、並べ替えメニューでクラッシュしなくなりました。",
+			},
+			{
+				kind: "fixed",
+				text: "Openverse が読み込めるようになり、取り込んだアイコンはどちらのテーマでも鮮明に表示されます。",
+			},
+		],
+	},
+	{
 		version: "0.1.13",
 		date: "2026-07-07",
 		changes: [
