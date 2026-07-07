@@ -77,6 +77,7 @@
 - **下临时文件别用 `?` 提前返回**:`std::fs::write(&tmp,..)?` 失败会跳过后面的 `remove_file` → 泄漏(可能是空/半包)临时文件到 `std::env::temp_dir()`。用 `match` 写,无论成败都走一次 `remove_file`。`tempfile` crate 只在 dev-deps,生产用裸 `std::fs`。
 - **infinite query 展平要按 id 去重**:三方源分页会重叠(wallhaven `sorting=random` 每次请求重新洗牌、`date_added` 随新上传漂移),`pages.flatMap` 不去重会出现重复 React key + 重复卡片 + 多选串味。展平时用 `Set<id>` 去重。搜索 query key 要**带 apiKey 值**(react-query key 仅内存),否则改了无效 key 不会 refetch,卡在错误态。
 - **schema 列名别信注释**:v5 迁移注释写「source URL」,实际列名是 `url`(不是 `source`)。写 INSERT 前 grep `migrations.rs` 确认真实列名——Rust 测试当场会以「table has no column named X」炸出来。
+- **reqwest 错误会带上完整 URL → 把 API key 泄进日志和 IPC**:非 2xx 时 `.error_for_status()?`(以及 send 失败)会把请求 URL 挂到 `reqwest::Error` 上,而三方源把 key 放在 query(`?key=…`/`apikey=…`)。`err.to_string()` 会原样打印 ` for url (https://…?key=SECRET)`,于是既进 `log::warn!`(落盘日志、常被贴进 bug 报告)又进 `AppError::Network(detail)`(跨 IPC 到前端、devtools 可见)。**在 `From<reqwest::Error> for AppError` 里先 `let err = err.without_url();`** 一处根治(covers 所有 provider + 下载),保留 status/timeout 等有用信息。对抗式 review 抓到的 HIGH——无效 key / 触发限频(400/429)就必现。
 
 ## 工具 / 多智能体 review
 

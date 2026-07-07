@@ -66,6 +66,12 @@ impl From<serde_json::Error> for AppError {
 
 impl From<reqwest::Error> for AppError {
     fn from(err: reqwest::Error) -> Self {
+        // Strip the URL FIRST: on a non-2xx status reqwest attaches the full
+        // request URL to the error, and source APIs carry the API key in the
+        // query string (`?key=…` / `apikey=…`). Without this, the secret would
+        // land in both the log file and the IPC error payload. `without_url`
+        // clears it while keeping the useful kind (status/timeout/etc.).
+        let err = err.without_url();
         // Network failures are expected (offline, timeouts) — warn, don't error.
         log::warn!("network error: {err}");
         AppError::Network(err.to_string())
