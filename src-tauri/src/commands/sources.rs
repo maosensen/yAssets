@@ -197,13 +197,39 @@ fn host_is_blocked(host: Option<&str>) -> bool {
     // `host_str` keeps IPv6 brackets — strip them before parsing.
     let bare = host.trim_start_matches('[').trim_end_matches(']');
     match bare.parse::<std::net::IpAddr>() {
-        Ok(std::net::IpAddr::V4(ip)) => {
-            ip.is_loopback() || ip.is_private() || ip.is_link_local() || ip.is_unspecified()
+        Ok(std::net::IpAddr::V4(ip)) => ipv4_blocked(&ip),
+        Ok(std::net::IpAddr::V6(ip)) => {
+            // An IPv4-mapped literal (::ffff:a.b.c.d) reaches the same target as
+            // the bare IPv4 — canonicalize and apply the IPv4 rules so it can't
+            // be used to smuggle a private/metadata address past the guard.
+            if let Some(v4) = ip.to_ipv4_mapped() {
+                return ipv4_blocked(&v4);
+            }
+            ip.is_loopback()
+                || ip.is_unspecified()
+                || is_ipv6_unique_local(&ip)
+                || is_ipv6_link_local(&ip)
         }
-        Ok(std::net::IpAddr::V6(ip)) => ip.is_loopback() || ip.is_unspecified(),
         // Not an IP literal → a domain; allow (public provider CDN).
         Err(_) => false,
     }
+}
+
+/// Loopback / private / link-local / unspecified IPv4 (SSRF targets).
+fn ipv4_blocked(ip: &std::net::Ipv4Addr) -> bool {
+    ip.is_loopback() || ip.is_private() || ip.is_link_local() || ip.is_unspecified()
+}
+
+/// IPv6 unique-local `fc00::/7` (the ULA range, analogous to IPv4 private).
+/// `Ipv6Addr::is_unique_local` is still unstable, so match the prefix directly.
+fn is_ipv6_unique_local(ip: &std::net::Ipv6Addr) -> bool {
+    (ip.segments()[0] & 0xfe00) == 0xfc00
+}
+
+/// IPv6 link-local `fe80::/10`. `is_unicast_link_local` is unstable — match the
+/// prefix directly.
+fn is_ipv6_link_local(ip: &std::net::Ipv6Addr) -> bool {
+    (ip.segments()[0] & 0xffc0) == 0xfe80
 }
 
 /// Keep only a short alphanumeric extension (mirrors the import pipeline).
@@ -235,6 +261,16 @@ mod tests {
             "172.16.0.1",
             "0.0.0.0",
             "[::1]",
+            "[::]",
+            // IPv4-mapped IPv6 must not smuggle a private/metadata target past
+            // the guard.
+            "[::ffff:127.0.0.1]",
+            "[::ffff:169.254.169.254]",
+            "[::ffff:10.0.0.1]",
+            // IPv6 unique-local (fc00::/7) and link-local (fe80::/10).
+            "[fd00::1]",
+            "[fc00::1]",
+            "[fe80::1]",
         ] {
             assert!(host_is_blocked(Some(host)), "should block {host}");
         }
@@ -246,6 +282,8 @@ mod tests {
         assert!(!host_is_blocked(Some("w.wallhaven.cc")));
         assert!(!host_is_blocked(Some("th.wallhaven.cc")));
         assert!(!host_is_blocked(Some("8.8.8.8")));
+        // A public IPv6 literal (Cloudflare DNS) is allowed.
+        assert!(!host_is_blocked(Some("[2606:4700:4700::1111]")));
     }
 
     #[test]

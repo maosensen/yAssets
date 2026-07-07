@@ -38,10 +38,13 @@ struct OvResult {
     filetype: Option<String>,
     /// A ready-made, correctly-formatted credit line. Recorded on the asset.
     attribution: Option<String>,
+    // Dimension-less upstreams (Flickr, Wikimedia, …) serialize these as an
+    // explicit `null`, not an absent key — so they must be `Option` (a bare
+    // `u32` + `#[serde(default)]` rejects `null` and fails the whole page).
     #[serde(default)]
-    width: u32,
+    width: Option<u32>,
     #[serde(default)]
-    height: u32,
+    height: Option<u32>,
 }
 
 fn ext_from_url(url: &str) -> String {
@@ -90,8 +93,8 @@ fn map_result(r: OvResult) -> Option<SourceItem> {
         thumb_url,
         full_url,
         source_page_url,
-        width: r.width,
-        height: r.height,
+        width: r.width.unwrap_or(0),
+        height: r.height.unwrap_or(0),
         ext,
         author: r.creator.filter(|c| !c.is_empty()),
         license,
@@ -204,6 +207,32 @@ mod tests {
             item.attribution.as_deref(),
             Some("\"Mountains\" by Kamil Porembinski is licensed under CC BY-SA 2.0.")
         );
+    }
+
+    #[test]
+    fn tolerates_null_dimensions() {
+        // Openverse serializes missing dimensions as explicit `null` (key
+        // present). The whole page must still parse; the item keeps 0x0.
+        let body = r#"{
+          "result_count": 1,
+          "page_count": 1,
+          "page": 1,
+          "results": [
+            {
+              "id": "dimless",
+              "foreign_landing_url": "https://example.com/x",
+              "url": "https://cdn.example.com/x.jpg",
+              "thumbnail": "https://api.openverse.org/v1/images/dimless/thumb/",
+              "license": "cc0",
+              "license_version": "1.0",
+              "width": null,
+              "height": null
+            }
+          ]
+        }"#;
+        let result = parse_response(body).expect("parse must not fail on null dims");
+        assert_eq!(result.items.len(), 1);
+        assert_eq!((result.items[0].width, result.items[0].height), (0, 0));
     }
 
     #[test]
