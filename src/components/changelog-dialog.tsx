@@ -73,9 +73,10 @@ export function ChangelogDialog() {
 
 	return (
 		<Dialog open={open} onOpenChange={setOpen}>
-			<DialogContent className="relative flex max-h-[80vh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+			<DialogContent className="flex max-h-[80vh] max-w-2xl flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
 				{/* Faint accent glow behind the title — quiet chrome to lift the
-				    header off a flat background. */}
+				    header off a flat background. (DialogContent is `fixed`, which
+				    is the positioning context this absolute child anchors to.) */}
 				<div
 					aria-hidden
 					className="pointer-events-none absolute -top-20 left-1/2 h-40 w-80 -translate-x-1/2 rounded-full bg-primary/25 blur-3xl"
