@@ -9,6 +9,23 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.15] - 2026-07-08
+
+### Added
+
+- **Discover: Openverse audio** — a media toggle (Images | Audio) on the
+  Openverse source. Browse Creative-Commons music, sound effects, podcasts,
+  and audiobooks with album art and duration badges, and import them straight
+  into the library — attribution included.
+
+### Fixed
+
+- **Openverse illustrations render now** — SVG results (most of the
+  illustration category) showed broken thumbnails because the Openverse
+  thumbnail service can't process them; the app now loads the artwork
+  directly. Any thumbnail that still fails shows a labeled tile instead of a
+  broken-image icon.
+
 ## [0.1.14] - 2026-07-07
 
 ### Fixed
@@ -200,7 +217,8 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.14...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.15...HEAD
+[0.1.15]: https://github.com/maosensen/yAssets/releases/tag/v0.1.15
 [0.1.14]: https://github.com/maosensen/yAssets/releases/tag/v0.1.14
 [0.1.13]: https://github.com/maosensen/yAssets/releases/tag/v0.1.13
 [0.1.12]: https://github.com/maosensen/yAssets/releases/tag/v0.1.12

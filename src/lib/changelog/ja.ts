@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const ja: ChangelogRelease[] = [
 	{
+		version: "0.1.15",
+		date: "2026-07-08",
+		changes: [
+			{
+				kind: "new",
+				text: "Openverse に音声モードが追加。クリエイティブ・コモンズの音楽・効果音・ポッドキャスト・オーディオブックを再生時間付きで閲覧できます。",
+			},
+			{
+				kind: "fixed",
+				text: "Openverse のイラスト(SVG 作品)がサムネイル切れにならず、正しく表示されるようになりました。",
+			},
+		],
+	},
+	{
 		version: "0.1.14",
 		date: "2026-07-07",
 		changes: [

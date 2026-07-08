@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.15",
+		date: "2026-07-08",
+		changes: [
+			{
+				kind: "new",
+				text: "Openverse 新增音频模式——浏览知识共享的音乐、音效、播客与有声书,带时长徽标。",
+			},
+			{
+				kind: "fixed",
+				text: "Openverse 插画(SVG 作品)可以正常显示了,不再是一片裂图。",
+			},
+		],
+	},
+	{
 		version: "0.1.14",
 		date: "2026-07-07",
 		changes: [

@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.15",
+		date: "2026-07-08",
+		changes: [
+			{
+				kind: "new",
+				text: "Openverse gains an audio mode — browse Creative-Commons music, sound effects, podcasts, and audiobooks, with duration badges.",
+			},
+			{
+				kind: "fixed",
+				text: "Openverse illustrations (SVG artwork) render in the grid instead of showing broken thumbnails.",
+			},
+		],
+	},
+	{
 		version: "0.1.14",
 		date: "2026-07-07",
 		changes: [
