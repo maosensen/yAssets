@@ -2,6 +2,16 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.16",
+		date: "2026-07-09",
+		changes: [
+			{
+				kind: "new",
+				text: "粘贴网址——复制链接后按 ⌘V 即可存为书签,自动抓取页面封面与标题。双击在应用内浏览器实时打开网页;直链图片或视频则作为文件入库。",
+			},
+		],
+	},
+	{
 		version: "0.1.15",
 		date: "2026-07-08",
 		changes: [

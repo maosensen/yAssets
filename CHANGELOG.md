@@ -9,6 +9,18 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.16] - 2026-07-09
+
+### Added
+
+- **Paste a URL to import** — press ⌘V with a web link on the clipboard and
+  yAssets saves it as a bookmark: the page's Open Graph cover, title and address
+  are captured (a generated card is used when a page has no cover). A direct
+  image / video / PDF link imports as a normal file instead. Bookmarks show a
+  **URL** badge with the site's host; double-click (or right-click ▸ Open) opens
+  the live page in an in-app browser window — right-click ▸ Open in Browser uses
+  your system browser.
+
 ## [0.1.15] - 2026-07-08
 
 ### Added
@@ -217,7 +229,8 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.15...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.16...HEAD
+[0.1.16]: https://github.com/maosensen/yAssets/releases/tag/v0.1.16
 [0.1.15]: https://github.com/maosensen/yAssets/releases/tag/v0.1.15
 [0.1.14]: https://github.com/maosensen/yAssets/releases/tag/v0.1.14
 [0.1.13]: https://github.com/maosensen/yAssets/releases/tag/v0.1.13

@@ -2,6 +2,16 @@ import type { ChangelogRelease } from "./index";
 
 export const ja: ChangelogRelease[] = [
 	{
+		version: "0.1.16",
+		date: "2026-07-09",
+		changes: [
+			{
+				kind: "new",
+				text: "URL を貼り付け——リンクをコピーして ⌘V を押すとブックマークとして保存し、ページのカバー画像とタイトルを取得します。ダブルクリックでアプリ内ブラウザに実際のページを表示。画像・動画の直リンクはファイルとして取り込みます。",
+			},
+		],
+	},
+	{
 		version: "0.1.15",
 		date: "2026-07-08",
 		changes: [

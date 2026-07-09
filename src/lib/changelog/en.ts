@@ -2,6 +2,16 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.16",
+		date: "2026-07-09",
+		changes: [
+			{
+				kind: "new",
+				text: "Paste a URL — press ⌘V with a link on the clipboard to save it as a bookmark, with the page's cover and title. Double-click opens the live page in an in-app browser; a direct image or video link imports as a file.",
+			},
+		],
+	},
+	{
 		version: "0.1.15",
 		date: "2026-07-08",
 		changes: [

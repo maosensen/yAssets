@@ -1,6 +1,6 @@
 [package]
 name = "yassets"
-version = "0.1.15"
+version = "0.1.16"
 description = "yAssets — a cross-platform media/asset manager desktop app"
 authors = ["maosensen"]
 edition = "2021"
