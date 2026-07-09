@@ -6,7 +6,8 @@
  *
  * Keep this in sync on release: add one entry per shipped version in all three
  * locale files (see the release runbook). Every release needs a headline
- * `title` (plus an optional `summary`), and each change a short row `title`.
+ * `title` (plus an optional `summary`); changes usually carry a short row
+ * `title` too, though it is optional.
  */
 
 import { getLocale } from "@/lib/text";
