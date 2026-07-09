@@ -1,9 +1,10 @@
 /**
  * "What's New" — a user-facing changelog. Curated, translated, categorized
  * highlights per release (see src/lib/changelog), newest first, with the
- * installed version badged. Two-column layout: a version/date rail beside the
- * categorized changes. Mounted in AppDialogs so it works on every route and
- * re-renders on a locale switch.
+ * installed version badged. Release-notes layout: a timeline rail with a dot
+ * per release, a mono version chip and date, a headline plus summary, then a
+ * card of categorized changes. Mounted in AppDialogs so it works on every
+ * route and re-renders on a locale switch.
  */
 
 import { getVersion } from "@tauri-apps/api/app";
@@ -53,16 +54,17 @@ export function ChangelogDialog() {
 	const releases = getChangelog();
 
 	// Colored category tags — built in render so labels track the locale.
+	// "New" borrows the accent so it matches the version chip; the other two
+	// keep distinct hues for scanning.
 	const kindMeta: Record<ChangeKind, { label: string; className: string }> = {
 		new: {
 			label: T.changelog.kindNew,
-			className:
-				"bg-emerald-500/15 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-400",
+			className: "bg-primary/10 text-primary dark:bg-primary/15",
 		},
 		improved: {
 			label: T.changelog.kindImproved,
 			className:
-				"bg-sky-500/15 text-sky-600 dark:bg-sky-400/15 dark:text-sky-400",
+				"bg-emerald-500/15 text-emerald-600 dark:bg-emerald-400/15 dark:text-emerald-400",
 		},
 		fixed: {
 			label: T.changelog.kindFixed,
@@ -89,40 +91,73 @@ export function ChangelogDialog() {
 					<DialogDescription>{T.changelog.subtitle}</DialogDescription>
 				</DialogHeader>
 
-				<ol className="flex min-h-0 flex-1 flex-col gap-7 overflow-y-auto px-6 py-6">
-					{releases.map((release) => (
-						<li key={release.version} className="flex gap-5">
-							<div className="w-24 shrink-0 pt-0.5">
-								<div className="font-semibold text-sm tabular-nums">
-									{release.version}
-								</div>
-								<div className="mt-0.5 text-muted-foreground text-xs">
+				<ol className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+					{releases.map((release, index) => (
+						<li key={release.version} className="relative pb-10 pl-7 last:pb-2">
+							{/* Timeline rail: an accent dot per release, joined by a
+							    hairline down to the next entry. */}
+							<span
+								aria-hidden
+								className="absolute top-1 left-0 size-[11px] rounded-full bg-primary ring-4 ring-primary/15"
+							/>
+							{index < releases.length - 1 && (
+								<span
+									aria-hidden
+									className="absolute top-5 bottom-0 left-[5px] w-px bg-border/70"
+								/>
+							)}
+
+							<div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+								<span className="rounded-md bg-primary/10 px-2 py-0.5 font-medium font-mono text-primary text-xs dark:bg-primary/15">
+									v{release.version}
+								</span>
+								<span className="font-mono text-muted-foreground text-xs">
 									{formatDate(release.date, locale)}
-								</div>
+								</span>
 								{release.version === version && (
-									<div className="mt-2 inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 font-medium text-[10px] text-primary">
+									<span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 font-medium text-[10px] text-primary dark:bg-primary/15">
 										{T.changelog.current}
-									</div>
+									</span>
 								)}
 							</div>
 
-							<ul className="min-w-0 flex-1 space-y-2.5 border-border/60 border-l pl-5">
+							<h3 className="mt-3 font-bold text-foreground text-xl tracking-tight">
+								{release.title}
+							</h3>
+							{release.summary && (
+								<p className="mt-1.5 max-w-prose text-muted-foreground text-sm leading-relaxed">
+									{release.summary}
+								</p>
+							)}
+
+							<ul className="mt-4 divide-y divide-border/60 rounded-xl border border-border/60 bg-card/40">
 								{release.changes.map((change) => (
-									<li
-										key={change.text}
-										className="grid grid-cols-[4.5rem_1fr] items-baseline gap-3"
-									>
-										<span
-											className={cn(
-												"inline-flex justify-self-start rounded-full px-2 py-0.5 font-medium text-[10px] uppercase tracking-wide",
-												kindMeta[change.kind].className,
+									<li key={change.text} className="flex gap-4 px-4 py-4">
+										<span className="w-[4.75rem] shrink-0 pt-0.5">
+											<span
+												className={cn(
+													"inline-flex rounded-full px-2.5 py-0.5 font-medium text-[10px] uppercase tracking-wider",
+													kindMeta[change.kind].className,
+												)}
+											>
+												{kindMeta[change.kind].label}
+											</span>
+										</span>
+										<div className="min-w-0 flex-1">
+											{change.title && (
+												<div className="font-semibold text-foreground text-sm">
+													{change.title}
+												</div>
 											)}
-										>
-											{kindMeta[change.kind].label}
-										</span>
-										<span className="text-foreground/90 text-sm leading-relaxed">
-											{change.text}
-										</span>
+											<p
+												className={cn(
+													"text-muted-foreground text-sm leading-relaxed",
+													change.title && "mt-1",
+												)}
+											>
+												{change.text}
+											</p>
+										</div>
 									</li>
 								))}
 							</ul>

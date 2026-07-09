@@ -4,9 +4,13 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.16",
 		date: "2026-07-09",
+		title: "ウェブページをライブラリへ",
+		summary:
+			"⌘V でリンクを貼り付けるだけで、カバーとタイトル付きの素材に。内蔵ブラウザでいつでもページを再訪できます。",
 		changes: [
 			{
 				kind: "new",
+				title: "URL の貼り付け",
 				text: "URL を貼り付け——リンクをコピーして ⌘V を押すとブックマークとして保存し、ページのカバー画像とタイトルを取得します。ダブルクリックでアプリ内ブラウザに実際のページを表示。画像・動画の直リンクはファイルとして取り込みます。",
 			},
 		],
@@ -14,13 +18,18 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.15",
 		date: "2026-07-08",
+		title: "Openverse に音が付いた",
+		summary:
+			"「見つける」は画像だけではなくなりました。クリエイティブ・コモンズの音声がカタログに加わり、SVG イラストも正しく表示されます。",
 		changes: [
 			{
 				kind: "new",
+				title: "音声モード",
 				text: "Openverse に音声モードが追加。クリエイティブ・コモンズの音楽・効果音・ポッドキャスト・オーディオブックを再生時間付きで閲覧できます。",
 			},
 			{
 				kind: "fixed",
+				title: "イラストのサムネイル",
 				text: "Openverse のイラスト(SVG 作品)がサムネイル切れにならず、正しく表示されるようになりました。",
 			},
 		],
@@ -28,17 +37,23 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.14",
 		date: "2026-07-07",
+		title: "すっきりした「見つける」",
+		summary:
+			"ツールバーを再構成し、メニュー・Openverse・アイコン取り込みの問題をまとめて修正しました。",
 		changes: [
 			{
 				kind: "improved",
+				title: "2 段ツールバー",
 				text: "「見つける」のツールバーが2段構成になりました。上段でソースを選び、下段で検索とソースごとの絞り込みができます。",
 			},
 			{
 				kind: "fixed",
+				title: "右クリックメニューと並べ替え",
 				text: "右クリックメニューの操作が復活し、並べ替えメニューでクラッシュしなくなりました。",
 			},
 			{
 				kind: "fixed",
+				title: "Openverse とアイコン表示",
 				text: "Openverse が読み込めるようになり、取り込んだアイコンはどちらのテーマでも鮮明に表示されます。",
 			},
 		],
@@ -46,9 +61,13 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.13",
 		date: "2026-07-07",
+		title: "アイコン 20 万点",
+		summary:
+			"Iconify が「見つける」に登場。色を変えられる SVG として取り込めます。",
 		changes: [
 			{
 				kind: "new",
+				title: "見つける：Iconify",
 				text: "「見つける」に Iconify が加わりました。20 万点以上のオープンソースアイコンをキー不要で検索し、SVG としてライブラリに追加できます。",
 			},
 		],
@@ -56,13 +75,18 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.12",
 		date: "2026-07-07",
+		title: "ソースが 2 つ増えた",
+		summary:
+			"Openverse と Pexels が加わり、取り込むたびに作者とライセンスを記録するようになりました。",
 		changes: [
 			{
 				kind: "new",
+				title: "Openverse と Pexels",
 				text: "「見つける」に Wallhaven・Pixabay に加えて Openverse（クリエイティブ・コモンズ、キー不要）と Pexels（無料キー）が加わりました。",
 			},
 			{
 				kind: "improved",
+				title: "帰属情報の記録",
 				text: "取り込んだ画像に帰属情報（作者とライセンス）を記録するようになりました。クレジットが必要なソースに対応します。",
 			},
 		],
@@ -70,13 +94,17 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.11",
 		date: "2026-07-07",
+		title: "新着情報、はじめました",
+		summary: "いままさに読んでいるこの画面と、一新された環境設定。",
 		changes: [
 			{
 				kind: "new",
+				title: "アプリ内変更履歴",
 				text: "新着情報——メニューバーから開けるアプリ内変更履歴で、各リリースの要点を確認できます。",
 			},
 			{
 				kind: "improved",
+				title: "環境設定の刷新",
 				text: "環境設定のレイアウトを刷新：タイトル付きセクションヘッダー、カード分けされた設定、テーマと言語のセグメントコントロール。",
 			},
 		],
@@ -84,9 +112,12 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.10",
 		date: "2026-07-07",
+		title: "Pixabay が仲間入り",
+		summary: "2 つめの画像ソース。ツールバーから切り替えられます。",
 		changes: [
 			{
 				kind: "new",
+				title: "見つける：Pixabay",
 				text: "「見つける」に Wallhaven に加えて Pixabay が仲間入り。ツールバーからソースを切り替えられます。",
 			},
 		],
@@ -94,9 +125,13 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.9",
 		date: "2026-07-07",
+		title: "「見つける」登場",
+		summary:
+			"アプリを離れずにサードパーティのソースを閲覧。第一弾は Wallhaven です。",
 		changes: [
 			{
 				kind: "new",
+				title: "「見つける」画面",
 				text: "新しい「見つける」画面が登場。Wallhaven を閲覧して、壁紙をそのままライブラリに追加できます。取得元も記録されます。",
 			},
 		],
@@ -104,13 +139,17 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.8",
 		date: "2026-07-07",
+		title: "あなたの言語で",
+		summary: "インターフェースの多言語化と、macOS らしい振る舞いを。",
 		changes: [
 			{
 				kind: "new",
+				title: "中国語と日本語の UI",
 				text: "インターフェースが簡体字中国語と日本語に対応。環境設定からその場で言語を切り替えられます。",
 			},
 			{
 				kind: "new",
+				title: "macOS メニューバーと About",
 				text: "ネイティブの macOS メニューバーと「yAssets について」ウィンドウを追加しました。",
 			},
 		],
@@ -118,9 +157,12 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.7",
 		date: "2026-07-06",
+		title: "スライドショーを磨く",
+		summary: "アクセシビリティに集中したリリースです。",
 		changes: [
 			{
 				kind: "improved",
+				title: "アクセシブルなスライドショー",
 				text: "スライドショーがフォーカス管理に対応した、アクセシブルなモーダルになりました。",
 			},
 		],
@@ -128,17 +170,23 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.6",
 		date: "2026-07-06",
+		title: "大きなライブラリへ",
+		summary:
+			"大規模でも滑らかなスクロール、自動取り込み、そしてライブラリを健全に保つツール。",
 		changes: [
 			{
 				kind: "improved",
+				title: "無限スクロール",
 				text: "無限スクロールで大きなライブラリも軽快に読み込めます。",
 			},
 			{
 				kind: "new",
+				title: "監視フォルダ",
 				text: "監視フォルダが新しいファイルを自動で取り込みます。",
 			},
 			{
 				kind: "new",
+				title: "メンテナンスツール",
 				text: "メンテナンス機能を追加。データベースの最適化、不要データの整理、整合性チェックが行えます。",
 			},
 		],
@@ -146,13 +194,18 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.5",
 		date: "2026-07-06",
+		title: "形式も見せ方も増えた",
+		summary:
+			"デザインファイルのサムネイルに、全画面スライドショーと並べて比較。",
 		changes: [
 			{
 				kind: "new",
+				title: "サムネイルの拡充",
 				text: "PDF・HEIC・TIFF・PSD・Sketch ファイルのサムネイルに対応しました。",
 			},
 			{
 				kind: "new",
+				title: "スライドショーと比較",
 				text: "全画面スライドショーと、2 枚並べての比較表示が可能になりました。",
 			},
 		],
@@ -160,9 +213,13 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.4",
 		date: "2026-07-05",
+		title: "並べ替え、検索、評価",
+		summary:
+			"なんでも見つかる：ツールバーの並べ替え、フィルター付き全文検索、まとめて評価。",
 		changes: [
 			{
 				kind: "new",
+				title: "並べ替え・検索・評価",
 				text: "ツールバーでの並べ替え、フィルター付き全文検索、まとめて評価に対応しました。",
 			},
 		],
@@ -170,17 +227,30 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.3",
 		date: "2026-07-05",
+		title: "フォルダ選択がもっと快適に",
+		summary: "整理はより速く、動画カバーはより鮮明に。",
 		changes: [
-			{ kind: "new", text: "Eagle 風のフォルダ選択画面を追加しました。" },
-			{ kind: "improved", text: "動画のカバー画像がより鮮明になりました。" },
+			{
+				kind: "new",
+				title: "Eagle 風フォルダ選択",
+				text: "Eagle 風のフォルダ選択画面を追加しました。",
+			},
+			{
+				kind: "improved",
+				title: "動画カバー",
+				text: "動画のカバー画像がより鮮明になりました。",
+			},
 		],
 	},
 	{
 		version: "0.1.2",
 		date: "2026-07-05",
+		title: "ブラウジングの小さな進化",
+		summary: "グリッド、プレビュー、情報パネルの細部を磨きました。",
 		changes: [
 			{
 				kind: "new",
+				title: "サブフォルダ・種別チップ・HTML プレビュー",
 				text: "サブフォルダバー、ファイル種別チップ、HTML プレビュー、フォルダ情報パネルを追加しました。",
 			},
 		],
@@ -188,20 +258,32 @@ export const ja: ChangelogRelease[] = [
 	{
 		version: "0.1.1",
 		date: "2026-07-04",
+		title: "構造はそのまま",
+		summary:
+			"フォルダ構造を保ったまま取り込み、新しいリリースは自分から知らせてくれます。",
 		changes: [
 			{
 				kind: "new",
+				title: "ネスト構造のインポート",
 				text: "フォルダ構造を保ったままインポートできるようになりました。",
 			},
-			{ kind: "new", text: "自動アップデート通知に対応しました。" },
+			{
+				kind: "new",
+				title: "アップデート通知",
+				text: "自動アップデート通知に対応しました。",
+			},
 		],
 	},
 	{
 		version: "0.1.0",
 		date: "2026-07-04",
+		title: "はじめまして、yAssets",
+		summary:
+			"ローカルファーストのメディアライブラリ、最初のリリース。あなたの素材は、ずっとあなたのもの。",
 		changes: [
 			{
 				kind: "new",
+				title: "ローカルファーストのライブラリ",
 				text: "初回リリース。ローカルファーストのメディアライブラリとして、インポート・整理・タグ付け・プレビュー・重複除去・自動アップデートに対応します。",
 			},
 		],

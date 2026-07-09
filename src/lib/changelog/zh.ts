@@ -4,9 +4,13 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.16",
 		date: "2026-07-09",
+		title: "把网页收进素材库",
+		summary:
+			"用 ⌘V 粘贴任意链接，yAssets 会把它变成一份正式素材——封面、标题俱全，还有内置浏览器随时回访页面。",
 		changes: [
 			{
 				kind: "new",
+				title: "粘贴网址",
 				text: "粘贴网址——复制链接后按 ⌘V 即可存为书签,自动抓取页面封面与标题。双击在应用内浏览器实时打开网页;直链图片或视频则作为文件入库。",
 			},
 		],
@@ -14,13 +18,18 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.15",
 		date: "2026-07-08",
+		title: "Openverse 有声音了",
+		summary:
+			"发现页不再只有图片：知识共享音频加入目录，SVG 插画也能正常显示了。",
 		changes: [
 			{
 				kind: "new",
+				title: "音频模式",
 				text: "Openverse 新增音频模式——浏览知识共享的音乐、音效、播客与有声书,带时长徽标。",
 			},
 			{
 				kind: "fixed",
+				title: "插画缩略图",
 				text: "Openverse 插画(SVG 作品)可以正常显示了,不再是一片裂图。",
 			},
 		],
@@ -28,17 +37,23 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.14",
 		date: "2026-07-07",
+		title: "更清爽的发现页",
+		summary:
+			"发现页工具栏重新编排，并集中修复了菜单、Openverse 与图标导入的一批问题。",
 		changes: [
 			{
 				kind: "improved",
+				title: "两层工具栏",
 				text: "发现页改为两层工具栏:上层选来源,下层是搜索与各来源专属的筛选条件。",
 			},
 			{
 				kind: "fixed",
+				title: "右键菜单与排序",
 				text: "右键菜单的操作恢复正常,排序菜单不再导致崩溃。",
 			},
 			{
 				kind: "fixed",
+				title: "Openverse 与图标显示",
 				text: "Openverse 可以正常加载了;导入的图标在深浅主题下都清晰可见。",
 			},
 		],
@@ -46,9 +61,12 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.13",
 		date: "2026-07-07",
+		title: "二十万图标任你挑",
+		summary: "Iconify 加入发现页——20 万+ 开源图标，以可改色的 SVG 入库。",
 		changes: [
 			{
 				kind: "new",
+				title: "发现页：Iconify",
 				text: "发现页新增 Iconify——搜索 20 万+ 开源图标,免密钥,一键作为 SVG 加入素材库。",
 			},
 		],
@@ -56,13 +74,17 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.12",
 		date: "2026-07-07",
+		title: "再添两个来源",
+		summary: "Openverse 与 Pexels 加入发现页，每次导入都会记下作者与许可。",
 		changes: [
 			{
 				kind: "new",
+				title: "Openverse 与 Pexels",
 				text: "发现页在 Wallhaven、Pixabay 之外新增 Openverse（知识共享，无需密钥）和 Pexels（免费密钥）。",
 			},
 			{
 				kind: "improved",
+				title: "导入记录署名",
 				text: "导入的图片会记录署名信息——作者与许可协议——以满足需要署名的来源。",
 			},
 		],
@@ -70,13 +92,17 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.11",
 		date: "2026-07-07",
+		title: "更新日志上线",
+		summary: "就是你现在看到的这个页面，外加焕然一新的偏好设置。",
 		changes: [
 			{
 				kind: "new",
+				title: "应用内更新日志",
 				text: "更新日志——可从菜单栏打开的应用内更新日志，查看每个版本的更新要点。",
 			},
 			{
 				kind: "improved",
+				title: "偏好设置焕新",
 				text: "偏好设置界面焕新：带标题的分区栏、卡片式分组，以及主题与语言的分段控件。",
 			},
 		],
@@ -84,9 +110,12 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.10",
 		date: "2026-07-07",
+		title: "Pixabay 加入发现页",
+		summary: "第二个图片来源，工具栏一键切换。",
 		changes: [
 			{
 				kind: "new",
+				title: "发现页：Pixabay",
 				text: "发现页在 Wallhaven 之外新增了 Pixabay——在工具栏即可切换来源。",
 			},
 		],
@@ -94,9 +123,12 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.9",
 		date: "2026-07-07",
+		title: "「发现」登场",
+		summary: "不离开应用就能浏览第三方图源——首发 Wallhaven。",
 		changes: [
 			{
 				kind: "new",
+				title: "发现视图",
 				text: "全新发现视图：浏览 Wallhaven 壁纸并一键加入素材库，同时自动记录来源。",
 			},
 		],
@@ -104,13 +136,17 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.8",
 		date: "2026-07-07",
+		title: "说你的语言",
+		summary: "界面本地化，并成为一名合格的 macOS 公民。",
 		changes: [
 			{
 				kind: "new",
+				title: "中文与日文界面",
 				text: "新增简体中文与日文界面，并可在偏好设置中实时切换语言。",
 			},
 			{
 				kind: "new",
+				title: "macOS 菜单栏与关于",
 				text: "原生 macOS 菜单栏，以及全新的“关于”窗口。",
 			},
 		],
@@ -118,9 +154,12 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.7",
 		date: "2026-07-06",
+		title: "幻灯片精修",
+		summary: "一次专注于无障碍的打磨。",
 		changes: [
 			{
 				kind: "improved",
+				title: "无障碍幻灯片",
 				text: "幻灯片播放升级为完整的无障碍弹窗，焦点处理更规范。",
 			},
 		],
@@ -128,17 +167,22 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.6",
 		date: "2026-07-06",
+		title: "为大库而生",
+		summary: "大规模下依旧顺滑，导入全自动，还有一套素材库体检工具。",
 		changes: [
 			{
 				kind: "improved",
+				title: "无限滚动",
 				text: "大型素材库借助无限滚动，加载更加顺滑。",
 			},
 			{
 				kind: "new",
+				title: "监视文件夹",
 				text: "监视文件夹会自动导入新增文件。",
 			},
 			{
 				kind: "new",
+				title: "维护工具",
 				text: "维护工具：压缩数据库、清理孤立文件、校验完整性。",
 			},
 		],
@@ -146,13 +190,17 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.5",
 		date: "2026-07-06",
+		title: "更多格式，更多看法",
+		summary: "设计文件缩略图，外加全屏幻灯片与并排对比。",
 		changes: [
 			{
 				kind: "new",
+				title: "更多缩略图",
 				text: "支持 PDF、HEIC、TIFF、PSD 与 Sketch 文件缩略图。",
 			},
 			{
 				kind: "new",
+				title: "幻灯片与对比",
 				text: "全屏幻灯片播放，以及并排对比。",
 			},
 		],
@@ -160,9 +208,12 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.4",
 		date: "2026-07-05",
+		title: "排序、搜索、评分",
+		summary: "什么都找得到：工具栏排序、带筛选的全文搜索、批量评分。",
 		changes: [
 			{
 				kind: "new",
+				title: "排序、搜索与评分",
 				text: "工具栏排序、带筛选的全文搜索，以及批量评分。",
 			},
 		],
@@ -170,17 +221,30 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.3",
 		date: "2026-07-05",
+		title: "更好用的文件夹选择器",
+		summary: "整理更快，视频封面更清晰。",
 		changes: [
-			{ kind: "new", text: "Eagle 风格的文件夹选择器。" },
-			{ kind: "improved", text: "更清晰的视频封面帧。" },
+			{
+				kind: "new",
+				title: "Eagle 风格选择器",
+				text: "Eagle 风格的文件夹选择器。",
+			},
+			{
+				kind: "improved",
+				title: "视频封面",
+				text: "更清晰的视频封面帧。",
+			},
 		],
 	},
 	{
 		version: "0.1.2",
 		date: "2026-07-05",
+		title: "浏览体验小升级",
+		summary: "网格、预览与信息面板，处处见细节。",
 		changes: [
 			{
 				kind: "new",
+				title: "子文件夹、类型标签与 HTML 预览",
 				text: "子文件夹栏、文件类型标签、HTML 预览，以及文件夹信息面板。",
 			},
 		],
@@ -188,20 +252,30 @@ export const zh: ChangelogRelease[] = [
 	{
 		version: "0.1.1",
 		date: "2026-07-04",
+		title: "结构不丢",
+		summary: "导入文件夹保留原有层级，新版本会主动打招呼。",
 		changes: [
 			{
 				kind: "new",
+				title: "嵌套结构导入",
 				text: "导入文件夹时保留原有结构。",
 			},
-			{ kind: "new", text: "自动更新提醒。" },
+			{
+				kind: "new",
+				title: "更新提醒",
+				text: "自动更新提醒。",
+			},
 		],
 	},
 	{
 		version: "0.1.0",
 		date: "2026-07-04",
+		title: "yAssets，你好",
+		summary: "本地优先媒体素材库的第一个版本——你的素材，始终归你。",
 		changes: [
 			{
 				kind: "new",
+				title: "本地优先的素材库",
 				text: "首个版本——本地优先的媒体素材库：导入、整理、打标签、预览、去重，并支持自我更新。",
 			},
 		],

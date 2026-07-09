@@ -5,7 +5,8 @@
  * friendly wording, newest first, localized per UI language.
  *
  * Keep this in sync on release: add one entry per shipped version in all three
- * locale files (see the release runbook).
+ * locale files (see the release runbook). Every release needs a headline
+ * `title` (plus an optional `summary`), and each change a short row `title`.
  */
 
 import { getLocale } from "@/lib/text";
@@ -19,7 +20,10 @@ export type ChangeKind = "new" | "improved" | "fixed";
 
 export type ChangelogChange = {
 	kind: ChangeKind;
+	/** One-sentence description of the change. */
 	text: string;
+	/** Short feature name shown as the row heading (e.g. "AI icon generation"). */
+	title?: string;
 };
 
 export type ChangelogRelease = {
@@ -28,6 +32,10 @@ export type ChangelogRelease = {
 	date: string;
 	/** Curated, user-facing changes for this release. */
 	changes: ChangelogChange[];
+	/** Release headline (e.g. "yAssets 0.1 — a local-first library"). */
+	title: string;
+	/** Optional one-paragraph framing shown under the headline. */
+	summary?: string;
 };
 
 const byLocale = { en, zh, ja };
