@@ -137,8 +137,13 @@ pub fn open_link_window(
     app: tauri::AppHandle,
 ) -> AppResult<()> {
     let parsed = Url::parse(&url).map_err(|_| AppError::Conflict("invalid url".into()))?;
-    if !matches!(parsed.scheme(), "http" | "https") {
-        return Err(AppError::Conflict("refusing non-web URL".into()));
+    // Same SSRF posture as download()/guard(): a stored asset.url is untrusted
+    // (writable via update_asset / an imported library), so refuse non-web
+    // schemes and private/loopback/link-local/metadata hosts.
+    if !viewer_url_allowed(&parsed) {
+        return Err(AppError::Conflict(
+            "refusing non-web or private-host URL".into(),
+        ));
     }
     let title = title
         .filter(|t| !t.trim().is_empty())
@@ -152,12 +157,23 @@ pub fn open_link_window(
         return Ok(());
     }
     WebviewWindowBuilder::new(&app, LINK_WINDOW_LABEL, WebviewUrl::External(parsed))
+        // Re-check every navigation (redirects + in-page clicks), not just the
+        // initial URL — the engine follows redirects on its own, so a public
+        // page that 3xx-redirects to a private host would otherwise slip past.
+        .on_navigation(viewer_url_allowed)
         .title(&title)
         .inner_size(1200.0, 820.0)
         .center()
         .build()
         .map_err(window_err)?;
     Ok(())
+}
+
+/// The in-app viewer only loads http(s) on public hosts. Blocks private /
+/// loopback / link-local / unspecified / metadata hosts (SSRF), applied to both
+/// the URL we are handed and every subsequent navigation via `on_navigation`.
+fn viewer_url_allowed(url: &Url) -> bool {
+    matches!(url.scheme(), "http" | "https") && !host_is_blocked(url.host_str())
 }
 
 fn window_err(err: tauri::Error) -> AppError {
@@ -463,6 +479,21 @@ mod tests {
         assert_eq!(image_ext_from_path(&page), None);
         let doc = Url::parse("https://example.com/file.pdf").unwrap();
         assert_eq!(image_ext_from_path(&doc), None);
+    }
+
+    #[test]
+    fn viewer_blocks_private_hosts_and_non_web_schemes() {
+        let allow = |s: &str| viewer_url_allowed(&Url::parse(s).unwrap());
+        // Public http(s) pages are fine (it's a browser view).
+        assert!(allow("https://x.com/user/status/1"));
+        assert!(allow("http://example.com/page"));
+        // SSRF targets are blocked regardless of scheme.
+        assert!(!allow("http://169.254.169.254/latest/meta-data/"));
+        assert!(!allow("http://127.0.0.1:8080/"));
+        assert!(!allow("http://192.168.1.1/apply.cgi"));
+        assert!(!allow("https://localhost/admin"));
+        // Non-web schemes are refused.
+        assert!(!allow("file:///etc/passwd"));
     }
 
     #[test]
