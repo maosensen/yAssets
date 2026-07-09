@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/context-menu";
 import { useExport } from "@/hooks/use-export";
 import { hasCapturableCover } from "@/lib/cover-capture";
+import { openExternalUrl } from "@/lib/opener";
 import {
 	revealAsset,
 	useRegenerateCover,
@@ -26,6 +27,10 @@ type AssetContextItemsProps = {
 	assetId: string;
 	/** The clicked card's extension — gates video-only actions. */
 	ext: string;
+	/** `"file"` | `"link"` — a link gets an "Open Link" action. */
+	kind: string;
+	/** The clicked card's provenance URL (for link "Open Link"). */
+	url?: string | null;
 	inTrash: boolean;
 	/** Set when the grid currently shows a folder view. */
 	currentFolderId: string | null;
@@ -52,6 +57,8 @@ function withCount(label: string, count: number): string {
 export function AssetContextItems({
 	assetId,
 	ext,
+	kind,
+	url,
 	inTrash,
 	currentFolderId,
 	onAddToFolder,
@@ -93,6 +100,14 @@ export function AssetContextItems({
 
 	return (
 		<>
+			{kind === "link" && url && (
+				<>
+					<ContextMenuItem onClick={() => void openExternalUrl(url)}>
+						{T.assetMenu.openLink}
+					</ContextMenuItem>
+					<ContextMenuSeparator />
+				</>
+			)}
 			<ContextMenuItem onClick={() => onAddToFolder(targetIds(assetId))}>
 				{withCount(T.assetMenu.addToFolder, count)}
 			</ContextMenuItem>

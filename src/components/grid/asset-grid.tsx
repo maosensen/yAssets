@@ -413,6 +413,8 @@ export function AssetGrid({
 												<AssetContextItems
 													assetId={item.id}
 													ext={asset.ext}
+													kind={asset.kind}
+													url={asset.url}
 													inTrash={inTrash}
 													currentFolderId={currentFolderId}
 													onAddToFolder={setPickerIds}

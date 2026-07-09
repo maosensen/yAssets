@@ -270,6 +270,7 @@ export const zh: Messages = {
 		deleteAction: "删除",
 	},
 	assetMenu: {
+		openLink: "打开链接",
 		addToFolder: "添加到文件夹",
 		noFolders: "尚无文件夹",
 		removeFromFolder: "从此文件夹移除",
