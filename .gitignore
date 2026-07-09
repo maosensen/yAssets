@@ -34,3 +34,6 @@ coverage
 # Local Claude Code workspace config (skills are shared and committed)
 .claude/*
 !.claude/skills/
+
+# CodeGraph index (local, regenerable via `codegraph init`)
+.codegraph/
