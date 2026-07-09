@@ -79,7 +79,8 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::sources::search_source,
             commands::sources::import_source_items,
             commands::url::clipboard_url,
-            commands::url::import_url
+            commands::url::import_url,
+            commands::url::open_link_window
         ])
         .events(collect_events![
             events::ImportProgress,

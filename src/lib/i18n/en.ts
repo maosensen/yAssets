@@ -274,7 +274,8 @@ export const en = {
 		deleteAction: "Delete",
 	},
 	assetMenu: {
-		openLink: "Open Link",
+		open: "Open",
+		openInBrowser: "Open in Browser",
 		addToFolder: "Add to Folder",
 		noFolders: "No folders yet",
 		removeFromFolder: "Remove from This Folder",

@@ -44,7 +44,7 @@ import {
 import { commands } from "@/lib/bindings";
 import { pickDirectory, pickFiles } from "@/lib/dialogs";
 import { libraryViewSchema } from "@/lib/library-view";
-import { openExternalUrl } from "@/lib/opener";
+import { openLinkWindow } from "@/lib/opener";
 import {
 	fetchAssetIdsForView,
 	useDeleteAssetsForever,
@@ -111,13 +111,13 @@ function LibraryHome() {
 	}, [quickLook, quickAsset]);
 
 	// Double-click → full-pane preview route, carrying the view context so
-	// prev/next walk the same list. A link asset opens its URL in the browser
-	// instead (its stored file is just the page's cover image).
+	// prev/next walk the same list. A link asset instead opens its page live in
+	// the in-app browser window (its stored file is just the page's cover).
 	const openPreview = useCallback(
 		(id: string) => {
 			const asset = listRef.current.items.find((a) => a.id === id);
 			if (asset?.kind === "link") {
-				if (asset.url) void openExternalUrl(asset.url);
+				if (asset.url) void openLinkWindow(asset.url, asset.name);
 				return;
 			}
 			void navigate({ to: "/preview", search: { ...search, id } });

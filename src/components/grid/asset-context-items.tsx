@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/context-menu";
 import { useExport } from "@/hooks/use-export";
 import { hasCapturableCover } from "@/lib/cover-capture";
-import { openExternalUrl } from "@/lib/opener";
+import { openExternalUrl, openLinkWindow } from "@/lib/opener";
 import {
 	revealAsset,
 	useRegenerateCover,
@@ -102,8 +102,11 @@ export function AssetContextItems({
 		<>
 			{kind === "link" && url && (
 				<>
+					<ContextMenuItem onClick={() => void openLinkWindow(url)}>
+						{T.assetMenu.open}
+					</ContextMenuItem>
 					<ContextMenuItem onClick={() => void openExternalUrl(url)}>
-						{T.assetMenu.openLink}
+						{T.assetMenu.openInBrowser}
 					</ContextMenuItem>
 					<ContextMenuSeparator />
 				</>

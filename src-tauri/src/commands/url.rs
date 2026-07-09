@@ -15,6 +15,7 @@ use reqwest::header::{ACCEPT, CONTENT_TYPE, LOCATION, USER_AGENT};
 use reqwest::Url;
 use rusqlite::OptionalExtension;
 use serde::Serialize;
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 use crate::commands::sources::host_is_blocked;
 use crate::error::{AppError, AppResult};
@@ -22,6 +23,13 @@ use crate::import::{process_file_with_meta, FileOutcome};
 use crate::library::{new_id, Library};
 use crate::link;
 use crate::state::AppState;
+
+/// The single reused in-app browser window for opening link assets. A remote
+/// (External) URL loaded as a window's top document is NOT subject to
+/// `X-Frame-Options` (that only blocks iframing), so sites that refuse
+/// embedding — X, Google, GitHub — still render here. The window matches no
+/// capability, so the loaded page gets none of the app's IPC commands.
+const LINK_WINDOW_LABEL: &str = "link-viewer";
 
 /// Bounded redirect chain — enough for the common `http→https` / `apex→www`
 /// hops without becoming a redirect-loop amplifier.
@@ -117,6 +125,44 @@ pub async fn import_url(
         };
         import_link(&client, &library, &final_url, folder_id, meta, host).await
     }
+}
+
+/// Open a link asset's page in the in-app browser window (reused across links).
+/// Renders the live site — it's a top-level webview load, not an iframe.
+#[tauri::command]
+#[specta::specta]
+pub fn open_link_window(
+    url: String,
+    title: Option<String>,
+    app: tauri::AppHandle,
+) -> AppResult<()> {
+    let parsed = Url::parse(&url).map_err(|_| AppError::Conflict("invalid url".into()))?;
+    if !matches!(parsed.scheme(), "http" | "https") {
+        return Err(AppError::Conflict("refusing non-web URL".into()));
+    }
+    let title = title
+        .filter(|t| !t.trim().is_empty())
+        .unwrap_or_else(|| link::host_label(&parsed));
+
+    // Reuse one window: subsequent opens navigate it, like a single browser tab.
+    if let Some(win) = app.get_webview_window(LINK_WINDOW_LABEL) {
+        win.navigate(parsed).map_err(window_err)?;
+        let _ = win.set_title(&title);
+        let _ = win.set_focus();
+        return Ok(());
+    }
+    WebviewWindowBuilder::new(&app, LINK_WINDOW_LABEL, WebviewUrl::External(parsed))
+        .title(&title)
+        .inner_size(1200.0, 820.0)
+        .center()
+        .build()
+        .map_err(window_err)?;
+    Ok(())
+}
+
+fn window_err(err: tauri::Error) -> AppError {
+    log::error!("link window failed: {err}");
+    AppError::Internal
 }
 
 /// Direct-media branch: the response body *is* the asset.

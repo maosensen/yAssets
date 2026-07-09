@@ -276,7 +276,8 @@ export const ja: Messages = {
 		deleteAction: "削除",
 	},
 	assetMenu: {
-		openLink: "リンクを開く",
+		open: "開く",
+		openInBrowser: "ブラウザで開く",
 		addToFolder: "フォルダに追加",
 		noFolders: "フォルダはまだありません",
 		removeFromFolder: "このフォルダから削除",

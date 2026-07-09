@@ -210,6 +210,11 @@ export const commands = {
 	 */
 	clipboardUrl: () => typedError<string | null, AppError>(__TAURI_INVOKE("clipboard_url")),
 	importUrl: (url: string, folderId: string | null) => typedError<UrlImport, AppError>(__TAURI_INVOKE("import_url", { url, folderId })),
+	/**
+	 *  Open a link asset's page in the in-app browser window (reused across links).
+	 *  Renders the live site — it's a top-level webview load, not an iframe.
+	 */
+	openLinkWindow: (url: string, title: string | null) => typedError<null, AppError>(__TAURI_INVOKE("open_link_window", { url, title })),
 };
 
 /** Events */
