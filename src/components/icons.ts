@@ -58,6 +58,8 @@ export { default as IconUncategorized } from "~icons/solar/inbox-line-duotone";
 export { default as IconInfo } from "~icons/solar/info-circle-line-duotone";
 export { default as IconMulti } from "~icons/solar/layers-line-duotone";
 export { default as IconLibrary } from "~icons/solar/library-line-duotone";
+// Link asset — a bookmark imported from a pasted URL.
+export { default as IconLink } from "~icons/solar/link-line-duotone";
 export { default as IconMagic } from "~icons/solar/magic-stick-3-line-duotone";
 export { default as IconSearch } from "~icons/solar/magnifer-line-duotone";
 export { default as IconExitFullscreen } from "~icons/solar/minimize-line-duotone";

@@ -471,6 +471,35 @@ pub(crate) fn process_file_with_source(
     source: Option<&str>,
     note: Option<&str>,
 ) -> Result<FileOutcome, String> {
+    process_file_with_meta(
+        library,
+        path,
+        folder_id,
+        seen_hashes,
+        keep_duplicates,
+        source,
+        note,
+        "file",
+        None,
+    )
+}
+
+/// The full import entry point. Beyond `source`/`note`, it records the asset
+/// `kind` (`"file"` | `"link"`) and an optional `name_override` (used by the
+/// paste-a-URL link importer, whose display name is the page title, not the
+/// downloaded cover's filename).
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn process_file_with_meta(
+    library: &Library,
+    path: &Path,
+    folder_id: Option<&str>,
+    seen_hashes: &Mutex<HashSet<String>>,
+    keep_duplicates: bool,
+    source: Option<&str>,
+    note: Option<&str>,
+    kind: &str,
+    name_override: Option<&str>,
+) -> Result<FileOutcome, String> {
     let hash = hash_file(path).map_err(|err| format!("hash failed: {err}"))?;
 
     // Batch-local dedupe (two copies of the same file in one drop).
@@ -514,7 +543,11 @@ pub(crate) fn process_file_with_source(
     }
 
     let metadata = std::fs::metadata(path).map_err(|err| format!("stat failed: {err}"))?;
-    let name = display_name(path);
+    let name = name_override
+        .map(str::trim)
+        .filter(|n| !n.is_empty())
+        .map(str::to_string)
+        .unwrap_or_else(|| display_name(path));
     let ext_display = path
         .extension()
         .map(|e| e.to_string_lossy().to_lowercase())
@@ -565,9 +598,9 @@ pub(crate) fn process_file_with_source(
             "INSERT INTO assets (
                id, name, ext, mime, size, width, height, hash_blake3,
                storage, src_path, rel_path, has_thumb, hue, palette, dhash,
-               imported_at, file_mtime, file_ctime, updated_at, url, note
+               imported_at, file_mtime, file_ctime, updated_at, url, note, kind
              ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8,
-                       'managed', ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?15, ?18, ?19)",
+                       'managed', ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?15, ?18, ?19, ?20)",
             rusqlite::params![
                 id,
                 name,
@@ -588,6 +621,7 @@ pub(crate) fn process_file_with_source(
                 system_time_ms(metadata.created().ok()),
                 source,
                 note.unwrap_or(""),
+                kind,
             ],
         )?;
         if let Some(folder) = folder_id {
@@ -853,6 +887,60 @@ mod tests {
             .expect("reader");
         assert_eq!(url.as_deref(), Some("https://wallhaven.cc/w/abc123"));
         assert_eq!(note, "By Jane Doe · CC BY 4.0");
+    }
+
+    #[test]
+    fn process_file_with_meta_records_link_kind_and_title() {
+        let (tmp, lib) = test_library();
+        // The link's stored file is its (cover) image; kind + name come from the
+        // page, not the file.
+        let cover = tmp.path().join("cover.png");
+        write_png(&cover, 1200, 630, 9);
+
+        let seen = Mutex::new(HashSet::new());
+        let outcome = process_file_with_meta(
+            &lib,
+            &cover,
+            None,
+            &seen,
+            true,
+            Some("https://x.com/user/status/123"),
+            Some("A great thread about design."),
+            "link",
+            Some("AI agent workflow product design"),
+        )
+        .expect("import link");
+        assert!(matches!(outcome, FileOutcome::Imported));
+
+        let (name, kind, url): (String, String, Option<String>) = lib
+            .with_reader(|conn| {
+                Ok(conn
+                    .query_row("SELECT name, kind, url FROM assets", [], |row| {
+                        Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+                    })
+                    .expect("row"))
+            })
+            .expect("reader");
+        assert_eq!(name, "AI agent workflow product design");
+        assert_eq!(kind, "link");
+        assert_eq!(url.as_deref(), Some("https://x.com/user/status/123"));
+    }
+
+    #[test]
+    fn process_file_defaults_kind_to_file() {
+        let (tmp, lib) = test_library();
+        let src = tmp.path().join("plain.png");
+        write_png(&src, 64, 64, 3);
+        let seen = Mutex::new(HashSet::new());
+        process_file(&lib, &src, None, &seen, false).expect("import");
+        let kind: String = lib
+            .with_reader(|conn| {
+                Ok(conn
+                    .query_row("SELECT kind FROM assets", [], |row| row.get(0))
+                    .expect("row"))
+            })
+            .expect("reader");
+        assert_eq!(kind, "file");
     }
 
     #[test]

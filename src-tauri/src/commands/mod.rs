@@ -22,4 +22,5 @@ pub mod smart_folders;
 pub mod sources;
 pub mod tags;
 pub mod trash;
+pub mod url;
 pub mod watched_folders;

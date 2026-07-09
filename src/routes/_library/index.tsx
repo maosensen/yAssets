@@ -36,9 +36,15 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { useImport, useImportClipboard } from "@/hooks/use-import";
+import {
+	useImport,
+	useImportClipboard,
+	useImportUrl,
+} from "@/hooks/use-import";
+import { commands } from "@/lib/bindings";
 import { pickDirectory, pickFiles } from "@/lib/dialogs";
 import { libraryViewSchema } from "@/lib/library-view";
+import { openExternalUrl } from "@/lib/opener";
 import {
 	fetchAssetIdsForView,
 	useDeleteAssetsForever,
@@ -74,6 +80,7 @@ function LibraryHome() {
 
 	const { importPaths, isImporting } = useImport();
 	const { importClipboard } = useImportClipboard();
+	const { importUrl } = useImportUrl();
 	const trashMutation = useTrashAssets();
 	const deleteForeverMutation = useDeleteAssetsForever();
 	const emptyTrashMutation = useEmptyTrash();
@@ -104,9 +111,15 @@ function LibraryHome() {
 	}, [quickLook, quickAsset]);
 
 	// Double-click → full-pane preview route, carrying the view context so
-	// prev/next walk the same list.
+	// prev/next walk the same list. A link asset opens its URL in the browser
+	// instead (its stored file is just the page's cover image).
 	const openPreview = useCallback(
 		(id: string) => {
+			const asset = listRef.current.items.find((a) => a.id === id);
+			if (asset?.kind === "link") {
+				if (asset.url) void openExternalUrl(asset.url);
+				return;
+			}
 			void navigate({ to: "/preview", search: { ...search, id } });
 		},
 		[navigate, search],
@@ -183,11 +196,19 @@ function LibraryHome() {
 					.catch(() => {});
 				return;
 			}
-			// Cmd/Ctrl+V — paste external assets (files or a bitmap) into the
-			// current folder view.
+			// Cmd/Ctrl+V — paste into the current folder view. A clipboard URL
+			// (no copied files/bitmap) imports as a link/media asset; otherwise
+			// fall back to the files/bitmap clipboard import.
 			if ((event.metaKey || event.ctrlKey) && event.key === "v") {
 				event.preventDefault();
-				importClipboard(currentFolderId);
+				void commands
+					.clipboardUrl()
+					.then((result) => {
+						const url = result.status === "ok" ? result.data : null;
+						if (url) importUrl(url, currentFolderId);
+						else importClipboard(currentFolderId);
+					})
+					.catch(() => importClipboard(currentFolderId));
 				return;
 			}
 			if (event.key === "Delete" || event.key === "Backspace") {
@@ -205,6 +226,7 @@ function LibraryHome() {
 		trashMutation,
 		clearSelection,
 		importClipboard,
+		importUrl,
 		currentFolderId,
 	]);
 

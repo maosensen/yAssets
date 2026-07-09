@@ -97,6 +97,12 @@ pub struct AssetSummary {
     pub height: Option<u32>,
     pub has_thumb: bool,
     pub rating: u8,
+    /// `"file"` (normal managed file) or `"link"` (a bookmark whose cover is the
+    /// page's Open Graph image). Drives the grid's link badge + open-in-browser.
+    pub kind: String,
+    /// Source/provenance URL. Carried on the summary so a link card can show its
+    /// host and open in the browser without an extra fetch. None for most files.
+    pub url: Option<String>,
     /// Unix ms.
     pub imported_at: f64,
     /// Unix ms of last metadata edit — carried so the keyset cursor for the
@@ -133,6 +139,8 @@ pub struct AssetDetail {
     pub height: Option<u32>,
     pub has_thumb: bool,
     pub rating: u8,
+    /// `"file"` or `"link"` — see `AssetSummary::kind`.
+    pub kind: String,
     pub note: String,
     pub hash_blake3: String,
     /// Original path at import time (provenance display only).
@@ -161,7 +169,7 @@ pub struct AssetPatch {
 }
 
 pub(crate) const SUMMARY_COLS: &str =
-    "id, name, ext, size, width, height, has_thumb, rating, imported_at, updated_at, duration_ms";
+    "id, name, ext, size, width, height, has_thumb, rating, imported_at, updated_at, duration_ms, kind, url";
 
 pub(crate) fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<AssetSummary> {
     Ok(AssetSummary {
@@ -176,6 +184,8 @@ pub(crate) fn summary_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Asse
         imported_at: row.get::<_, i64>(8)? as f64,
         updated_at: row.get::<_, i64>(9)? as f64,
         duration_ms: row.get::<_, Option<i64>>(10)?.map(|v| v as f64),
+        kind: row.get(11)?,
+        url: row.get(12)?,
     })
 }
 
@@ -466,7 +476,7 @@ fn detail_by_id(conn: &rusqlite::Connection, id: &str) -> AppResult<AssetDetail>
         .query_row(
             "SELECT id, name, ext, mime, size, width, height, has_thumb, rating,
                     note, hash_blake3, src_path, imported_at, file_mtime,
-                    file_ctime, updated_at, deleted_at, palette, url
+                    file_ctime, updated_at, deleted_at, palette, url, kind
              FROM assets WHERE id = ?1",
             [id],
             |row| {
@@ -484,6 +494,7 @@ fn detail_by_id(conn: &rusqlite::Connection, id: &str) -> AppResult<AssetDetail>
                     height: row.get(6)?,
                     has_thumb: row.get(7)?,
                     rating: row.get::<_, i64>(8)? as u8,
+                    kind: row.get(19)?,
                     note: row.get(9)?,
                     hash_blake3: row.get(10)?,
                     src_path: row.get(11)?,

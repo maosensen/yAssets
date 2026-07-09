@@ -4,6 +4,7 @@ mod error;
 mod events;
 mod import;
 mod library;
+mod link;
 mod media_protocol;
 mod sources;
 mod state;
@@ -76,7 +77,9 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::maintenance::clean_orphans,
             commands::export::export_assets,
             commands::sources::search_source,
-            commands::sources::import_source_items
+            commands::sources::import_source_items,
+            commands::url::clipboard_url,
+            commands::url::import_url
         ])
         .events(collect_events![
             events::ImportProgress,

@@ -172,3 +172,46 @@ export function useImportClipboard() {
 			mutation.mutate(folderId ?? null),
 	};
 }
+
+/**
+ * Paste-a-URL import (⌘V on a clipboard URL). All network is in Rust; this is a
+ * single result-returning call (like Discover), so the toast goes
+ * loading → result rather than riding the import event stream.
+ */
+export function useImportUrl() {
+	const queryClient = useQueryClient();
+	const mutation = useMutation({
+		mutationFn: async (input: { url: string; folderId: string | null }) =>
+			unwrap(await commands.importUrl(input.url, input.folderId)),
+		// Fixed id so the loading toast is replaced in place by the result.
+		onMutate: () => {
+			toast.loading(T.import.urlFetching, { id: URL_TOAST_ID });
+		},
+		onSuccess: (result) => {
+			if (result.duplicate) {
+				toast.info(T.import.urlDuplicate, { id: URL_TOAST_ID, duration: 4000 });
+			} else if (result.kind === "link") {
+				toast.success(T.import.urlSavedLink(result.host), {
+					id: URL_TOAST_ID,
+					duration: 4000,
+				});
+			} else {
+				toast.success(T.import.urlImportedMedia(result.title), {
+					id: URL_TOAST_ID,
+					duration: 4000,
+				});
+			}
+			void queryClient.invalidateQueries({ queryKey: assetKeys.all });
+			void queryClient.invalidateQueries({ queryKey: folderKeys.all });
+			void queryClient.invalidateQueries({ queryKey: libraryKeys.stats });
+		},
+		onError: (error) => toast.error(describeError(error), { id: URL_TOAST_ID }),
+	});
+
+	return {
+		importUrl: (url: string, folderId?: string | null) =>
+			mutation.mutate({ url, folderId: folderId ?? null }),
+	};
+}
+
+const URL_TOAST_ID = "url-import";

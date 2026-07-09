@@ -424,6 +424,10 @@ export const ja: Messages = {
 		importFiles: "ファイルをインポート",
 		importFolder: "フォルダをインポート",
 		pasteEmpty: "クリップボードにインポート可能なものがありません",
+		urlFetching: "URL を読み込み中…",
+		urlSavedLink: (host: string) => `リンクを保存しました · ${host}`,
+		urlImportedMedia: (name: string) => `${name} をインポートしました`,
+		urlDuplicate: "すでにライブラリにあります",
 	},
 	duplicatesCenter: {
 		open: "重複を検索…",

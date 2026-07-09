@@ -420,6 +420,10 @@ export const en = {
 		importFiles: "Import Files",
 		importFolder: "Import Folder",
 		pasteEmpty: "Clipboard has nothing importable",
+		urlFetching: "Fetching URL…",
+		urlSavedLink: (host: string) => `Saved link · ${host}`,
+		urlImportedMedia: (name: string) => `Imported ${name}`,
+		urlDuplicate: "Already in your library",
 	},
 	duplicatesCenter: {
 		open: "Find Duplicates…",

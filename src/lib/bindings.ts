@@ -203,6 +203,13 @@ export const commands = {
 	exportAssets: (ids: string[], destDir: string) => typedError<number, AppError>(__TAURI_INVOKE("export_assets", { ids, destDir })),
 	searchSource: (provider: SourceProvider, query: string, page: number, filters: SourceFilters, apiKey: string | null) => typedError<SourceSearchResult, AppError>(__TAURI_INVOKE("search_source", { provider, query, page, filters, apiKey })),
 	importSourceItems: (items: SourceItem[], folderId: string | null) => typedError<ImportSummary, AppError>(__TAURI_INVOKE("import_source_items", { items, folderId })),
+	/**
+	 *  If the clipboard holds *only* a web URL (no copied files or bitmap, which
+	 *  `import_clipboard` handles and which take priority), return it normalized.
+	 *  `⌘V` calls this before `import_clipboard`; `None` means "not a URL paste".
+	 */
+	clipboardUrl: () => typedError<string | null, AppError>(__TAURI_INVOKE("clipboard_url")),
+	importUrl: (url: string, folderId: string | null) => typedError<UrlImport, AppError>(__TAURI_INVOKE("import_url", { url, folderId })),
 };
 
 /** Events */
@@ -247,6 +254,8 @@ export type AssetDetail = {
 	height: number | null,
 	has_thumb: boolean,
 	rating: number,
+	/**  `"file"` or `"link"` — see `AssetSummary::kind`. */
+	kind: string,
 	note: string,
 	hash_blake3: string,
 	/**  Original path at import time (provenance display only). */
@@ -324,6 +333,16 @@ export type AssetSummary = {
 	height: number | null,
 	has_thumb: boolean,
 	rating: number,
+	/**
+	 *  `"file"` (normal managed file) or `"link"` (a bookmark whose cover is the
+	 *  page's Open Graph image). Drives the grid's link badge + open-in-browser.
+	 */
+	kind: string,
+	/**
+	 *  Source/provenance URL. Carried on the summary so a link card can show its
+	 *  host and open in the browser without an extra fetch. None for most files.
+	 */
+	url: string | null,
 	/**  Unix ms. */
 	imported_at: number | null,
 	/**
@@ -635,6 +654,21 @@ export type TagRef = {
 	id: string,
 	name: string,
 	color: string | null,
+};
+
+/**  Result of a single URL import, for the toast. */
+export type UrlImport = {
+	/**  `"link"` (a bookmark) or `"media"` (a downloaded file). */
+	kind: string,
+	/**  Display title — the page title, or the media filename. */
+	title: string,
+	/**  Short host, e.g. `x.com`. */
+	host: string,
+	/**
+	 *  The asset was already in the library (a link with the same URL, or media
+	 *  with identical content).
+	 */
+	duplicate: boolean,
 };
 
 export type WatchedFolder = {

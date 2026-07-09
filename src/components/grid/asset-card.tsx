@@ -7,7 +7,8 @@
  */
 
 import { memo, useState } from "react";
-import { formatDuration } from "@/lib/format";
+import { IconLink } from "@/components/icons";
+import { formatDuration, hostLabel } from "@/lib/format";
 import { useThumbSrc } from "@/lib/stores/cover-bust-store";
 import { useSelectionStore } from "@/lib/stores/selection-store";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,10 @@ type AssetCardProps = {
 	name: string;
 	ext: string;
 	hasThumb: boolean;
+	/** `"file"` or `"link"` — a link shows a URL badge + host, opens in browser. */
+	kind: string;
+	/** Provenance URL — a link card shows its host as the secondary line. */
+	url?: string | null;
 	/** Source video duration in ms — renders a badge on video cards. */
 	durationMs?: number | null;
 	/** Layout box width in px (the wrapper positions the card). */
@@ -49,6 +54,8 @@ export const AssetCard = memo(function AssetCard({
 	name,
 	ext,
 	hasThumb,
+	kind,
+	url,
 	durationMs,
 	width,
 	imageHeight,
@@ -66,11 +73,18 @@ export const AssetCard = memo(function AssetCard({
 	const [brokenSrc, setBrokenSrc] = useState<string | null>(null);
 	const broken = brokenSrc === thumbSrc;
 	const normalizedExt = ext.toLowerCase();
-	const showChip = ext !== "" && !CHIP_HIDDEN_EXTS.has(normalizedExt);
+	const isLink = kind === "link";
+	const host = isLink ? hostLabel(url) : null;
+	// Links show a URL badge instead of the (cover's) file-type chip.
+	const showChip =
+		!isLink && ext !== "" && !CHIP_HIDDEN_EXTS.has(normalizedExt);
 	const duration = VIDEO_EXTS.has(normalizedExt)
 		? formatDuration(durationMs)
 		: null;
-	const TypeIcon = iconForExt(ext);
+	// A link with no usable cover falls back to a link glyph, not a file icon.
+	const TypeIcon = isLink ? IconLink : iconForExt(ext);
+	// The caption's second line: a link's host, otherwise the passed meta.
+	const secondaryLine = host ?? meta;
 
 	return (
 		<button
@@ -118,6 +132,13 @@ export const AssetCard = memo(function AssetCard({
 						{ext}
 					</span>
 				)}
+				{/* Link badge — marks a pasted-URL bookmark. */}
+				{isLink && (
+					<span className="absolute top-1 left-1 flex items-center gap-0.5 rounded bg-background/80 px-1 py-0.5 font-medium text-[9px] text-foreground uppercase leading-none">
+						<IconLink className="size-2.5" />
+						URL
+					</span>
+				)}
 				{/* Duration badge for videos with a probed length. */}
 				{duration && (
 					<span className="absolute right-1 bottom-1 rounded bg-background/80 px-1 py-0.5 font-medium text-[9px] text-foreground tabular-nums leading-none">
@@ -131,7 +152,7 @@ export const AssetCard = memo(function AssetCard({
 			>
 				<span className="truncate text-xs">{name}</span>
 				<span className="truncate text-[10px] text-muted-foreground">
-					{meta}
+					{secondaryLine}
 				</span>
 			</span>
 		</button>

@@ -190,7 +190,7 @@ async fn download(client: &reqwest::Client, url: &str) -> AppResult<Vec<u8>> {
 /// Domain names other than "localhost" are allowed (public providers); we can't
 /// resolve them here without a DNS round-trip, and the no-redirect + https-only
 /// client already prevents the classic redirect-to-internal pivot.
-fn host_is_blocked(host: Option<&str>) -> bool {
+pub(crate) fn host_is_blocked(host: Option<&str>) -> bool {
     let Some(host) = host else {
         return true;
     };

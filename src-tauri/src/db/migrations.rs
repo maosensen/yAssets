@@ -156,6 +156,13 @@ CREATE TABLE watched_folders (
   created_at INTEGER NOT NULL
 );
 "#,
+    // v9 — asset kind. `'file'` (default) is a normal managed file; `'link'` is
+    // an Eagle-style bookmark whose managed file is the page's Open Graph cover
+    // image, with the page recorded in `url`. Opening a link asset opens `url`
+    // in the browser instead of the internal viewer.
+    r#"
+ALTER TABLE assets ADD COLUMN kind TEXT NOT NULL DEFAULT 'file';
+"#,
 ];
 
 /// Current schema version an up-to-date library sits at.

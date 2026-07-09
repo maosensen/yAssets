@@ -415,6 +415,10 @@ export const zh: Messages = {
 		importFiles: "导入文件",
 		importFolder: "导入文件夹",
 		pasteEmpty: "剪贴板中没有可导入的内容",
+		urlFetching: "正在读取链接…",
+		urlSavedLink: (host: string) => `已保存链接 · ${host}`,
+		urlImportedMedia: (name: string) => `已导入 ${name}`,
+		urlDuplicate: "已在资料库中",
 	},
 	duplicatesCenter: {
 		open: "查找重复文件…",

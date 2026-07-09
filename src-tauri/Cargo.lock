@@ -6858,6 +6858,7 @@ dependencies = [
  "base64 0.22.1",
  "blake3",
  "clipboard-rs",
+ "dom_query",
  "fast_image_resize",
  "image",
  "log",

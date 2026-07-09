@@ -42,3 +42,16 @@ export function formatDuration(ms: number | null | undefined): string | null {
 	const ss = String(seconds).padStart(2, "0");
 	return hours > 0 ? `${hours}:${mm}:${ss}` : `${mm}:${ss}`;
 }
+
+/**
+ * Short, display-friendly host of a URL (drops a leading `www.`), for link
+ * cards. Returns null for a missing/unparseable URL.
+ */
+export function hostLabel(url: string | null | undefined): string | null {
+	if (!url) return null;
+	try {
+		return new URL(url).hostname.replace(/^www\./, "");
+	} catch {
+		return null;
+	}
+}
