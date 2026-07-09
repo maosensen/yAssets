@@ -103,7 +103,9 @@ pub async fn import_url(
     } else {
         let meta = if link::is_html_content_type(&content_type) {
             let bytes = read_body_capped(resp, MAX_HTML_BYTES).await?;
-            let html = String::from_utf8_lossy(&bytes);
+            // Decode by the page's declared charset (Content-Type / <meta>) so
+            // legacy Shift-JIS / EUC-JP / GBK titles aren't mojibake.
+            let html = link::decode_html(&bytes, &content_type);
             link::parse_link_meta(&html, &final_url)
         } else {
             // Neither media nor HTML (e.g. a JSON endpoint): still bookmark it,

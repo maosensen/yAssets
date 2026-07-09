@@ -512,13 +512,17 @@ pub(crate) fn process_file_with_meta(
 
     // Library-wide dedupe (L1 exact, blake3): an alive asset with the same
     // content wins; a targeted folder still gains membership of the existing
-    // asset. "Keep both" jobs skip this check entirely.
+    // asset. "Keep both" jobs skip this check entirely. Only files dedupe
+    // against files: a link asset's stored cover image must never swallow a
+    // real file import (nor vice versa — link imports pass keep_duplicates).
     if !keep_duplicates {
         let existing: Option<String> = library
             .with_reader(|conn| {
                 Ok(conn
                     .query_row(
-                        "SELECT id FROM assets WHERE hash_blake3 = ?1 AND deleted_at IS NULL LIMIT 1",
+                        "SELECT id FROM assets
+                           WHERE hash_blake3 = ?1 AND deleted_at IS NULL AND kind = 'file'
+                           LIMIT 1",
                         [&hash],
                         |row| row.get(0),
                     )
@@ -924,6 +928,55 @@ mod tests {
         assert_eq!(name, "AI agent workflow product design");
         assert_eq!(kind, "link");
         assert_eq!(url.as_deref(), Some("https://x.com/user/status/123"));
+    }
+
+    #[test]
+    fn file_import_does_not_dedupe_onto_a_link_cover() {
+        let (tmp, lib) = test_library();
+        // A link's cover and a standalone file can be byte-identical.
+        let cover = tmp.path().join("cover.png");
+        write_png(&cover, 200, 120, 42);
+        let same = tmp.path().join("same.png");
+        write_png(&same, 200, 120, 42);
+
+        // Import the page as a link (its cover is the managed file).
+        let seen = Mutex::new(HashSet::new());
+        process_file_with_meta(
+            &lib,
+            &cover,
+            None,
+            &seen,
+            true,
+            Some("https://example.com/post"),
+            None,
+            "link",
+            Some("A Post"),
+        )
+        .expect("import link");
+
+        // Importing the identical image as a normal file must NOT collapse onto
+        // the bookmark — it imports as its own file asset.
+        let seen2 = Mutex::new(HashSet::new());
+        let outcome = process_file(&lib, &same, None, &seen2, false).expect("import file");
+        assert!(
+            matches!(outcome, FileOutcome::Imported),
+            "file import wrongly deduped onto a link cover"
+        );
+
+        let (files, links): (i64, i64) = lib
+            .with_reader(|conn| {
+                Ok(conn
+                    .query_row(
+                        "SELECT
+                           (SELECT COUNT(*) FROM assets WHERE kind = 'file'),
+                           (SELECT COUNT(*) FROM assets WHERE kind = 'link')",
+                        [],
+                        |row| Ok((row.get(0)?, row.get(1)?)),
+                    )
+                    .expect("counts"))
+            })
+            .expect("reader");
+        assert_eq!((files, links), (1, 1));
     }
 
     #[test]

@@ -27,6 +27,52 @@ pub struct LinkMeta {
     pub favicon_url: Option<String>,
 }
 
+/// Decode fetched HTML bytes into a `String` using the page's declared charset:
+/// the Content-Type header's `charset=` if present, else a `<meta charset>` in
+/// the head, else UTF-8. Keeps legacy Shift-JIS / EUC-JP / GBK titles readable
+/// instead of the mojibake a blind `from_utf8_lossy` would produce.
+pub fn decode_html(bytes: &[u8], content_type: &str) -> String {
+    let label = charset_from_content_type(content_type).or_else(|| charset_from_meta(bytes));
+    let encoding = label
+        .and_then(|l| encoding_rs::Encoding::for_label(l.as_bytes()))
+        .unwrap_or(encoding_rs::UTF_8);
+    encoding.decode(bytes).0.into_owned()
+}
+
+/// The `charset=` token from a Content-Type header value, lowercased.
+fn charset_from_content_type(content_type: &str) -> Option<String> {
+    let lower = content_type.to_ascii_lowercase();
+    let idx = lower.find("charset=")?;
+    let value = charset_token(&lower[idx + "charset=".len()..]);
+    (!value.is_empty()).then(|| value.to_string())
+}
+
+/// A `<meta charset=...>` (or `<meta http-equiv=content-type ... charset=...>`)
+/// from the first bytes of the document — the HTML5 encoding pre-scan.
+fn charset_from_meta(bytes: &[u8]) -> Option<String> {
+    // charset labels are ASCII; read the prefix byte-for-byte (latin1) so a
+    // non-UTF-8 body doesn't derail the scan.
+    let head: String = bytes[..bytes.len().min(2048)]
+        .iter()
+        .map(|&b| b as char)
+        .collect::<String>()
+        .to_ascii_lowercase();
+    let idx = head.find("charset=")?;
+    let value = charset_token(&head[idx + "charset=".len()..]);
+    (!value.is_empty() && value.len() < 40).then(|| value.to_string())
+}
+
+/// The encoding label at the start of `s`, up to the first delimiter.
+fn charset_token(s: &str) -> &str {
+    s.trim_start()
+        .trim_start_matches(['"', '\''])
+        .split(|c: char| {
+            c == ';' || c == '"' || c == '\'' || c == '>' || c == '/' || c.is_whitespace()
+        })
+        .next()
+        .unwrap_or("")
+}
+
 /// Parse a page's `<head>` metadata. `base` is the page's final URL (after any
 /// redirects), used to resolve relative image/icon URLs to absolute.
 pub fn parse_link_meta(html: &str, base: &Url) -> LinkMeta {
@@ -51,7 +97,11 @@ pub fn parse_link_meta(html: &str, base: &Url) -> LinkMeta {
         "meta[name='twitter:title']",
     ])
     .or_else(|| {
-        let t = doc.select("title").text().trim().to_string();
+        // Scope to the document title and take a single node: a bare `title`
+        // selector also matches inline SVG/MathML <title> accessibility labels
+        // in the body, and `.text()` would concatenate them all
+        // ("Real TitleSearchMenu").
+        let t = doc.select_single("head title").text().trim().to_string();
         (!t.is_empty()).then_some(t)
     });
 
@@ -341,6 +391,19 @@ mod tests {
     }
 
     #[test]
+    fn title_fallback_ignores_inline_svg_titles() {
+        // No og/twitter title → the <head> <title> wins, and inline SVG icon
+        // <title> labels in the body must NOT be concatenated into it.
+        let html = r#"<!doctype html><html><head><title>Real Page Title</title></head>
+            <body>
+              <button><svg><title>Search</title></svg></button>
+              <nav><svg><title>Menu</title></svg></nav>
+            </body></html>"#;
+        let meta = parse_link_meta(html, &base());
+        assert_eq!(meta.title.as_deref(), Some("Real Page Title"));
+    }
+
+    #[test]
     fn resolves_relative_image_and_defaults_favicon() {
         let html = r#"<html><head>
             <meta property="og:title" content="Rel">
@@ -447,6 +510,26 @@ mod tests {
         assert_eq!((img.width(), img.height()), (64, 40));
         // Different seeds → different covers.
         assert_ne!(bytes, placeholder_png("other.com", 64, 40));
+    }
+
+    #[test]
+    fn decode_html_honors_declared_charset() {
+        // charset from the Content-Type header.
+        let (bytes, _, _) = encoding_rs::SHIFT_JIS.encode("<title>日本語のページ</title>");
+        let html = decode_html(&bytes, "text/html; charset=Shift_JIS");
+        assert!(html.contains("日本語のページ"), "got: {html}");
+
+        // charset from a <meta> tag when the header omits it.
+        let (bytes2, _, _) =
+            encoding_rs::SHIFT_JIS.encode(r#"<meta charset="shift_jis"><title>日本語</title>"#);
+        let html2 = decode_html(&bytes2, "text/html");
+        assert!(html2.contains("日本語"), "got: {html2}");
+
+        // Plain UTF-8 (no declared charset) round-trips.
+        assert_eq!(
+            decode_html("hello world".as_bytes(), "text/html"),
+            "hello world"
+        );
     }
 
     #[test]
