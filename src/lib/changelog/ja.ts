@@ -2,6 +2,19 @@ import type { ChangelogRelease } from "./index";
 
 export const ja: ChangelogRelease[] = [
 	{
+		version: "0.1.17",
+		date: "2026-07-09",
+		title: "新着情報がリニューアル",
+		summary: "いま読んでいるこの画面が新しくなりました。",
+		changes: [
+			{
+				kind: "improved",
+				title: "リリースノートのレイアウト",
+				text: "各リリースはバージョンチップ・見出し・概要から始まり、タイムラインに沿って、小見出し付き・分類済みの項目が並びます。",
+			},
+		],
+	},
+	{
 		version: "0.1.16",
 		date: "2026-07-09",
 		title: "ウェブページをライブラリへ",

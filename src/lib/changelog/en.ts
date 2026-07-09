@@ -2,6 +2,19 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.17",
+		date: "2026-07-09",
+		title: "A fresh What's New",
+		summary: "The page you're reading right now got a redesign.",
+		changes: [
+			{
+				kind: "improved",
+				title: "Release-notes layout",
+				text: "Each release now opens on a timeline with a version chip, a headline and a short summary, followed by titled, categorized changes.",
+			},
+		],
+	},
+	{
 		version: "0.1.16",
 		date: "2026-07-09",
 		title: "Bookmark the web",

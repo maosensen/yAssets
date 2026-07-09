@@ -2,6 +2,19 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.17",
+		date: "2026-07-09",
+		title: "焕然一新的更新日志",
+		summary: "你现在看到的这个页面,换上了新排版。",
+		changes: [
+			{
+				kind: "improved",
+				title: "发布说明排版",
+				text: "每个版本以版本徽章、大标题与摘要开场,时间线串联,条目按类别分组并配有小标题。",
+			},
+		],
+	},
+	{
 		version: "0.1.16",
 		date: "2026-07-09",
 		title: "把网页收进素材库",

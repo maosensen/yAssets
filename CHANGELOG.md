@@ -9,6 +9,15 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.17] - 2026-07-09
+
+### Changed
+
+- **What's New, redesigned** — each release now opens on a timeline with a
+  version chip, a headline and a short summary, followed by a card of titled,
+  categorized changes. All 17 releases got curated headlines in English,
+  Chinese, and Japanese.
+
 ## [0.1.16] - 2026-07-09
 
 ### Added
@@ -229,7 +238,8 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.16...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.17...HEAD
+[0.1.17]: https://github.com/maosensen/yAssets/releases/tag/v0.1.17
 [0.1.16]: https://github.com/maosensen/yAssets/releases/tag/v0.1.16
 [0.1.15]: https://github.com/maosensen/yAssets/releases/tag/v0.1.15
 [0.1.14]: https://github.com/maosensen/yAssets/releases/tag/v0.1.14
