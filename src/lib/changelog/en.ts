@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.18",
+		date: "2026-07-16",
+		title: "Clip from your browser",
+		summary:
+			"The new yClip Chrome extension saves images, links, and pages from any website straight into your library.",
+		changes: [
+			{
+				kind: "new",
+				title: "Collect API + yClip",
+				text: "Enable the local Collect API in Preferences ▸ Collect (off by default, token-protected), pair the yClip extension once, and right-click — or ⌥+right-click — anything on the web to save it with its source page recorded. Hotlink-protected images (like pixiv) are fetched inside your browser session.",
+			},
+		],
+	},
+	{
 		version: "0.1.17",
 		date: "2026-07-09",
 		title: "A fresh What's New",

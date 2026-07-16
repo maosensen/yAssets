@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const ja: ChangelogRelease[] = [
 	{
+		version: "0.1.18",
+		date: "2026-07-16",
+		title: "ブラウザからそのまま収集",
+		summary:
+			"新しい yClip Chrome 拡張機能で、ウェブ上の画像・リンク・ページをワンクリックでライブラリへ。",
+		changes: [
+			{
+				kind: "new",
+				title: "Collect API + yClip",
+				text: "環境設定 ▸ Collect でローカル収集 API を有効化(既定はオフ、トークン保護)し、yClip 拡張機能を一度ペアリングすれば、右クリック(または ⌥+右クリック)で保存でき、取得元ページも自動記録されます。ホットリンク保護された画像(pixiv など)はブラウザのセッション内で取得します。",
+			},
+		],
+	},
+	{
 		version: "0.1.17",
 		date: "2026-07-09",
 		title: "新着情報がリニューアル",

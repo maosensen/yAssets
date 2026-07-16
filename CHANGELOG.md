@@ -9,6 +9,19 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.18] - 2026-07-16
+
+### Added
+
+- **Collect from your browser** — yAssets can now receive captures from the new
+  [yClip](https://github.com/maosensen/yClip) Chrome extension. Enable the
+  local Collect API in Preferences ▸ Collect (off by default; loopback-only and
+  token-protected), paste the token into yClip once, and right-click any image,
+  link, or page — or ⌥+right-click an image — to save it straight into your
+  library, with the source page recorded as provenance and duplicates detected
+  as usual. Hotlink-protected images (cookie- or Referer-gated CDNs such as
+  pixiv) are fetched inside the browser session and handed over as bytes.
+
 ## [0.1.17] - 2026-07-09
 
 ### Changed
@@ -239,6 +252,7 @@ with Tauri 2.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
 [Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.17...HEAD
+[0.1.18]: https://github.com/maosensen/yAssets/releases/tag/v0.1.18
 [0.1.17]: https://github.com/maosensen/yAssets/releases/tag/v0.1.17
 [0.1.16]: https://github.com/maosensen/yAssets/releases/tag/v0.1.16
 [0.1.15]: https://github.com/maosensen/yAssets/releases/tag/v0.1.15

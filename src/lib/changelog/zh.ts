@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.18",
+		date: "2026-07-16",
+		title: "从浏览器直接采集",
+		summary:
+			"全新的 yClip Chrome 扩展,把任意网页上的图片、链接和页面一键存进素材库。",
+		changes: [
+			{
+				kind: "new",
+				title: "Collect API + yClip",
+				text: "在偏好设置 ▸ Collect 中开启本地采集 API(默认关闭、token 保护),配对一次 yClip 扩展后,右键(或 ⌥+右键)即可保存网页内容,并自动记录来源页面。防盗链图片(如 pixiv)会在浏览器会话内抓取。",
+			},
+		],
+	},
+	{
 		version: "0.1.17",
 		date: "2026-07-09",
 		title: "焕然一新的更新日志",
