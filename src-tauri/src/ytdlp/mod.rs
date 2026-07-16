@@ -7,8 +7,9 @@
 //! Design decisions:
 //! - **Binary is managed, not bundled**: downloaded on demand from the yt-dlp
 //!   GitHub release into `<app-data>/tools/`, verified against the release's
-//!   `SHA2-256SUMS` before install, and installed via temp-file + rename so a
-//!   failed update never clobbers a working binary.
+//!   `SHA2-256SUMS` before install (transfer integrity — both artifacts ride
+//!   the same TLS channel, so this is not a signature check), and installed
+//!   via temp-file + rename so a failed update never clobbers a working binary.
 //! - **No ffmpeg (yet)**: format selection is `b[ext=mp4]/b` — the best
 //!   *single, pre-muxed* file. Covers Twitter/TikTok-class sources; merged
 //!   high-res (YouTube DASH) is a later milestone that brings ffmpeg.
@@ -174,7 +175,16 @@ fn install_from_bytes(bytes: &[u8], tools_dir: &Path) -> AppResult<()> {
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&staged, std::fs::Permissions::from_mode(0o755))?;
     }
-    std::fs::rename(&staged, binary_path(tools_dir))?;
+    // Windows can't replace a RUNNING executable in place, but it can rename
+    // it aside (the classic updater trick). Harmless elsewhere.
+    let dest = binary_path(tools_dir);
+    let old = tools_dir.join(format!("{}.old", binary_name()));
+    if dest.exists() {
+        let _ = std::fs::remove_file(&old);
+        let _ = std::fs::rename(&dest, &old);
+    }
+    std::fs::rename(&staged, &dest)?;
+    let _ = std::fs::remove_file(&old);
     // Belt-and-braces: our own download shouldn't be quarantined, but a
     // stray attribute would EACCES every run (Eagle's plugin hit this).
     #[cfg(target_os = "macos")]
@@ -195,29 +205,51 @@ pub async fn download_video(tools_dir: &Path, url: &str, dest_dir: &Path) -> App
         return Err(AppError::NotFound("yt-dlp is not installed".into()));
     }
     std::fs::create_dir_all(dest_dir)?;
-    let output_template = dest_dir.join("%(title).120B [%(id)s].%(ext)s");
 
-    let run = tokio::process::Command::new(&bin)
+    let mut command = tokio::process::Command::new(&bin);
+    command
         .arg("--no-playlist")
         .args(["-f", "b[ext=mp4]/b"])
         .args(["--max-filesize", MAX_FILESIZE_ARG])
         .args(["--socket-timeout", "30"])
         .arg("--no-progress")
         .arg("-o")
-        .arg(&output_template)
+        .arg(output_template(dest_dir))
         .arg("--")
         .arg(url)
-        .output();
-    let out = tokio::time::timeout(DOWNLOAD_TIMEOUT, run)
-        .await
-        .map_err(|_| AppError::Network("video download timed out".into()))?
-        .map_err(|err| AppError::Io(format!("failed to run yt-dlp: {err}")))?;
+        // Dropping the in-flight future (timeout, cancelled request) must
+        // take the child down with it — the default leaves an orphan yt-dlp
+        // downloading for potentially hours.
+        .kill_on_drop(true);
+    let out = match tokio::time::timeout(DOWNLOAD_TIMEOUT, command.output()).await {
+        Ok(result) => result.map_err(|err| AppError::Io(format!("failed to run yt-dlp: {err}")))?,
+        Err(_) => {
+            // The dropped future has signalled the kill; give it a beat to
+            // land so the caller's temp-dir cleanup doesn't race open files.
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            return Err(AppError::Network("video download timed out".into()));
+        }
+    };
 
     if !out.status.success() {
         return Err(AppError::Network(summarize_stderr(&out.stderr)));
     }
-    newest_file(dest_dir)?
-        .ok_or_else(|| AppError::Network("yt-dlp finished but produced no file".into()))
+    newest_file(dest_dir)?.ok_or_else(|| {
+        // --max-filesize makes yt-dlp SKIP oversize videos and exit 0 — an
+        // empty dir on success usually means exactly that.
+        AppError::Network("no downloadable file — the video may exceed the 500 MB limit".into())
+    })
+}
+
+/// yt-dlp `-o` template: the filename part uses template sequences, so any
+/// literal `%` in the directory path must be escaped (`%%`) or it would be
+/// parsed as a sequence too.
+fn output_template(dest_dir: &Path) -> String {
+    let dir = dest_dir.to_string_lossy().replace('%', "%%");
+    format!(
+        "{dir}{}%(title).120B [%(id)s].%(ext)s",
+        std::path::MAIN_SEPARATOR
+    )
 }
 
 /// yt-dlp's last `ERROR:` line is its actual diagnosis — surface that,

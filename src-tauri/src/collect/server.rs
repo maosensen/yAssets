@@ -365,15 +365,24 @@ async fn collect_video<R: tauri::Runtime>(
         );
     }
 
-    let dest = std::env::temp_dir().join(format!("yassets-video-{}", crate::library::new_id()));
-    let downloaded = crate::ytdlp::download_video(&tools, &body.url, &dest).await;
-    let response = match downloaded {
+    // Drop-guarded: cleanup must also run when the handler future is
+    // cancelled mid-download (client disconnect, browser closed) — straight
+    // line code after the awaits would never execute on that path.
+    let dest = TempDirGuard(
+        std::env::temp_dir().join(format!("yassets-video-{}", crate::library::new_id())),
+    );
+    // Download the URL that passed the guard, NOT the raw body string —
+    // normalize_pasted_url upgrades http→https, and the executed URL must be
+    // the checked one.
+    let checked_url = parsed.to_string();
+    let downloaded = crate::ytdlp::download_video(&tools, &checked_url, &dest.0).await;
+    match downloaded {
         Ok(path) => {
             let title = path
                 .file_stem()
                 .map(|stem| stem.to_string_lossy().to_string())
                 .unwrap_or_else(|| "video".to_string());
-            let source = body.page_url.clone().unwrap_or_else(|| body.url.clone());
+            let source = body.page_url.clone().unwrap_or(checked_url);
             let library = Arc::clone(&library);
             let folder_id = body.folder_id.clone();
             let outcome = tauri::async_runtime::spawn_blocking(move || {
@@ -420,9 +429,16 @@ async fn collect_video<R: tauri::Runtime>(
             "the video downloader isn't installed — enable it in yAssets Preferences ▸ Collect",
         ),
         Err(err) => err_response(StatusCode::BAD_GATEWAY, "video_failed", err.to_string()),
-    };
-    let _ = std::fs::remove_dir_all(&dest);
-    response
+    }
+}
+
+/// Best-effort temp-dir removal on scope exit — including future cancellation.
+struct TempDirGuard(std::path::PathBuf);
+
+impl Drop for TempDirGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
 }
 
 #[derive(Serialize)]
