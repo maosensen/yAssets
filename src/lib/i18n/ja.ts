@@ -42,6 +42,26 @@ export const ja: Messages = {
 		upToDate: "最新バージョンを使用しています",
 		updateFailed: "アップデートの確認に失敗しました",
 	},
+	collect: {
+		title: "コレクト",
+		description:
+			"yClip ブラウザ拡張機能向けのローカル API — ブラウザで右クリック保存した画像・リンク・ページがこのライブラリに直接届きます。",
+		enable: "Collect API を有効にする",
+		enableHint:
+			"127.0.0.1 のみで待ち受けます。オンにするまで何も起動しません。",
+		runningOn: (port: number) => `127.0.0.1:${port} で待機中`,
+		tokenLabel: "拡張機能トークン",
+		tokenHint:
+			"yClip の設定に一度だけ貼り付けてください。パスワードと同様に扱ってください。",
+		copy: "コピー",
+		copied: "トークンをコピーしました",
+		copyFailed:
+			"コピーに失敗しました — トークンを選択して手動でコピーしてください",
+		regenerate: "再生成",
+		regenerated: "新しいトークンを生成しました — yClip 側も更新してください",
+		toastSaved: (title: string) => `「${title}」を保存しました`,
+		toastDuplicate: (title: string) => `既にライブラリにあります: ${title}`,
+	},
 	updates: {
 		available: (version: string) => `yAssets ${version} が利用可能です`,
 		installAction: "インストールして再起動",

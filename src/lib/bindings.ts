@@ -215,10 +215,14 @@ export const commands = {
 	 *  Renders the live site — it's a top-level webview load, not an iframe.
 	 */
 	openLinkWindow: (url: string, title: string | null) => typedError<null, AppError>(__TAURI_INVOKE("open_link_window", { url, title })),
+	getCollectStatus: () => typedError<CollectStatus, AppError>(__TAURI_INVOKE("get_collect_status")),
+	setCollectEnabled: (enabled: boolean) => typedError<CollectStatus, AppError>(__TAURI_INVOKE("set_collect_enabled", { enabled })),
+	regenerateCollectToken: () => typedError<CollectStatus, AppError>(__TAURI_INVOKE("regenerate_collect_token")),
 };
 
 /** Events */
 export const events = {
+	collectImported: makeEvent<CollectImported>("collect-imported"),
 	importFinished: makeEvent<ImportFinished>("import-finished"),
 	importProgress: makeEvent<ImportProgress>("import-progress"),
 };
@@ -357,6 +361,30 @@ export type AssetSummary = {
 	updated_at: number | null,
 	/**  Source video duration in ms; None for non-video / not-yet-probed. */
 	duration_ms: number | null,
+};
+
+/**
+ *  A capture arrived through the Collect API (yClip browser extension).
+ *  The frontend toasts it and refreshes the asset lists — server-side imports
+ *  bypass the usual frontend mutation, so nothing else would invalidate them.
+ */
+export type CollectImported = {
+	/**  `"link"` (a bookmark) or `"media"` (a downloaded/uploaded file). */
+	kind: string,
+	title: string,
+	/**  Already in the library — nothing new to show. */
+	duplicate: boolean,
+};
+
+export type CollectStatus = {
+	/**  The persisted preference (survives restarts). */
+	enabled: boolean,
+	/**  Whether a listener is actually bound right now. */
+	running: boolean,
+	/**  The bound port (41420-41424), when running. */
+	port: number | null,
+	/**  Bearer token for the extension; empty until first enabled. */
+	token: string,
 };
 
 /**

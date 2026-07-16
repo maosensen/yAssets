@@ -87,9 +87,22 @@ reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",
     "gzip",
 ] }
+# Local Collect API (yClip browser extension): a loopback-only HTTP server in
+# front of the existing import pipeline. hyper/tokio are already in the tree
+# via reqwest, so this adds little compile weight.
+axum = { version = "0.8", default-features = false, features = [
+    "http1",
+    "json",
+    "tokio",
+] }
+tokio = { version = "1", features = ["net", "sync", "time"] }
 
 [dev-dependencies]
 tempfile = "3"
+# Mock runtime for exercising Collect API handlers without a real window.
+tauri = { version = "2", features = ["macos-private-api", "test"] }
+# `oneshot` for driving the axum router in tests.
+tower = { version = "0.5", features = ["util"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-single-instance = "2"

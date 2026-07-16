@@ -42,6 +42,23 @@ export const zh: Messages = {
 		upToDate: "已是最新版本",
 		updateFailed: "检查更新失败",
 	},
+	collect: {
+		title: "采集",
+		description:
+			"供 yClip 浏览器扩展使用的本地 API——在浏览器里右键保存的图片、链接和页面会直接进入当前素材库。",
+		enable: "启用采集 API",
+		enableHint: "仅监听 127.0.0.1,打开开关后才会运行。",
+		runningOn: (port: number) => `正在监听 127.0.0.1:${port}`,
+		tokenLabel: "扩展令牌",
+		tokenHint: "粘贴到 yClip 设置中(仅需一次),请像密码一样保管。",
+		copy: "复制",
+		copied: "令牌已复制",
+		copyFailed: "复制失败——请手动选中令牌复制",
+		regenerate: "重新生成",
+		regenerated: "已生成新令牌,请在 yClip 中更新",
+		toastSaved: (title: string) => `已采集“${title}”`,
+		toastDuplicate: (title: string) => `已在库中:${title}`,
+	},
 	updates: {
 		available: (version: string) => `yAssets ${version} 可供更新`,
 		installAction: "安装并重启",

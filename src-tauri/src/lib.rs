@@ -1,3 +1,4 @@
+mod collect;
 mod commands;
 mod db;
 mod error;
@@ -80,11 +81,15 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::sources::import_source_items,
             commands::url::clipboard_url,
             commands::url::import_url,
-            commands::url::open_link_window
+            commands::url::open_link_window,
+            commands::collect::get_collect_status,
+            commands::collect::set_collect_enabled,
+            commands::collect::regenerate_collect_token
         ])
         .events(collect_events![
             events::ImportProgress,
-            events::ImportFinished
+            events::ImportFinished,
+            events::CollectImported
         ])
 }
 
@@ -140,6 +145,10 @@ pub fn run() {
         .setup(move |app| {
             // Wire the typed event channels declared in `specta_builder()`.
             specta.mount_events(app);
+
+            // Bring the Collect API up if the user left it enabled (async —
+            // never blocks startup; failures only log).
+            collect::autostart(app.handle());
 
             // The window starts hidden (`visible: false` in tauri.conf.json) so the
             // window-state plugin can restore size/position before the first paint —

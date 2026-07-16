@@ -43,6 +43,24 @@ export const en = {
 		upToDate: "You're on the latest version",
 		updateFailed: "Update check failed",
 	},
+	collect: {
+		title: "Collect",
+		description:
+			"A local API for the yClip browser extension — images, links, and pages you right-click in the browser land straight in this library.",
+		enable: "Enable Collect API",
+		enableHint: "Listens on 127.0.0.1 only. Nothing runs until you turn it on.",
+		runningOn: (port: number) => `Listening on 127.0.0.1:${port}`,
+		tokenLabel: "Extension token",
+		tokenHint:
+			"Paste this into yClip's settings once, and treat it like a password.",
+		copy: "Copy",
+		copied: "Token copied",
+		copyFailed: "Copy failed — select the token and copy it manually",
+		regenerate: "Regenerate",
+		regenerated: "New token generated — update it in yClip",
+		toastSaved: (title: string) => `Collected “${title}”`,
+		toastDuplicate: (title: string) => `Already in library: ${title}`,
+	},
 	updates: {
 		available: (version: string) => `yAssets ${version} is available`,
 		installAction: "Install & Restart",

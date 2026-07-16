@@ -34,6 +34,10 @@ pub struct AppState {
     /// full-res downloads). Built once for connection-pool reuse; cloning is
     /// cheap (Arc inside).
     http: reqwest::Client,
+    /// Running Collect API server, if enabled (see `crate::collect`). Same
+    /// RAII discipline as `watcher`: replacing/clearing the slot drops the
+    /// previous handle, which signals graceful shutdown.
+    collect: Mutex<Option<crate::collect::CollectHandle>>,
 }
 
 impl AppState {
@@ -106,6 +110,22 @@ impl AppState {
     pub fn http(&self) -> reqwest::Client {
         self.http.clone()
     }
+
+    /// Install (or clear with `None`) the Collect server handle; the previous
+    /// handle drops here, signaling its graceful shutdown.
+    pub fn set_collect(&self, handle: Option<crate::collect::CollectHandle>) {
+        if let Ok(mut slot) = self.collect.lock() {
+            *slot = handle;
+        }
+    }
+
+    /// The Collect server's bound port, when it is running.
+    pub fn collect_port(&self) -> Option<u16> {
+        self.collect
+            .lock()
+            .ok()
+            .and_then(|slot| slot.as_ref().map(|handle| handle.port()))
+    }
 }
 
 impl Default for AppState {
@@ -114,6 +134,7 @@ impl Default for AppState {
             library: RwLock::new(None),
             imports: Mutex::new(HashMap::new()),
             watcher: Mutex::new(None),
+            collect: Mutex::new(None),
             http: reqwest::Client::builder()
                 .user_agent(concat!("yAssets/", env!("CARGO_PKG_VERSION")))
                 .timeout(std::time::Duration::from_secs(30))

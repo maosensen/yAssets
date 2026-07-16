@@ -11,12 +11,15 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { toast } from "sonner";
 import {
 	IconArchive,
 	IconClose,
 	type IconComponent,
+	IconCopy,
 	IconFolderAdd,
 	IconFolderOpen,
+	IconLink,
 	IconMonitor,
 	IconMoon,
 	IconReload,
@@ -36,6 +39,11 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { pickDirectory } from "@/lib/dialogs";
 import { formatBytes } from "@/lib/format";
+import {
+	collectStatusQueryOptions,
+	useRegenerateCollectToken,
+	useSetCollectEnabled,
+} from "@/lib/queries/collect";
 import {
 	maintenanceReportQueryOptions,
 	useCleanOrphans,
@@ -67,7 +75,7 @@ const LANGUAGE_NAMES: Record<LocaleCode, string> = {
 	ja: "日本語",
 };
 
-type SectionId = "general" | "watched" | "maintenance";
+type SectionId = "general" | "collect" | "watched" | "maintenance";
 
 export function PreferencesDialog({
 	open,
@@ -80,6 +88,7 @@ export function PreferencesDialog({
 	const sections: Array<{ id: SectionId; label: string; icon: IconComponent }> =
 		[
 			{ id: "general", label: T.preferences.navGeneral, icon: IconSettings },
+			{ id: "collect", label: T.collect.title, icon: IconLink },
 			{ id: "watched", label: T.preferences.navWatched, icon: IconFolderOpen },
 			{
 				id: "maintenance",
@@ -152,6 +161,7 @@ export function PreferencesDialog({
 
 					<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
 						{section === "general" && <GeneralPane />}
+						{section === "collect" && <CollectPane />}
 						{section === "watched" && <WatchedFoldersPane />}
 						{section === "maintenance" && <MaintenancePane />}
 					</div>
@@ -278,6 +288,80 @@ function GeneralPane() {
 						spellCheck={false}
 					/>
 				</SettingBlock>
+			</SettingsCard>
+		</div>
+	);
+}
+
+function CollectPane() {
+	const { data: status } = useQuery(collectStatusQueryOptions());
+	const setEnabled = useSetCollectEnabled();
+	const regenerate = useRegenerateCollectToken();
+
+	const copyToken = async () => {
+		if (!status?.token) return;
+		try {
+			await navigator.clipboard.writeText(status.token);
+			toast.success(T.collect.copied);
+		} catch {
+			toast.error(T.collect.copyFailed);
+		}
+	};
+
+	return (
+		<div className="flex flex-col gap-5">
+			<SettingsCard title={T.collect.title}>
+				<div className="px-4 py-3.5">
+					<p className="text-muted-foreground text-xs leading-relaxed">
+						{T.collect.description}
+					</p>
+				</div>
+				<SettingRow
+					label={T.collect.enable}
+					description={
+						status?.running && status.port != null
+							? T.collect.runningOn(status.port)
+							: T.collect.enableHint
+					}
+				>
+					<Switch
+						checked={status?.enabled ?? false}
+						disabled={!status || setEnabled.isPending}
+						onCheckedChange={(checked) => setEnabled.mutate(checked)}
+					/>
+				</SettingRow>
+				{status?.enabled && status.token && (
+					<SettingBlock label={T.collect.tokenLabel} hint={T.collect.tokenHint}>
+						<div className="flex items-center gap-2">
+							<Input
+								readOnly
+								value={status.token}
+								className="font-mono text-xs"
+								spellCheck={false}
+								onFocus={(event) => event.currentTarget.select()}
+							/>
+							<Button
+								variant="outline"
+								size="sm"
+								className="shrink-0"
+								onClick={() => void copyToken()}
+							>
+								<IconCopy className="size-3.5" />
+								{T.collect.copy}
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								className="shrink-0"
+								disabled={regenerate.isPending}
+								onClick={() => regenerate.mutate()}
+							>
+								<IconReload className="size-3.5" />
+								{T.collect.regenerate}
+							</Button>
+						</div>
+					</SettingBlock>
+				)}
 			</SettingsCard>
 		</div>
 	);

@@ -97,17 +97,31 @@ pub async fn import_url(
     folder_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<UrlImport> {
-    let start = link::normalize_pasted_url(&url)
-        .ok_or_else(|| AppError::Conflict("not a valid web URL".into()))?;
     let client = state.http();
     let library = state.current_library()?;
+    import_url_core(&client, &library, &url, folder_id, None).await
+}
 
-    let (final_url, resp) = follow_to_final(&client, start, MAX_REDIRECTS).await?;
+/// The full URL-import flow, shared by the `import_url` command (⌘V) and the
+/// Collect API (`collect::server`). `source_page` overrides the recorded
+/// provenance for the media branch — a right-clicked image's `source` should
+/// be the page it was found on, not the CDN URL of its bytes.
+pub(crate) async fn import_url_core(
+    client: &reqwest::Client,
+    library: &Arc<Library>,
+    url: &str,
+    folder_id: Option<String>,
+    source_page: Option<String>,
+) -> AppResult<UrlImport> {
+    let start = link::normalize_pasted_url(url)
+        .ok_or_else(|| AppError::Conflict("not a valid web URL".into()))?;
+
+    let (final_url, resp) = follow_to_final(client, start, MAX_REDIRECTS).await?;
     let content_type = header_str(&resp, CONTENT_TYPE);
     let host = link::host_label(&final_url);
 
     if let Some(ext) = link::media_ext_for_content_type(&content_type) {
-        import_media(resp, &library, &final_url, folder_id, ext, host).await
+        import_media(resp, library, &final_url, folder_id, ext, host, source_page).await
     } else {
         let meta = if link::is_html_content_type(&content_type) {
             let bytes = read_body_capped(resp, MAX_HTML_BYTES).await?;
@@ -123,7 +137,8 @@ pub async fn import_url(
                 ..Default::default()
             }
         };
-        import_link(&client, &library, &final_url, folder_id, meta, host).await
+        // A page is its own provenance — `source_page` only applies to media.
+        import_link(client, library, &final_url, folder_id, meta, host).await
     }
 }
 
@@ -182,6 +197,7 @@ fn window_err(err: tauri::Error) -> AppError {
 }
 
 /// Direct-media branch: the response body *is* the asset.
+#[allow(clippy::too_many_arguments)]
 async fn import_media(
     resp: reqwest::Response,
     library: &Arc<Library>,
@@ -189,10 +205,11 @@ async fn import_media(
     folder_id: Option<String>,
     ext: &str,
     host: String,
+    source_page: Option<String>,
 ) -> AppResult<UrlImport> {
     let bytes = read_body_capped(resp, MAX_MEDIA_BYTES).await?;
     let title = link::filename_stem_from_url(final_url);
-    let source = final_url.to_string();
+    let source = source_page.unwrap_or_else(|| final_url.to_string());
 
     let lib = Arc::clone(library);
     let ext = ext.to_string();
@@ -302,8 +319,9 @@ async fn import_link(
 }
 
 /// Write bytes to a temp file, run the import pipeline, then delete the temp.
+/// Shared with the Collect API's `/api/collect/data` handler.
 #[allow(clippy::too_many_arguments)]
-fn write_and_process(
+pub(crate) fn write_and_process(
     library: &Library,
     bytes: &[u8],
     ext: &str,

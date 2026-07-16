@@ -60,6 +60,18 @@ pub struct DuplicateItem {
     pub existing_id: String,
 }
 
+/// A capture arrived through the Collect API (yClip browser extension).
+/// The frontend toasts it and refreshes the asset lists — server-side imports
+/// bypass the usual frontend mutation, so nothing else would invalidate them.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+pub struct CollectImported {
+    /// `"link"` (a bookmark) or `"media"` (a downloaded/uploaded file).
+    pub kind: String,
+    pub title: String,
+    /// Already in the library — nothing new to show.
+    pub duplicate: bool,
+}
+
 /// Terminal event for an import job — exactly one per `job_id`, even on cancel.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
 pub struct ImportFinished {

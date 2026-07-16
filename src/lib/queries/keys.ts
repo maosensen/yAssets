@@ -64,6 +64,11 @@ export const maintenanceKeys = {
 	report: ["maintenance", "report"] as const,
 };
 
+export const collectKeys = {
+	/** Collect API status (enabled/running/port/token) — Preferences ▸ Collect. */
+	status: ["collect", "status"] as const,
+};
+
 export const sourceKeys = {
 	/** Discover search results. The API key is part of the key so changing it
 	 *  (e.g. fixing an invalid one) refetches; react-query keys are in-memory
