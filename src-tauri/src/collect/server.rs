@@ -19,6 +19,7 @@ use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
 use super::{auth, API_VERSION};
+use crate::error::AppError;
 use crate::import::FileOutcome;
 use crate::link;
 use crate::state::AppState;
@@ -188,9 +189,24 @@ async fn collect_url<R: tauri::Runtime>(
             emit_collected(&ctx.app, &result.kind, &result.title, result.duplicate);
             (StatusCode::OK, Json(result)).into_response()
         }
-        // Anything past URL validation is a fetch/parse problem — signal the
-        // extension to fall back to sending bytes (Tier 2).
-        Err(err) => err_response(StatusCode::BAD_GATEWAY, "fetch_failed", err.to_string()),
+        Err(err) => {
+            let (status, code) = classify_import_error(&err);
+            err_response(status, code, err.to_string())
+        }
+    }
+}
+
+/// Split an import failure into "the app couldn't fetch it" (Tier-2 byte
+/// retry may succeed with the browser's cookies) versus "the fetch was fine
+/// but the local import failed" (Tier-2 would hit the identical error, and for
+/// a page it would degrade a bookmark into a garbage file asset). Only the
+/// former gets `fetch_failed`, the code the extension retries on.
+fn classify_import_error(err: &AppError) -> (StatusCode, &'static str) {
+    match err {
+        AppError::Network(_) | AppError::RateLimited(_) | AppError::Conflict(_) => {
+            (StatusCode::BAD_GATEWAY, "fetch_failed")
+        }
+        _ => (StatusCode::INTERNAL_SERVER_ERROR, "import_failed"),
     }
 }
 
@@ -403,6 +419,37 @@ mod tests {
     }
 
     #[test]
+    fn import_errors_split_fetch_from_local() {
+        // Fetch/parse/SSRF-refusal class → Tier-2-retryable.
+        assert_eq!(
+            classify_import_error(&AppError::Network("offline".into())),
+            (StatusCode::BAD_GATEWAY, "fetch_failed")
+        );
+        assert_eq!(
+            classify_import_error(&AppError::RateLimited("429".into())),
+            (StatusCode::BAD_GATEWAY, "fetch_failed")
+        );
+        assert_eq!(
+            classify_import_error(&AppError::Conflict("remote file too large".into())),
+            (StatusCode::BAD_GATEWAY, "fetch_failed")
+        );
+        // Local post-fetch failures → NOT retryable (Tier-2 would recur, and a
+        // page would be degraded into a file asset).
+        assert_eq!(
+            classify_import_error(&AppError::Io("disk full".into())),
+            (StatusCode::INTERNAL_SERVER_ERROR, "import_failed")
+        );
+        assert_eq!(
+            classify_import_error(&AppError::Db("locked".into())),
+            (StatusCode::INTERNAL_SERVER_ERROR, "import_failed")
+        );
+        assert_eq!(
+            classify_import_error(&AppError::Internal),
+            (StatusCode::INTERNAL_SERVER_ERROR, "import_failed")
+        );
+    }
+
+    #[test]
     fn split_filename_sanitizes() {
         assert_eq!(split("photo.JPG", None), ("photo".into(), "jpg".into()));
         assert_eq!(
@@ -487,6 +534,56 @@ mod tests {
             .write_to(&mut buf, image::ImageFormat::Png)
             .expect("encode png");
         base64::engine::general_purpose::STANDARD.encode(buf.into_inner())
+    }
+
+    /// Real-socket smoke: bind an ephemeral loopback port, serve the router
+    /// built for THAT port, and round-trip genuine HTTP requests — exercising
+    /// the TCP path oneshot() skips (bind + axum::serve, real Host header).
+    #[tokio::test]
+    async fn serves_over_a_real_loopback_socket() {
+        let app = tauri::test::mock_app();
+        app.manage(AppState::default());
+        tauri_specta::Builder::<tauri::test::MockRuntime>::new()
+            .events(tauri_specta::collect_events![
+                crate::events::CollectImported
+            ])
+            .mount_events(&app);
+
+        let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .expect("bind");
+        let port = listener.local_addr().expect("addr").port();
+        let router = build_router(CollectCtx {
+            app: app.handle().clone(),
+            token: "secret-token".into(),
+            port,
+        });
+        let server = tokio::spawn(async move {
+            let _ = axum::serve(listener, router).await;
+        });
+
+        // A plain client (the shared AppState client is https-only).
+        let client = reqwest::Client::new();
+        let resp = client
+            .get(format!("http://127.0.0.1:{port}/api/info"))
+            .send()
+            .await
+            .expect("request");
+        assert_eq!(resp.status(), reqwest::StatusCode::OK);
+        let body: serde_json::Value = resp.json().await.expect("json");
+        assert_eq!(body["app"], "yAssets");
+        assert_eq!(body["apiVersion"], 1);
+
+        // The token gate rejects an anonymous authed route over the real socket.
+        let resp = client
+            .post(format!("http://127.0.0.1:{port}/api/collect/url"))
+            .json(&serde_json::json!({ "url": "https://example.com" }))
+            .send()
+            .await
+            .expect("request");
+        assert_eq!(resp.status(), reqwest::StatusCode::UNAUTHORIZED);
+
+        server.abort();
     }
 
     #[tokio::test]
