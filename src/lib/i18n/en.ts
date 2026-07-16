@@ -60,6 +60,15 @@ export const en = {
 		regenerated: "New token generated — update it in yClip",
 		toastSaved: (title: string) => `Collected “${title}”`,
 		toastDuplicate: (title: string) => `Already in library: ${title}`,
+		videoToolLabel: "Video downloader",
+		videoToolHint:
+			"Needed for streamed platform video (X/Twitter, TikTok…). Downloads yt-dlp (~35 MB) from its official release, checksum-verified.",
+		videoToolVersion: (version: string) => `yt-dlp ${version} installed`,
+		videoToolInstall: "Install",
+		videoToolUpdate: "Update",
+		videoToolInstalling: "Downloading…",
+		videoToolReady: (version: string) =>
+			`Video downloader ready (yt-dlp ${version})`,
 	},
 	updates: {
 		available: (version: string) => `yAssets ${version} is available`,

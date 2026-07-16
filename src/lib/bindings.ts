@@ -218,6 +218,12 @@ export const commands = {
 	getCollectStatus: () => typedError<CollectStatus, AppError>(__TAURI_INVOKE("get_collect_status")),
 	setCollectEnabled: (enabled: boolean) => typedError<CollectStatus, AppError>(__TAURI_INVOKE("set_collect_enabled", { enabled })),
 	regenerateCollectToken: () => typedError<CollectStatus, AppError>(__TAURI_INVOKE("regenerate_collect_token")),
+	getVideoToolStatus: () => typedError<VideoToolStatus, AppError>(__TAURI_INVOKE("get_video_tool_status")),
+	/**
+	 *  Download (or update) yt-dlp — ~35 MB from its GitHub release, checksum
+	 *  verified. The Preferences button awaits this with a spinner.
+	 */
+	installVideoTool: () => typedError<VideoToolStatus, AppError>(__TAURI_INVOKE("install_video_tool")),
 };
 
 /** Events */
@@ -702,6 +708,13 @@ export type UrlImport = {
 	 *  with identical content).
 	 */
 	duplicate: boolean,
+};
+
+/**  State of the managed yt-dlp binary (Preferences ▸ Collect ▸ video tool). */
+export type VideoToolStatus = {
+	installed: boolean,
+	/**  yt-dlp's release-date version string, when installed and runnable. */
+	version: string | null,
 };
 
 export type WatchedFolder = {

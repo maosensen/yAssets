@@ -95,7 +95,10 @@ axum = { version = "0.8", default-features = false, features = [
     "json",
     "tokio",
 ] }
-tokio = { version = "1", features = ["net", "sync", "time"] }
+tokio = { version = "1", features = ["net", "sync", "time", "process"] }
+# Integrity check for the downloaded yt-dlp binary (verified against the
+# release's SHA2-256SUMS before it ever replaces the installed one).
+sha2 = "0.10"
 
 [dev-dependencies]
 tempfile = "3"

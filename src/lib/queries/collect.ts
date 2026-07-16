@@ -45,3 +45,25 @@ export function useRegenerateCollectToken() {
 		onError: (error) => toast.error(describeError(error)),
 	});
 }
+
+export function videoToolStatusQueryOptions() {
+	return queryOptions({
+		queryKey: collectKeys.videoTool,
+		queryFn: async () => unwrap(await commands.getVideoToolStatus()),
+	});
+}
+
+/** Install/update yt-dlp — a ~35 MB download; the button shows a spinner. */
+export function useInstallVideoTool() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async () => unwrap(await commands.installVideoTool()),
+		onSuccess: (status) => {
+			queryClient.setQueryData(collectKeys.videoTool, status);
+			if (status.version) {
+				toast.success(T.collect.videoToolReady(status.version));
+			}
+		},
+		onError: (error) => toast.error(describeError(error)),
+	});
+}

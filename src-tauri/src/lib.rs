@@ -9,6 +9,7 @@ mod link;
 mod media_protocol;
 mod sources;
 mod state;
+mod ytdlp;
 
 use state::AppState;
 use tauri_specta::{collect_commands, collect_events, Builder};
@@ -84,7 +85,9 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::url::open_link_window,
             commands::collect::get_collect_status,
             commands::collect::set_collect_enabled,
-            commands::collect::regenerate_collect_token
+            commands::collect::regenerate_collect_token,
+            commands::collect::get_video_tool_status,
+            commands::collect::install_video_tool
         ])
         .events(collect_events![
             events::ImportProgress,

@@ -67,6 +67,8 @@ export const maintenanceKeys = {
 export const collectKeys = {
 	/** Collect API status (enabled/running/port/token) — Preferences ▸ Collect. */
 	status: ["collect", "status"] as const,
+	/** Managed yt-dlp binary state (installed/version). */
+	videoTool: ["collect", "video-tool"] as const,
 };
 
 export const sourceKeys = {

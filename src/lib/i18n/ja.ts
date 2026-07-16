@@ -61,6 +61,15 @@ export const ja: Messages = {
 		regenerated: "新しいトークンを生成しました — yClip 側も更新してください",
 		toastSaved: (title: string) => `「${title}」を保存しました`,
 		toastDuplicate: (title: string) => `既にライブラリにあります: ${title}`,
+		videoToolLabel: "動画ダウンローダー",
+		videoToolHint:
+			"ストリーミング型のプラットフォーム動画(X/Twitter、TikTok など)に必要です。yt-dlp(約 35 MB)を公式リリースから取得し、チェックサムを検証します。",
+		videoToolVersion: (version: string) => `yt-dlp ${version} インストール済み`,
+		videoToolInstall: "インストール",
+		videoToolUpdate: "更新",
+		videoToolInstalling: "ダウンロード中…",
+		videoToolReady: (version: string) =>
+			`動画ダウンローダーの準備ができました(yt-dlp ${version})`,
 	},
 	updates: {
 		available: (version: string) => `yAssets ${version} が利用可能です`,

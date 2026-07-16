@@ -50,6 +50,7 @@ pub fn build_router<R: tauri::Runtime>(ctx: CollectCtx<R>) -> Router {
     let authed = Router::new()
         .route("/api/collect/url", post(collect_url::<R>))
         .route("/api/collect/data", post(collect_data::<R>))
+        .route("/api/collect/video", post(collect_video::<R>))
         .route("/api/folders", get(folders::<R>))
         .route_layer(middleware::from_fn_with_state(
             ctx.clone(),
@@ -303,6 +304,125 @@ async fn collect_data<R: tauri::Runtime>(
             )
         }
     }
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CollectVideoBody {
+    /// The page hosting the video (a tweet URL, not a CDN stream) — this is
+    /// what yt-dlp resolves.
+    url: String,
+    page_url: Option<String>,
+    folder_id: Option<String>,
+}
+
+/// `POST /api/collect/video` — streamed platform video via the managed
+/// yt-dlp binary. Slow (network download): the client is expected to wait.
+async fn collect_video<R: tauri::Runtime>(
+    State(ctx): State<CollectCtx<R>>,
+    Json(body): Json<CollectVideoBody>,
+) -> Response {
+    // yt-dlp fetches this URL itself — same egress posture as our own
+    // fetches: https-only, public hosts only.
+    let parsed = match link::normalize_pasted_url(&body.url) {
+        Some(parsed) => parsed,
+        None => {
+            return err_response(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "invalid",
+                "not a valid web URL",
+            )
+        }
+    };
+    if parsed.scheme() != "https" || crate::commands::sources::host_is_blocked(parsed.host_str()) {
+        return err_response(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "invalid",
+            "refusing non-https or private-host URL",
+        );
+    }
+
+    let state = ctx.app.state::<AppState>();
+    let library = match state.current_library() {
+        Ok(library) => library,
+        Err(_) => return no_library(),
+    };
+    let tools = match crate::ytdlp::tools_dir(&ctx.app) {
+        Ok(tools) => tools,
+        Err(err) => {
+            return err_response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal",
+                err.to_string(),
+            )
+        }
+    };
+    if crate::ytdlp::installed_version(&tools).await.is_none() {
+        return err_response(
+            StatusCode::CONFLICT,
+            "tool_missing",
+            "the video downloader isn't installed — enable it in yAssets Preferences ▸ Collect",
+        );
+    }
+
+    let dest = std::env::temp_dir().join(format!("yassets-video-{}", crate::library::new_id()));
+    let downloaded = crate::ytdlp::download_video(&tools, &body.url, &dest).await;
+    let response = match downloaded {
+        Ok(path) => {
+            let title = path
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().to_string())
+                .unwrap_or_else(|| "video".to_string());
+            let source = body.page_url.clone().unwrap_or_else(|| body.url.clone());
+            let library = Arc::clone(&library);
+            let folder_id = body.folder_id.clone();
+            let outcome = tauri::async_runtime::spawn_blocking(move || {
+                let seen = std::sync::Mutex::new(std::collections::HashSet::<String>::new());
+                crate::import::process_file_with_meta(
+                    &library,
+                    &path,
+                    folder_id.as_deref(),
+                    &seen,
+                    false,
+                    Some(&source),
+                    None,
+                    "file",
+                    None,
+                )
+            })
+            .await;
+            match outcome {
+                Ok(Ok(outcome)) => {
+                    let duplicate = matches!(outcome, FileOutcome::Duplicate { .. });
+                    emit_collected(&ctx.app, "media", &title, duplicate);
+                    (
+                        StatusCode::OK,
+                        Json(CollectDataResponse { title, duplicate }),
+                    )
+                        .into_response()
+                }
+                Ok(Err(err)) => {
+                    err_response(StatusCode::INTERNAL_SERVER_ERROR, "import_failed", err)
+                }
+                Err(err) => {
+                    log::error!("video import worker failed: {err}");
+                    err_response(
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "import_failed",
+                        "import worker failed",
+                    )
+                }
+            }
+        }
+        Err(AppError::NotFound(_)) => err_response(
+            StatusCode::CONFLICT,
+            "tool_missing",
+            "the video downloader isn't installed — enable it in yAssets Preferences ▸ Collect",
+        ),
+        Err(err) => err_response(StatusCode::BAD_GATEWAY, "video_failed", err.to_string()),
+    };
+    let _ = std::fs::remove_dir_all(&dest);
+    response
 }
 
 #[derive(Serialize)]
@@ -748,6 +868,40 @@ mod tests {
             .expect("response");
         assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
         assert_eq!(body_json(resp).await["code"], "invalid");
+    }
+
+    #[tokio::test]
+    async fn collect_video_rejects_bad_urls_and_missing_tool() {
+        let h = harness(true);
+        // Private-host URLs are refused before anything else runs. (Plain
+        // http is upgraded to https by normalize_pasted_url, like ⌘V.)
+        let resp = h
+            .router
+            .clone()
+            .oneshot(request(
+                "POST",
+                "/api/collect/video",
+                Some("secret-token"),
+                Some(serde_json::json!({ "url": "https://192.168.1.1/v" }).to_string()),
+            ))
+            .await
+            .expect("response");
+        assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+        // Valid https URL but no yt-dlp installed (mock app data dir is empty).
+        let resp = h
+            .router
+            .clone()
+            .oneshot(request(
+                "POST",
+                "/api/collect/video",
+                Some("secret-token"),
+                Some(serde_json::json!({ "url": "https://x.com/user/status/1" }).to_string()),
+            ))
+            .await
+            .expect("response");
+        assert_eq!(resp.status(), StatusCode::CONFLICT);
+        assert_eq!(body_json(resp).await["code"], "tool_missing");
     }
 
     #[tokio::test]

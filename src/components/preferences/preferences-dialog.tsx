@@ -41,8 +41,10 @@ import { pickDirectory } from "@/lib/dialogs";
 import { formatBytes } from "@/lib/format";
 import {
 	collectStatusQueryOptions,
+	useInstallVideoTool,
 	useRegenerateCollectToken,
 	useSetCollectEnabled,
+	videoToolStatusQueryOptions,
 } from "@/lib/queries/collect";
 import {
 	maintenanceReportQueryOptions,
@@ -295,8 +297,10 @@ function GeneralPane() {
 
 function CollectPane() {
 	const { data: status } = useQuery(collectStatusQueryOptions());
+	const { data: videoTool } = useQuery(videoToolStatusQueryOptions());
 	const setEnabled = useSetCollectEnabled();
 	const regenerate = useRegenerateCollectToken();
+	const installTool = useInstallVideoTool();
 
 	const copyToken = async () => {
 		if (!status?.token) return;
@@ -362,6 +366,27 @@ function CollectPane() {
 						</div>
 					</SettingBlock>
 				)}
+				<SettingRow
+					label={T.collect.videoToolLabel}
+					description={
+						videoTool?.installed && videoTool.version
+							? T.collect.videoToolVersion(videoTool.version)
+							: T.collect.videoToolHint
+					}
+				>
+					<Button
+						variant="outline"
+						size="sm"
+						disabled={installTool.isPending}
+						onClick={() => installTool.mutate()}
+					>
+						{installTool.isPending
+							? T.collect.videoToolInstalling
+							: videoTool?.installed
+								? T.collect.videoToolUpdate
+								: T.collect.videoToolInstall}
+					</Button>
+				</SettingRow>
 			</SettingsCard>
 		</div>
 	);

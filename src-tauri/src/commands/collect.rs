@@ -57,6 +57,38 @@ pub async fn set_collect_enabled(
     Ok(status(&app, &state))
 }
 
+/// State of the managed yt-dlp binary (Preferences ▸ Collect ▸ video tool).
+#[derive(Debug, Serialize, specta::Type)]
+pub struct VideoToolStatus {
+    pub installed: bool,
+    /// yt-dlp's release-date version string, when installed and runnable.
+    pub version: Option<String>,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_video_tool_status(app: tauri::AppHandle) -> AppResult<VideoToolStatus> {
+    let dir = crate::ytdlp::tools_dir(&app)?;
+    let version = crate::ytdlp::installed_version(&dir).await;
+    Ok(VideoToolStatus {
+        installed: version.is_some(),
+        version,
+    })
+}
+
+/// Download (or update) yt-dlp — ~35 MB from its GitHub release, checksum
+/// verified. The Preferences button awaits this with a spinner.
+#[tauri::command]
+#[specta::specta]
+pub async fn install_video_tool(app: tauri::AppHandle) -> AppResult<VideoToolStatus> {
+    let dir = crate::ytdlp::tools_dir(&app)?;
+    let version = crate::ytdlp::install(&dir).await?;
+    Ok(VideoToolStatus {
+        installed: true,
+        version: Some(version),
+    })
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn regenerate_collect_token(

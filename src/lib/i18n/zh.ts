@@ -58,6 +58,14 @@ export const zh: Messages = {
 		regenerated: "已生成新令牌,请在 yClip 中更新",
 		toastSaved: (title: string) => `已采集“${title}”`,
 		toastDuplicate: (title: string) => `已在库中:${title}`,
+		videoToolLabel: "视频下载器",
+		videoToolHint:
+			"用于流媒体平台视频(X/Twitter、TikTok 等)。将从官方发布下载 yt-dlp(约 35 MB),并做校验和验证。",
+		videoToolVersion: (version: string) => `已安装 yt-dlp ${version}`,
+		videoToolInstall: "安装",
+		videoToolUpdate: "更新",
+		videoToolInstalling: "下载中…",
+		videoToolReady: (version: string) => `视频下载器就绪(yt-dlp ${version})`,
 	},
 	updates: {
 		available: (version: string) => `yAssets ${version} 可供更新`,
