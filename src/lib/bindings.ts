@@ -201,6 +201,11 @@ export const commands = {
 	cleanOrphans: () => typedError<OrphanCleanup, AppError>(__TAURI_INVOKE("clean_orphans")),
 	/**  Copy `ids` into `dest_dir`. Returns the number of files written. */
 	exportAssets: (ids: string[], destDir: string) => typedError<number, AppError>(__TAURI_INVOKE("export_assets", { ids, destDir })),
+	/**
+	 *  Begin an OS drag of `ids` out of the window. Returns once the drag session
+	 *  has started (the OS then owns the gesture); the drop target is external.
+	 */
+	startAssetDrag: (ids: string[]) => typedError<null, AppError>(__TAURI_INVOKE("start_asset_drag", { ids })),
 	searchSource: (provider: SourceProvider, query: string, page: number, filters: SourceFilters, apiKey: string | null) => typedError<SourceSearchResult, AppError>(__TAURI_INVOKE("search_source", { provider, query, page, filters, apiKey })),
 	importSourceItems: (items: SourceItem[], folderId: string | null) => typedError<ImportSummary, AppError>(__TAURI_INVOKE("import_source_items", { items, folderId })),
 	/**

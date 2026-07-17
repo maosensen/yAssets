@@ -72,7 +72,12 @@ pub async fn export_assets(
 
 /// A non-colliding path in `dir` for `<name>.<ext>`, reserving it in `used`.
 /// Collisions (batch-local or on-disk) get ` (1)`, ` (2)`, … before the ext.
-fn unique_path(dir: &Path, name: &str, ext: &str, used: &mut HashSet<String>) -> PathBuf {
+pub(crate) fn unique_path(
+    dir: &Path,
+    name: &str,
+    ext: &str,
+    used: &mut HashSet<String>,
+) -> PathBuf {
     let stem = sanitize_filename(name);
     let ext = if ext.is_empty() {
         String::new()

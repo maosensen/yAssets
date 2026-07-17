@@ -78,6 +78,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::maintenance::verify_integrity,
             commands::maintenance::clean_orphans,
             commands::export::export_assets,
+            commands::drag::start_asset_drag,
             commands::sources::search_source,
             commands::sources::import_source_items,
             commands::url::clipboard_url,

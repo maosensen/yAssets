@@ -9,12 +9,23 @@
  */
 
 import { useEffect, useRef } from "react";
+import { commands } from "@/lib/bindings";
 import { useTrashAssets } from "@/lib/queries/assets";
 import { useAddAssetsToFolder } from "@/lib/queries/folders";
 import { useDragStore } from "@/lib/stores/drag-store";
 import { useSelectionStore } from "@/lib/stores/selection-store";
 
 const DRAG_THRESHOLD = 5;
+
+/** True once the pointer has left the window — the cue to hand off to the OS. */
+function outsideWindow(event: PointerEvent): boolean {
+	return (
+		event.clientX <= 0 ||
+		event.clientY <= 0 ||
+		event.clientX >= window.innerWidth ||
+		event.clientY >= window.innerHeight
+	);
+}
 
 export function useCardDrag() {
 	const addToFolder = useAddAssetsToFolder();
@@ -37,6 +48,9 @@ export function useCardDrag() {
 		const startX = event.clientX;
 		const startY = event.clientY;
 		let started = false;
+		// Once we hand off to a native OS drag, this gesture is the OS's — our
+		// listeners are gone and the in-app drop must not also fire.
+		let handedOff = false;
 
 		const move = (e: PointerEvent) => {
 			if (!started) {
@@ -54,9 +68,29 @@ export function useCardDrag() {
 						? [...selectedIds]
 						: [assetId];
 				useDragStore.getState().start(ids, e.clientX, e.clientY);
-			} else {
-				useDragStore.getState().move(e.clientX, e.clientY);
+				return;
 			}
+			// The DOM ghost can't cross the window edge; once the pointer leaves,
+			// hand the gesture to the OS as a real file drag (Finder, browser,
+			// chat boxes). In-app targets (folder/trash) stay on this path.
+			if (!handedOff && outsideWindow(e)) {
+				handedOff = true;
+				const { draggingIds } = useDragStore.getState();
+				window.removeEventListener("pointermove", move);
+				window.removeEventListener("pointerup", up);
+				useDragStore.getState().end();
+				if (draggingIds.length > 0) {
+					void commands.startAssetDrag(draggingIds).catch((err) => {
+						console.error("start native drag failed", err);
+					});
+				}
+				// Clear after the click that would otherwise follow this gesture.
+				setTimeout(() => {
+					draggedRef.current = false;
+				}, 0);
+				return;
+			}
+			useDragStore.getState().move(e.clientX, e.clientY);
 		};
 
 		const up = () => {

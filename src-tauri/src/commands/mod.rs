@@ -13,6 +13,7 @@
 
 pub mod assets;
 pub mod collect;
+pub mod drag;
 pub mod duplicates;
 pub mod export;
 pub mod folders;
