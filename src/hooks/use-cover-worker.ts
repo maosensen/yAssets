@@ -124,4 +124,25 @@ export function useCoverWorker() {
 			unlisten?.();
 		};
 	}, [drain]);
+
+	// Collect API arrival (yClip) → client capture. These imports bypass the
+	// import pipeline and emit `CollectImported`, not `importFinished`, so
+	// without this a collected video/PDF/HEIC had no cover or duration until the
+	// next library open. Duplicates add nothing to catalog — skip them.
+	useEffect(() => {
+		let disposed = false;
+		let unlisten: (() => void) | undefined;
+		void events.collectImported
+			.listen((event) => {
+				if (!event.payload.duplicate) void drain();
+			})
+			.then((fn) => {
+				if (disposed) fn();
+				else unlisten = fn;
+			});
+		return () => {
+			disposed = true;
+			unlisten?.();
+		};
+	}, [drain]);
 }
