@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.20",
+		date: "2026-07-17",
+		title: "A quieter startup",
+		summary:
+			"Watched folders no longer pop the Duplicate Files dialog every time you launch the app.",
+		changes: [
+			{
+				kind: "fixed",
+				title: "No more startup duplicate dialog",
+				text: "A watched folder's existing files were being flagged as duplicates on every launch. Automatic imports now skip already-imported files silently — the Duplicate Files dialog only opens for imports you start yourself.",
+			},
+		],
+	},
+	{
 		version: "0.1.19",
 		date: "2026-07-17",
 		title: "Videos, from the browser",

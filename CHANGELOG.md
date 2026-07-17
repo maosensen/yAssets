@@ -9,6 +9,17 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.20] - 2026-07-17
+
+### Fixed
+
+- **Watched folders no longer pop the Duplicate Files dialog on launch.** A
+  watched folder's already-cataloged files were being surfaced as interactive
+  duplicates during the startup rescan, so the dialog appeared on every restart.
+  Automatic imports (watched folders) now skip already-imported files silently;
+  the Duplicate Files dialog only opens for imports you start yourself
+  (drag-drop, the file picker, or ⌘V paste).
+
 ## [0.1.19] - 2026-07-17
 
 ### Added

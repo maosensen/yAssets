@@ -2,6 +2,19 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.20",
+		date: "2026-07-17",
+		title: "更安静的启动",
+		summary: "监视文件夹不再每次启动都弹出「重复文件」对话框。",
+		changes: [
+			{
+				kind: "fixed",
+				title: "启动不再弹重复对话框",
+				text: "监视文件夹里已入库的文件此前每次启动都会被当成重复项弹窗。现在自动导入(监视文件夹)会静默跳过已导入的文件——「重复文件」对话框只在你自己发起导入时才出现。",
+			},
+		],
+	},
+	{
 		version: "0.1.19",
 		date: "2026-07-17",
 		title: "从浏览器采集视频",
