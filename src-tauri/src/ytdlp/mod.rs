@@ -68,21 +68,36 @@ pub fn binary_path(tools_dir: &Path) -> PathBuf {
 
 /// `yt-dlp --version` output (a release date like `2026.06.30`), or None when
 /// the binary is missing or won't run.
+///
+/// Runs on a blocking thread with `std::process` — the rest of the app spawns
+/// subprocesses this way. `tokio::process` needs the runtime's signal (SIGCHLD)
+/// driver to reap children, which isn't reliably present on Tauri's async
+/// runtime, so `.output().await` there can hang forever instead of returning.
 pub async fn installed_version(tools_dir: &Path) -> Option<String> {
     let bin = binary_path(tools_dir);
     if !bin.is_file() {
         return None;
     }
-    let out = tokio::process::Command::new(&bin)
-        .arg("--version")
-        .output()
-        .await
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let version = String::from_utf8_lossy(&out.stdout).trim().to_string();
-    (!version.is_empty()).then_some(version)
+    tauri::async_runtime::spawn_blocking(move || {
+        let out = std::process::Command::new(&bin)
+            .arg("--version")
+            .output()
+            .map_err(|err| log::warn!("yt-dlp --version failed to spawn: {err}"))
+            .ok()?;
+        if !out.status.success() {
+            log::warn!(
+                "yt-dlp --version exited {}: {}",
+                out.status,
+                String::from_utf8_lossy(&out.stderr).trim()
+            );
+            return None;
+        }
+        let version = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        (!version.is_empty()).then_some(version)
+    })
+    .await
+    .ok()
+    .flatten()
 }
 
 /// Download the latest yt-dlp, verify its checksum, and install it.
@@ -199,6 +214,11 @@ fn install_from_bytes(bytes: &[u8], tools_dir: &Path) -> AppResult<()> {
 
 /// Download `url`'s video into `dest_dir` (fresh, caller-owned) and return
 /// the produced file's path.
+///
+/// Runs on a blocking thread with `std::process` (see `installed_version` for
+/// why not `tokio::process`). Cancellation/timeout is handled by polling
+/// `try_wait` against a deadline and killing the child — no signal driver
+/// needed.
 pub async fn download_video(tools_dir: &Path, url: &str, dest_dir: &Path) -> AppResult<PathBuf> {
     let bin = binary_path(tools_dir);
     if !bin.is_file() {
@@ -206,39 +226,62 @@ pub async fn download_video(tools_dir: &Path, url: &str, dest_dir: &Path) -> App
     }
     std::fs::create_dir_all(dest_dir)?;
 
-    let mut command = tokio::process::Command::new(&bin);
-    command
-        .arg("--no-playlist")
-        .args(["-f", "b[ext=mp4]/b"])
-        .args(["--max-filesize", MAX_FILESIZE_ARG])
-        .args(["--socket-timeout", "30"])
-        .arg("--no-progress")
-        .arg("-o")
-        .arg(output_template(dest_dir))
-        .arg("--")
-        .arg(url)
-        // Dropping the in-flight future (timeout, cancelled request) must
-        // take the child down with it — the default leaves an orphan yt-dlp
-        // downloading for potentially hours.
-        .kill_on_drop(true);
-    let out = match tokio::time::timeout(DOWNLOAD_TIMEOUT, command.output()).await {
-        Ok(result) => result.map_err(|err| AppError::Io(format!("failed to run yt-dlp: {err}")))?,
-        Err(_) => {
-            // The dropped future has signalled the kill; give it a beat to
-            // land so the caller's temp-dir cleanup doesn't race open files.
-            tokio::time::sleep(Duration::from_millis(300)).await;
-            return Err(AppError::Network("video download timed out".into()));
-        }
-    };
+    let url = url.to_string();
+    let template = output_template(dest_dir);
+    let dest = dest_dir.to_path_buf();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut child = std::process::Command::new(&bin)
+            .arg("--no-playlist")
+            .args(["-f", "b[ext=mp4]/b"])
+            .args(["--max-filesize", MAX_FILESIZE_ARG])
+            .args(["--socket-timeout", "30"])
+            .arg("--no-progress")
+            .arg("-o")
+            .arg(&template)
+            .arg("--")
+            .arg(&url)
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .map_err(|err| AppError::Io(format!("failed to run yt-dlp: {err}")))?;
 
-    if !out.status.success() {
-        return Err(AppError::Network(summarize_stderr(&out.stderr)));
-    }
-    newest_file(dest_dir)?.ok_or_else(|| {
-        // --max-filesize makes yt-dlp SKIP oversize videos and exit 0 — an
-        // empty dir on success usually means exactly that.
-        AppError::Network("no downloadable file — the video may exceed the 500 MB limit".into())
+        let deadline = std::time::Instant::now() + DOWNLOAD_TIMEOUT;
+        let status = loop {
+            match child.try_wait() {
+                Ok(Some(status)) => break status,
+                Ok(None) => {
+                    if std::time::Instant::now() >= deadline {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        return Err(AppError::Network("video download timed out".into()));
+                    }
+                    std::thread::sleep(Duration::from_millis(250));
+                }
+                Err(err) => {
+                    let _ = child.kill();
+                    return Err(AppError::Io(format!("yt-dlp wait failed: {err}")));
+                }
+            }
+        };
+
+        if !status.success() {
+            let mut stderr = Vec::new();
+            if let Some(mut pipe) = child.stderr.take() {
+                use std::io::Read;
+                let _ = pipe.read_to_end(&mut stderr);
+            }
+            return Err(AppError::Network(summarize_stderr(&stderr)));
+        }
+        newest_file(&dest)?.ok_or_else(|| {
+            // --max-filesize makes yt-dlp SKIP oversize videos and exit 0 — an
+            // empty dir on success usually means exactly that.
+            AppError::Network("no downloadable file — the video may exceed the 500 MB limit".into())
+        })
     })
+    .await
+    .map_err(|err| {
+        log::error!("video download task panicked: {err}");
+        AppError::Internal
+    })?
 }
 
 /// yt-dlp `-o` template: the filename part uses template sequences, so any
