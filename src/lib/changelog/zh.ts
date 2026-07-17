@@ -2,6 +2,25 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.19",
+		date: "2026-07-17",
+		title: "从浏览器采集视频",
+		summary:
+			"yClip 现在也能存视频了——直链片段像图片一样入库,流媒体平台视频(X、TikTok、YouTube)由内置下载器搞定。",
+		changes: [
+			{
+				kind: "new",
+				title: "视频采集",
+				text: "右键或 ⌥+右键点视频,或在 yClip 里粘贴链接。流媒体平台视频由内置的 yt-dlp 下载——在偏好设置 ▸ Collect 里开启一次即可(校验和验证,约 35 MB)。",
+			},
+			{
+				kind: "fixed",
+				title: "下载器安装更可靠",
+				text: "安装视频下载器不再无声卡死,下载失败也会给出明确原因。",
+			},
+		],
+	},
+	{
 		version: "0.1.18",
 		date: "2026-07-16",
 		title: "从浏览器直接采集",

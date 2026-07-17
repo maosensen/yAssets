@@ -2,6 +2,25 @@ import type { ChangelogRelease } from "./index";
 
 export const ja: ChangelogRelease[] = [
 	{
+		version: "0.1.19",
+		date: "2026-07-17",
+		title: "ブラウザから動画を収集",
+		summary:
+			"yClip が動画にも対応——直リンクの動画は画像と同じように、ストリーミング型のプラットフォーム動画(X・TikTok・YouTube)は内蔵ダウンローダーで取り込みます。",
+		changes: [
+			{
+				kind: "new",
+				title: "動画の収集",
+				text: "動画を右クリック / ⌥+右クリック、または yClip にリンクを貼り付け。ストリーミング動画は内蔵の yt-dlp で取得します——環境設定 ▸ Collect で一度有効化してください(チェックサム検証済み、約 35 MB)。",
+			},
+			{
+				kind: "fixed",
+				title: "ダウンローダーのインストール改善",
+				text: "動画ダウンローダーのインストールが無言でハングしなくなり、失敗時は明確な理由を表示します。",
+			},
+		],
+	},
+	{
 		version: "0.1.18",
 		date: "2026-07-16",
 		title: "ブラウザからそのまま収集",

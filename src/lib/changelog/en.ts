@@ -2,6 +2,25 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.19",
+		date: "2026-07-17",
+		title: "Videos, from the browser",
+		summary:
+			"yClip can now save videos too — direct clips like images, and streamed platform video (X, TikTok, YouTube) via a built-in downloader.",
+		changes: [
+			{
+				kind: "new",
+				title: "Video collecting",
+				text: "Right-click or ⌥+right-click a video, or paste a link in yClip. Streamed platform video is fetched by a managed yt-dlp — turn it on once in Preferences ▸ Collect (checksum-verified, ~35 MB).",
+			},
+			{
+				kind: "fixed",
+				title: "Reliable downloader install",
+				text: "Installing the video downloader no longer hangs silently, and download failures now report a clear reason.",
+			},
+		],
+	},
+	{
 		version: "0.1.18",
 		date: "2026-07-16",
 		title: "Clip from your browser",

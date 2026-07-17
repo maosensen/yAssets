@@ -9,6 +9,26 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.19] - 2026-07-17
+
+### Added
+
+- **Save videos from the browser** — the [yClip](https://github.com/maosensen/yClip)
+  extension can now hand videos to yAssets. Direct-file clips (UI galleries)
+  import like images; streamed platform video (X/Twitter, TikTok, YouTube…) is
+  downloaded by a **managed yt-dlp** — enable it once in Preferences ▸ Collect
+  (a ~35 MB download from yt-dlp's official release, checksum-verified) and the
+  source page is recorded as provenance.
+
+### Fixed
+
+- **The video downloader installs reliably.** The post-install self-check hung
+  on the desktop async runtime (subprocess reaping); it now runs the same way
+  as the rest of the app and reports real errors instead of spinning forever.
+- Streamed-video downloads no longer leave an orphaned downloader running past
+  a timeout, and the local import failure of a fetched file is no longer
+  mislabeled as a network error.
+
 ## [0.1.18] - 2026-07-16
 
 ### Added
@@ -252,6 +272,7 @@ with Tauri 2.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
 [Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.17...HEAD
+[0.1.19]: https://github.com/maosensen/yAssets/releases/tag/v0.1.19
 [0.1.18]: https://github.com/maosensen/yAssets/releases/tag/v0.1.18
 [0.1.17]: https://github.com/maosensen/yAssets/releases/tag/v0.1.17
 [0.1.16]: https://github.com/maosensen/yAssets/releases/tag/v0.1.16
