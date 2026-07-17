@@ -37,6 +37,7 @@
 - **`notify-debouncer-full` 的 `Drop` 只置 stop 标志、不 join 线程**（阻塞 join 在消费型 `stop()` 里，从不被调用）→ 库切换/关闭后一个已成熟的 debounced 批次仍可能触发回调，把文件导入到**已切走/已关闭的库**（绕过 `cancel_all_imports`）。防御：watcher 回调 spawn 前用 `Arc::ptr_eq(state.current_library(), 捕获的 library)` 校验仍是当前库，不是就 no-op。watcher 句柄以 `Box<dyn Any + Send>` 存 AppState（RAII，换/清即 drop）。
 - **watched-folder 路径校验先 canonicalize**：`Path::starts_with` 按 component 字面比较，不解析 `..`/symlink，所以 `.../foo/../Lib` 能绕过「不许监视库内」的检查 → reconcile 走库自身 assets/thumbs → 导入死循环。`std::fs::canonicalize` 两边后再做包含判断，并存归一化后的路径。
 - **删孤儿的 TOCTOU**：`has_active_imports()` 只在进 `run_blocking` 前查一次；watcher 事件可能之后才 spawn 导入，把刚复制进 `assets/`、DB 行还没提交的文件当孤儿删掉。除了这个 guard，删除时**跳过 mtime 在 60s 宽限窗内的文件**。
+- **`drag` crate（原生拖出）的 `start_drag` 签名按平台分叉**：症状 = mac×2 + Windows CI 全绿、**只有 ubuntu 挂 E0308**（本地 mac 也编译通过，完全看不出来）。根因 = macOS/Windows 走 raw-window-handle，`start_drag(&window, …)` 直接吃 Tauri `WebviewWindow`；**Linux/GTK 分支要 `&gtk::ApplicationWindow`**。修法 = 在 `run_on_main_thread` 闭包里 `#[cfg(target_os="linux")]` 用 `window.gtk_window()?`、其余分支传 `&window`，照抄 tauri-plugin-drag 的 `commands.rs`（tauri 与 drag 共用同一 `gtk 0.18`，类型才对齐）。start_drag 必须主线程（macOS `beginDraggingSession`）。⚠️ **更大的教训：签名/类型随平台变的 crate（drag、raw-window-handle 相关、gtk-*、平台 sys crate），本地单平台 `cargo build` 验不出，改动后必须靠全平台 CI 兜底**——别看到本地绿就发 tag。失败的 draft release 从未公开（latest.json 仍指旧版），删 draft + tag 在修复提交上重切同版本号即可，用户侧零影响。
 
 ## 前端
 
