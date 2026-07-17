@@ -44,6 +44,7 @@ const MAX_WORKERS: usize = 8;
 
 /// Launch the coordinator for one import job. Returns immediately; progress
 /// flows through `ImportProgress`/`ImportFinished` events.
+#[allow(clippy::too_many_arguments)]
 pub fn spawn(
     app: tauri::AppHandle,
     library: Arc<Library>,
@@ -52,6 +53,7 @@ pub fn spawn(
     paths: Vec<String>,
     folder_id: Option<String>,
     keep_duplicates: bool,
+    report_duplicates: bool,
 ) {
     tauri::async_runtime::spawn(async move {
         let ctx = Arc::new(JobCtx {
@@ -61,6 +63,7 @@ pub fn spawn(
             cancel,
             folder_id,
             keep_duplicates,
+            report_duplicates,
             total: AtomicU32::new(0),
             done: AtomicU32::new(0),
             imported: AtomicU32::new(0),
@@ -87,6 +90,11 @@ struct JobCtx {
     folder_id: Option<String>,
     /// "Keep both" mode: skip library-wide dedupe (batch-local still applies).
     keep_duplicates: bool,
+    /// Collect exact duplicates into the interactive alert (drives the "Use
+    /// existing / Keep both" dialog). False for automatic imports (watched
+    /// folders), where already-cataloged files must be skipped silently — else
+    /// every startup re-scan pops the dialog for the folder's existing content.
+    report_duplicates: bool,
     total: AtomicU32,
     done: AtomicU32,
     imported: AtomicU32,
@@ -239,14 +247,16 @@ fn run_job(ctx: &Arc<JobCtx>, paths: Vec<String>) {
                     }
                     Ok(FileOutcome::Duplicate { existing_id }) => {
                         ctx.skipped.fetch_add(1, Ordering::Relaxed);
-                        let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
-                        if let Ok(mut duplicates) = ctx.duplicates.lock() {
-                            duplicates.push(DuplicateItem {
-                                src_path: path.to_string_lossy().into_owned(),
-                                name: display_name(path),
-                                size: size as f64,
-                                existing_id,
-                            });
+                        if ctx.report_duplicates {
+                            let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+                            if let Ok(mut duplicates) = ctx.duplicates.lock() {
+                                duplicates.push(DuplicateItem {
+                                    src_path: path.to_string_lossy().into_owned(),
+                                    name: display_name(path),
+                                    size: size as f64,
+                                    existing_id,
+                                });
+                            }
                         }
                     }
                     Err(reason) => ctx.record_failure(path, reason),

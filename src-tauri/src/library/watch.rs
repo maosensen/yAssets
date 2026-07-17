@@ -126,6 +126,9 @@ fn reconcile(app: &tauri::AppHandle, library: &Arc<Library>, targets: &Targets) 
             vec![root.to_string_lossy().into_owned()],
             folder_id.clone(),
             false,
+            // Automatic import — skip already-cataloged files silently, never
+            // pop the duplicate dialog for a watched folder's existing content.
+            false,
         );
     }
 }
@@ -185,6 +188,8 @@ fn on_events(
             job_id,
             paths,
             folder_id,
+            false,
+            // Automatic import — skip already-cataloged files silently.
             false,
         );
     }
