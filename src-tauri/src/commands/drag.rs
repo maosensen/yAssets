@@ -114,18 +114,32 @@ pub async fn start_asset_drag(
     let image = drag::Image::File(staged.image.unwrap_or_else(|| staged.paths[0].clone()));
 
     // macOS requires the drag session to start on the main thread. Bridge the
-    // start result back so a failure surfaces to the caller.
+    // start result back so a failure surfaces to the caller. `start_drag` takes
+    // the native window: a Tauri `WebviewWindow` (via raw-window-handle) on
+    // macOS/Windows, but a `gtk::ApplicationWindow` on Linux — split per the
+    // `drag` crate's platform-divergent signature, mirroring tauri-plugin-drag.
     let app = window.app_handle().clone();
     let (tx, rx) = std::sync::mpsc::channel();
     app.run_on_main_thread(move || {
-        let result = drag::start_drag(
-            &window,
-            drag::DragItem::Files(staged.paths),
-            image,
-            move |_result, _cursor| {},
-            drag::Options::default(),
-        );
-        let _ = tx.send(result.map_err(|err| err.to_string()));
+        let item = drag::DragItem::Files(staged.paths);
+        let options = drag::Options::default();
+        let on_drop = move |_result, _cursor| {};
+        let result = {
+            #[cfg(target_os = "linux")]
+            {
+                match window.gtk_window() {
+                    Ok(gtk_window) => drag::start_drag(&gtk_window, item, image, on_drop, options)
+                        .map_err(|err| err.to_string()),
+                    Err(err) => Err(format!("gtk window unavailable: {err}")),
+                }
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                drag::start_drag(&window, item, image, on_drop, options)
+                    .map_err(|err| err.to_string())
+            }
+        };
+        let _ = tx.send(result);
     })
     .map_err(|err| {
         log::error!("drag dispatch to main thread failed: {err}");
