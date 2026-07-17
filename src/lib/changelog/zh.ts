@@ -2,6 +2,25 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.21",
+		date: "2026-07-17",
+		title: "把文件拖到任何地方",
+		summary:
+			"直接把素材从 yAssets 拖进访达、浏览器或聊天框——采集来的视频也会立刻生成封面。",
+		changes: [
+			{
+				kind: "new",
+				title: "拖动导出到其它应用",
+				text: "把一个或多个素材拖出窗口,放进访达、Chrome,或 Claude、ChatGPT 这类聊天框——文件会以真实文件名落下。拖到侧栏文件夹或回收站仍在同一个手势里照常工作。",
+			},
+			{
+				kind: "fixed",
+				title: "采集视频封面即时生成",
+				text: "通过 yClip 采集的视频,不再要等下次启动才有缩略图和时长——封面在采集到达时立即生成。",
+			},
+		],
+	},
+	{
 		version: "0.1.20",
 		date: "2026-07-17",
 		title: "更安静的启动",

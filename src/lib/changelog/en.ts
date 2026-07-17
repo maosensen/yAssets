@@ -2,6 +2,25 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.21",
+		date: "2026-07-17",
+		title: "Drag files anywhere",
+		summary:
+			"Drag items straight out of yAssets into Finder, a browser, or a chat box — and collected videos now get their cover instantly.",
+		changes: [
+			{
+				kind: "new",
+				title: "Drag out to other apps",
+				text: "Drag one or more items out of the window and drop them into Finder, Chrome, or a chat box like Claude or ChatGPT — they arrive under their real names. Dropping onto a sidebar folder or the trash still works on the same drag.",
+			},
+			{
+				kind: "fixed",
+				title: "Instant covers for collected videos",
+				text: "A video saved through yClip no longer waits until the next launch for its thumbnail and duration — the cover is generated as soon as it arrives.",
+			},
+		],
+	},
+	{
 		version: "0.1.20",
 		date: "2026-07-17",
 		title: "A quieter startup",

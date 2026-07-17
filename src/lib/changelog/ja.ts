@@ -2,6 +2,25 @@ import type { ChangelogRelease } from "./index";
 
 export const ja: ChangelogRelease[] = [
 	{
+		version: "0.1.21",
+		date: "2026-07-17",
+		title: "ファイルをどこへでもドラッグ",
+		summary:
+			"yAssets から Finder・ブラウザ・チャット欄へ直接ドラッグ——収集した動画のカバーもすぐに生成されます。",
+		changes: [
+			{
+				kind: "new",
+				title: "他のアプリへドラッグ&ドロップ",
+				text: "1つ以上のアイテムをウィンドウの外へドラッグして、Finder・Chrome・Claude や ChatGPT のようなチャット欄にドロップ——本来のファイル名で届きます。サイドバーのフォルダーやゴミ箱へのドロップも、同じドラッグでこれまで通り動作します。",
+			},
+			{
+				kind: "fixed",
+				title: "収集した動画のカバーを即時生成",
+				text: "yClip で収集した動画が、次回起動までサムネイルと再生時間を待つことがなくなりました——カバーは収集された時点で生成されます。",
+			},
+		],
+	},
+	{
 		version: "0.1.20",
 		date: "2026-07-17",
 		title: "静かな起動",

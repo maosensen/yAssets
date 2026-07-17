@@ -9,6 +9,22 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.21] - 2026-07-17
+
+### Added
+
+- **Drag files out to other apps.** Drag one or more items out of the window
+  and drop them into Finder, a browser, or a chat box (Claude, ChatGPT…) — the
+  files land under their real names. Dragging onto a sidebar folder or the trash
+  still works on the same gesture; the hand-off to a native OS drag happens only
+  once the pointer leaves the window.
+
+### Fixed
+
+- **Collected videos get their cover and duration right away.** A video saved
+  through yClip showed no thumbnail or length badge until the next app launch;
+  the cover worker now runs as soon as the collect arrives.
+
 ## [0.1.20] - 2026-07-17
 
 ### Fixed
