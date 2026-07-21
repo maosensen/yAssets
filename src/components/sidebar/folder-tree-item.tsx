@@ -4,7 +4,11 @@
  */
 
 import { Link } from "@tanstack/react-router";
-import { IconChevronRight, IconFolder } from "@/components/icons";
+import {
+	IconChevronRight,
+	IconFolder,
+	IconFolderBold,
+} from "@/components/icons";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -16,6 +20,7 @@ import { useDropTarget } from "@/hooks/use-drop-target";
 import type { FolderNode } from "@/lib/folder-tree";
 import { T } from "@/lib/text";
 import { cn } from "@/lib/utils";
+import { NavIcon } from "./nav-icon";
 
 type FolderTreeItemProps = {
 	node: FolderNode;
@@ -83,7 +88,12 @@ export function FolderTreeItem(props: FolderTreeItemProps) {
 								: "text-sidebar-foreground/80",
 						)}
 					>
-						<IconFolder className="size-4 shrink-0" />
+						<NavIcon
+							line={IconFolder}
+							bold={IconFolderBold}
+							active={active}
+							className="size-4 shrink-0"
+						/>
 						<span className="min-w-0 flex-1 truncate">{node.name}</span>
 						{node.assetCount > 0 && (
 							<span className="text-muted-foreground text-xs tabular-nums">

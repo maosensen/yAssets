@@ -33,9 +33,11 @@ export {
 	default as IconSuccess,
 	default as IconCheck,
 } from "~icons/solar/check-circle-linear";
+export { default as IconRecentBold } from "~icons/solar/clock-circle-bold";
 export { default as IconRecent } from "~icons/solar/clock-circle-linear";
 export { default as IconClose } from "~icons/solar/close-circle-linear";
 export { default as IconCode } from "~icons/solar/code-linear";
+export { default as IconDiscoverBold } from "~icons/solar/compass-bold";
 // Discover (browse third-party sources).
 export { default as IconDiscover } from "~icons/solar/compass-linear";
 export { default as IconCopy } from "~icons/solar/copy-linear";
@@ -47,11 +49,15 @@ export { default as IconExport } from "~icons/solar/export-linear";
 export { default as IconFile } from "~icons/solar/file-linear";
 export { default as IconPdf } from "~icons/solar/file-text-linear";
 export { default as IconFilter } from "~icons/solar/filter-linear";
+export { default as IconFolderBold } from "~icons/solar/folder-bold";
 // Folders
 export { default as IconFolder } from "~icons/solar/folder-linear";
 export { default as IconFolderOpen } from "~icons/solar/folder-open-linear";
 export { default as IconFullscreen } from "~icons/solar/full-screen-linear";
 export { default as IconImportImages } from "~icons/solar/gallery-add-linear";
+// `*Bold` = filled counterpart for the sidebar's active/selected row (see
+// `NavIcon`) — the one systematic weight change the linear default allows.
+export { default as IconAllBold } from "~icons/solar/gallery-bold";
 // Smart views / sidebar
 export {
 	default as IconImageFile,
@@ -60,12 +66,14 @@ export {
 // "What's New" / changelog.
 export { default as IconChangelog } from "~icons/solar/history-linear";
 export { default as IconHome } from "~icons/solar/home-2-linear";
+export { default as IconUncategorizedBold } from "~icons/solar/inbox-bold";
 export { default as IconUncategorized } from "~icons/solar/inbox-linear";
 export { default as IconInfo } from "~icons/solar/info-circle-linear";
 export { default as IconMulti } from "~icons/solar/layers-linear";
 export { default as IconLibrary } from "~icons/solar/library-linear";
 // Link asset — a bookmark imported from a pasted URL.
 export { default as IconLink } from "~icons/solar/link-linear";
+export { default as IconSmartFolderBold } from "~icons/solar/magic-stick-3-bold";
 export { default as IconMagic } from "~icons/solar/magic-stick-3-linear";
 export { default as IconSearch } from "~icons/solar/magnifer-linear";
 export { default as IconExitFullscreen } from "~icons/solar/minimize-linear";
@@ -86,8 +94,10 @@ export { default as IconSort } from "~icons/solar/sort-vertical-linear";
 export { default as IconReveal } from "~icons/solar/square-top-up-linear";
 export { default as IconStar } from "~icons/solar/star-linear";
 export { default as IconSun } from "~icons/solar/sun-2-linear";
+export { default as IconTagBold } from "~icons/solar/tag-bold";
 export { default as IconTag } from "~icons/solar/tag-linear";
 export { default as IconSwitcher } from "~icons/solar/transfer-vertical-linear";
+export { default as IconTrashBold } from "~icons/solar/trash-bin-trash-bold";
 export { default as IconTrash } from "~icons/solar/trash-bin-trash-linear";
 export { default as IconRestore } from "~icons/solar/undo-left-round-linear";
 export { default as IconVideo } from "~icons/solar/videocamera-linear";

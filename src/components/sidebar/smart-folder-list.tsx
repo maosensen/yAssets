@@ -7,8 +7,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
-import { IconAdd, IconMagic } from "@/components/icons";
+import { IconAdd, IconMagic, IconSmartFolderBold } from "@/components/icons";
 import { SectionLabel } from "@/components/inspector/section";
+import { NavIcon } from "@/components/sidebar/nav-icon";
 import {
 	SmartFolderDialog,
 	type SmartFolderDialogState,
@@ -76,7 +77,12 @@ export function SmartFolderList() {
 									: "text-sidebar-foreground/80",
 							)}
 						>
-							<IconMagic className="size-4 shrink-0" />
+							<NavIcon
+								line={IconMagic}
+								bold={IconSmartFolderBold}
+								active={activeId === folder.id}
+								className="size-4 shrink-0"
+							/>
 							<span className="min-w-0 flex-1 truncate">{folder.name}</span>
 						</Link>
 					</ContextMenuTrigger>

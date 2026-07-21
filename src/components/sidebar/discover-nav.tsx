@@ -4,9 +4,10 @@
  */
 
 import { Link, useRouterState } from "@tanstack/react-router";
-import { IconDiscover } from "@/components/icons";
+import { IconDiscover, IconDiscoverBold } from "@/components/icons";
 import { T } from "@/lib/text";
 import { cn } from "@/lib/utils";
+import { NavIcon } from "./nav-icon";
 
 export function DiscoverNav() {
 	const active = useRouterState({
@@ -23,7 +24,12 @@ export function DiscoverNav() {
 					: "text-sidebar-foreground/80",
 			)}
 		>
-			<IconDiscover className="size-4 shrink-0" />
+			<NavIcon
+				line={IconDiscover}
+				bold={IconDiscoverBold}
+				active={active}
+				className="size-4 shrink-0"
+			/>
 			<span className="min-w-0 flex-1 truncate">{T.discover.title}</span>
 		</Link>
 	);
