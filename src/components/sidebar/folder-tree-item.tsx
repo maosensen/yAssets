@@ -115,6 +115,9 @@ export function FolderTreeItem(props: FolderTreeItemProps) {
 								? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
 								: "text-sidebar-foreground/80",
 						)}
+						// An anchor is natively draggable; without this, a real drag
+						// starts an OS drag session that pops the "import" overlay.
+						draggable={false}
 						onPointerDown={onFolderPointerDown(node)}
 						onClick={(event) => {
 							// Suppress the navigation click that trails a drag gesture.
