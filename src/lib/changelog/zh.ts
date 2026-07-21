@@ -2,6 +2,24 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.23",
+		date: "2026-07-21",
+		title: "图标更整齐,滚动不跳位",
+		summary: "侧栏和工具栏图标视觉统一,从素材返回列表时也会停在原来的位置。",
+		changes: [
+			{
+				kind: "improved",
+				title: "统一、均匀的图标",
+				text: "侧栏和工具栏的图标现在用同一种线条粗细,不再有的重有的轻。当前选中的侧栏项图标会变实心,标示你所在的位置。",
+			},
+			{
+				kind: "fixed",
+				title: "列表保留浏览位置",
+				text: "打开某个素材再返回,列表不再跳回顶部——会停在你之前滚动到的位置,并按视图分别记忆。",
+			},
+		],
+	},
+	{
 		version: "0.1.22",
 		date: "2026-07-21",
 		title: "用 ⌘C 把文件复制出去",

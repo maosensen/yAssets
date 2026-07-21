@@ -2,6 +2,25 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.23",
+		date: "2026-07-21",
+		title: "Sharper icons, steadier scrolling",
+		summary:
+			"A consistent icon set across the sidebar and toolbar, and the grid now keeps its place when you come back from an item.",
+		changes: [
+			{
+				kind: "improved",
+				title: "Even, consistent icons",
+				text: "Sidebar and toolbar icons now share one uniform line weight instead of reading heavier or lighter than each other. The active sidebar item fills in (solid) to mark where you are.",
+			},
+			{
+				kind: "fixed",
+				title: "The grid keeps its place",
+				text: "Opening an item and going back no longer jumps the grid to the top — it stays exactly where you were scrolled to, remembered per view.",
+			},
+		],
+	},
+	{
 		version: "0.1.22",
 		date: "2026-07-21",
 		title: "Copy files out with ⌘C",

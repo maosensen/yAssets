@@ -9,6 +9,20 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.23] - 2026-07-21
+
+### Changed
+
+- **Cleaner, more even icons.** The sidebar and toolbar icons now use a single
+  uniform line weight, so they no longer read heavier or lighter than one
+  another. The active sidebar item's icon fills in (solid) to mark where you
+  are.
+
+### Fixed
+
+- **The grid keeps its place.** Opening an item and coming back no longer jumps
+  the grid to the top — it stays where you were scrolled to, per view.
+
 ## [0.1.22] - 2026-07-21
 
 ### Added
@@ -307,7 +321,8 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.22...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.23...HEAD
+[0.1.23]: https://github.com/maosensen/yAssets/releases/tag/v0.1.23
 [0.1.22]: https://github.com/maosensen/yAssets/releases/tag/v0.1.22
 [0.1.21]: https://github.com/maosensen/yAssets/releases/tag/v0.1.21
 [0.1.20]: https://github.com/maosensen/yAssets/releases/tag/v0.1.20
