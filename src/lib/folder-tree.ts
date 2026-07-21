@@ -10,6 +10,10 @@ export type FolderNode = {
 	parentId: string | null;
 	name: string;
 	assetCount: number;
+	/** Hex color tinting the folder glyph; null = default neutral. */
+	color: string | null;
+	/** Key into the folder-icon catalog; null = default folder glyph. */
+	icon: string | null;
 	children: FolderNode[];
 };
 
@@ -22,6 +26,8 @@ export function buildFolderTree(rows: readonly Folder[]): FolderNode[] {
 			parentId: row.parent_id,
 			name: row.name,
 			assetCount: row.asset_count,
+			color: row.color,
+			icon: row.icon,
 			children: [],
 		});
 	}

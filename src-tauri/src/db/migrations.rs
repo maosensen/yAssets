@@ -163,6 +163,13 @@ CREATE TABLE watched_folders (
     r#"
 ALTER TABLE assets ADD COLUMN kind TEXT NOT NULL DEFAULT 'file';
 "#,
+    // v10 — folder appearance (Eagle-style): `color` tints the folder glyph
+    // (hex like `#3b82f6`; NULL = default neutral) and `icon` is a key into the
+    // frontend's curated Solar-icon catalog (NULL = default folder glyph).
+    r#"
+ALTER TABLE folders ADD COLUMN color TEXT;
+ALTER TABLE folders ADD COLUMN icon TEXT;
+"#,
 ];
 
 /// Current schema version an up-to-date library sits at.

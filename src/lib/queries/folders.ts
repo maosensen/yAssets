@@ -82,6 +82,23 @@ export function useSetFolderDescription() {
 	});
 }
 
+export function useSetFolderAppearance() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		// null clears a field (back to the neutral default) on the Rust side.
+		mutationFn: async (input: {
+			id: string;
+			color: string | null;
+			icon: string | null;
+		}) =>
+			unwrap(
+				await commands.setFolderAppearance(input.id, input.color, input.icon),
+			),
+		onSuccess: () => invalidateFolders(queryClient),
+		onError: onToastError,
+	});
+}
+
 export function useDeleteFolder() {
 	const queryClient = useQueryClient();
 	return useMutation({

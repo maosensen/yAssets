@@ -4,6 +4,7 @@
  */
 
 import { Link } from "@tanstack/react-router";
+import { resolveFolderIcon } from "@/components/folder-icon-catalog";
 import {
 	IconChevronRight,
 	IconFolder,
@@ -20,7 +21,6 @@ import { useDropTarget } from "@/hooks/use-drop-target";
 import type { FolderNode } from "@/lib/folder-tree";
 import { T } from "@/lib/text";
 import { cn } from "@/lib/utils";
-import { NavIcon } from "./nav-icon";
 
 type FolderTreeItemProps = {
 	node: FolderNode;
@@ -30,6 +30,7 @@ type FolderTreeItemProps = {
 	activeFolderId: string | null;
 	onCreateChild: (folder: FolderNode) => void;
 	onRename: (folder: FolderNode) => void;
+	onCustomize: (folder: FolderNode) => void;
 	onDelete: (folder: FolderNode) => void;
 };
 
@@ -42,11 +43,17 @@ export function FolderTreeItem(props: FolderTreeItemProps) {
 		activeFolderId,
 		onCreateChild,
 		onRename,
+		onCustomize,
 		onDelete,
 	} = props;
 	const expanded = isExpanded(node.id);
 	const active = activeFolderId === node.id;
 	const drop = useDropTarget({ kind: "folder", id: node.id });
+
+	// A custom icon overrides the default; without one, the default folder glyph
+	// fills in (bold) on the active row. Color, if set, tints whichever glyph.
+	const CustomIcon = resolveFolderIcon(node.icon);
+	const FolderGlyph = CustomIcon ?? (active ? IconFolderBold : IconFolder);
 
 	return (
 		<>
@@ -88,11 +95,9 @@ export function FolderTreeItem(props: FolderTreeItemProps) {
 								: "text-sidebar-foreground/80",
 						)}
 					>
-						<NavIcon
-							line={IconFolder}
-							bold={IconFolderBold}
-							active={active}
+						<FolderGlyph
 							className="size-4 shrink-0"
+							style={node.color ? { color: node.color } : undefined}
 						/>
 						<span className="min-w-0 flex-1 truncate">{node.name}</span>
 						{node.assetCount > 0 && (
@@ -108,6 +113,9 @@ export function FolderTreeItem(props: FolderTreeItemProps) {
 					</ContextMenuItem>
 					<ContextMenuItem onClick={() => onRename(node)}>
 						{T.folderMenu.rename}
+					</ContextMenuItem>
+					<ContextMenuItem onClick={() => onCustomize(node)}>
+						{T.folderMenu.customize}
 					</ContextMenuItem>
 					<ContextMenuSeparator />
 					<ContextMenuItem onClick={() => onDelete(node)}>

@@ -22,6 +22,10 @@ pub struct Folder {
     pub created_at: f64,
     /// User notes shown in the folder info panel; None/empty = unset.
     pub description: Option<String>,
+    /// Hex color (like `#3b82f6`) tinting the folder glyph; None = default.
+    pub color: Option<String>,
+    /// Key into the frontend's curated folder-icon catalog; None = default.
+    pub icon: Option<String>,
 }
 
 /// Aggregate for the folder info panel — direct members only (matches the
@@ -42,6 +46,8 @@ fn folder_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Folder> {
         asset_count: row.get::<_, i64>(4)? as u32,
         created_at: row.get::<_, i64>(5)? as f64,
         description: row.get(6)?,
+        color: row.get(7)?,
+        icon: row.get(8)?,
     })
 }
 
@@ -49,7 +55,7 @@ const FOLDER_SELECT: &str = "SELECT f.id, f.parent_id, f.name, f.position,
        (SELECT COUNT(*) FROM asset_folders af
           JOIN assets a ON a.id = af.asset_id
          WHERE af.folder_id = f.id AND a.deleted_at IS NULL) AS asset_count,
-       f.created_at, f.description
+       f.created_at, f.description, f.color, f.icon
   FROM folders f";
 
 /// Flat folder list, siblings ordered by manual position then name.
@@ -121,6 +127,40 @@ pub async fn set_folder_description(
             let changed = conn.execute(
                 "UPDATE folders SET description = ?2, updated_at = ?3 WHERE id = ?1",
                 rusqlite::params![id, value, now_ms()],
+            )?;
+            if changed == 0 {
+                return Err(AppError::NotFound(format!("folder {id}")));
+            }
+            one_folder(conn, &id)
+        })
+        .await
+}
+
+/// Set (or clear) a folder's appearance — glyph color and catalog icon key.
+/// Each field: `None` or an empty/whitespace string clears it (back to the
+/// neutral default). The dialog always sends the full desired state, so a
+/// cleared field means "use the default".
+#[tauri::command]
+#[specta::specta]
+pub async fn set_folder_appearance(
+    id: String,
+    color: Option<String>,
+    icon: Option<String>,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<Folder> {
+    fn normalize(value: Option<String>) -> Option<String> {
+        value
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+    }
+    let color = normalize(color);
+    let icon = normalize(icon);
+    let library = state.current_library()?;
+    library
+        .write(move |conn| {
+            let changed = conn.execute(
+                "UPDATE folders SET color = ?2, icon = ?3, updated_at = ?4 WHERE id = ?1",
+                rusqlite::params![id, color, icon, now_ms()],
             )?;
             if changed == 0 {
                 return Err(AppError::NotFound(format!("folder {id}")));
@@ -489,6 +529,32 @@ mod tests {
                 folder_from_row,
             )?;
             assert_eq!(folder.description.as_deref(), Some("release assets"));
+            Ok(())
+        })
+        .expect("reader");
+    }
+
+    #[test]
+    fn folder_select_round_trips_color_and_icon() {
+        let (_tmp, lib) = lib();
+        insert_folder(&lib, "fa000000000000000001", None, "A");
+        lib.with_writer(|conn| {
+            conn.execute(
+                "UPDATE folders SET color = ?2, icon = ?3 WHERE id = ?1",
+                rusqlite::params!["fa000000000000000001", "#3b82f6", "star"],
+            )?;
+            Ok(())
+        })
+        .expect("write");
+        lib.with_reader(|conn| {
+            // Exercises FOLDER_SELECT + folder_from_row's color/icon columns.
+            let folder = conn.query_row(
+                &format!("{FOLDER_SELECT} WHERE f.id = ?1"),
+                ["fa000000000000000001"],
+                folder_from_row,
+            )?;
+            assert_eq!(folder.color.as_deref(), Some("#3b82f6"));
+            assert_eq!(folder.icon.as_deref(), Some("star"));
             Ok(())
         })
         .expect("reader");

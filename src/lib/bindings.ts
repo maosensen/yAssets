@@ -149,6 +149,13 @@ export const commands = {
 	renameFolder: (id: string, name: string) => typedError<Folder, AppError>(__TAURI_INVOKE("rename_folder", { id, name })),
 	/**  Set (or clear, via empty string) a folder's description. */
 	setFolderDescription: (id: string, description: string) => typedError<Folder, AppError>(__TAURI_INVOKE("set_folder_description", { id, description })),
+	/**
+	 *  Set (or clear) a folder's appearance — glyph color and catalog icon key.
+	 *  Each field: `None` or an empty/whitespace string clears it (back to the
+	 *  neutral default). The dialog always sends the full desired state, so a
+	 *  cleared field means "use the default".
+	 */
+	setFolderAppearance: (id: string, color: string | null, icon: string | null) => typedError<Folder, AppError>(__TAURI_INVOKE("set_folder_appearance", { id, color, icon })),
 	moveFolder: (id: string, newParentId: string | null, position: number) => typedError<null, AppError>(__TAURI_INVOKE("move_folder", { id, newParentId, position })),
 	/**
 	 *  Delete a folder and its whole subtree. Assets are never deleted — their
@@ -447,6 +454,10 @@ export type Folder = {
 	created_at: number | null,
 	/**  User notes shown in the folder info panel; None/empty = unset. */
 	description: string | null,
+	/**  Hex color (like `#3b82f6`) tinting the folder glyph; None = default. */
+	color: string | null,
+	/**  Key into the frontend's curated folder-icon catalog; None = default. */
+	icon: string | null,
 };
 
 /**

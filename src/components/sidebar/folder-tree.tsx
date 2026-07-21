@@ -28,6 +28,10 @@ import {
 } from "@/lib/folder-tree";
 import { foldersQueryOptions, useDeleteFolder } from "@/lib/queries/folders";
 import { T } from "@/lib/text";
+import {
+	FolderCustomizeDialog,
+	type FolderCustomizeState,
+} from "./folder-customize-dialog";
 import { type FolderDialogState, FolderNameDialog } from "./folder-name-dialog";
 import { FolderTreeItem } from "./folder-tree-item";
 
@@ -39,6 +43,9 @@ export function FolderTree({ filter }: { filter: string }) {
 		new Set(),
 	);
 	const [dialog, setDialog] = useState<FolderDialogState | null>(null);
+	const [customizing, setCustomizing] = useState<FolderCustomizeState | null>(
+		null,
+	);
 	const [deleting, setDeleting] = useState<FolderNode | null>(null);
 	const deleteMutation = useDeleteFolder();
 
@@ -97,12 +104,25 @@ export function FolderTree({ filter }: { filter: string }) {
 								currentName: folder.name,
 							})
 						}
+						onCustomize={(folder) =>
+							setCustomizing({
+								folderId: folder.id,
+								name: folder.name,
+								color: folder.color,
+								icon: folder.icon,
+							})
+						}
 						onDelete={setDeleting}
 					/>
 				))}
 			</div>
 
 			<FolderNameDialog state={dialog} onClose={() => setDialog(null)} />
+
+			<FolderCustomizeDialog
+				state={customizing}
+				onClose={() => setCustomizing(null)}
+			/>
 
 			<AlertDialog
 				open={deleting !== null}

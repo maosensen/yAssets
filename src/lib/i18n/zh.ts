@@ -289,10 +289,26 @@ export const zh: Messages = {
 	folderMenu: {
 		newSubfolder: "新建子文件夹",
 		rename: "重命名",
+		customize: "颜色与图标…",
 		delete: "删除文件夹",
 		deleteTitle: (name: string) => `删除文件夹「${name}」？`,
 		deleteDesc: "其子文件夹也会被删除。素材将保留并回到未分类。",
 		deleteAction: "删除",
+	},
+	folderCustomize: {
+		title: (name: string) => `自定义「${name}」`,
+		colorLabel: "颜色",
+		colorDefault: "默认颜色",
+		iconLabel: "图标",
+		iconDefault: "默认文件夹",
+		save: "保存",
+		groups: {
+			general: "常用",
+			media: "媒体",
+			work: "办公",
+			objects: "物件",
+			symbols: "符号",
+		},
 	},
 	assetMenu: {
 		open: "打开",

@@ -298,11 +298,27 @@ export const ja: Messages = {
 	folderMenu: {
 		newSubfolder: "新規サブフォルダ",
 		rename: "名前を変更",
+		customize: "色とアイコン…",
 		delete: "フォルダを削除",
 		deleteTitle: (name: string) => `フォルダ「${name}」を削除しますか？`,
 		deleteDesc:
 			"サブフォルダも削除されます。アセットは保持され、未分類に戻ります。",
 		deleteAction: "削除",
+	},
+	folderCustomize: {
+		title: (name: string) => `「${name}」をカスタマイズ`,
+		colorLabel: "色",
+		colorDefault: "デフォルトの色",
+		iconLabel: "アイコン",
+		iconDefault: "デフォルトのフォルダ",
+		save: "保存",
+		groups: {
+			general: "一般",
+			media: "メディア",
+			work: "仕事",
+			objects: "オブジェクト",
+			symbols: "シンボル",
+		},
 	},
 	assetMenu: {
 		open: "開く",

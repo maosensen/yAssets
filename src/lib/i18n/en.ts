@@ -294,11 +294,27 @@ export const en = {
 	folderMenu: {
 		newSubfolder: "New Subfolder",
 		rename: "Rename",
+		customize: "Color & Icon…",
 		delete: "Delete Folder",
 		deleteTitle: (name: string) => `Delete folder “${name}”?`,
 		deleteDesc:
 			"Its subfolders will be deleted too. Assets are kept and return to Uncategorized.",
 		deleteAction: "Delete",
+	},
+	folderCustomize: {
+		title: (name: string) => `Customize “${name}”`,
+		colorLabel: "Color",
+		colorDefault: "Default color",
+		iconLabel: "Icon",
+		iconDefault: "Default folder",
+		save: "Save",
+		groups: {
+			general: "General",
+			media: "Media",
+			work: "Work",
+			objects: "Objects",
+			symbols: "Symbols",
+		},
 	},
 	assetMenu: {
 		open: "Open",

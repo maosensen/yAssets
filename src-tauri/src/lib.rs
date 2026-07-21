@@ -55,6 +55,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::folders::create_folder,
             commands::folders::rename_folder,
             commands::folders::set_folder_description,
+            commands::folders::set_folder_appearance,
             commands::folders::move_folder,
             commands::folders::delete_folder,
             commands::folders::add_assets_to_folder,
