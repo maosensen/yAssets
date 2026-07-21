@@ -158,6 +158,15 @@ export const commands = {
 	setFolderAppearance: (id: string, color: string | null, icon: string | null) => typedError<Folder, AppError>(__TAURI_INVOKE("set_folder_appearance", { id, color, icon })),
 	moveFolder: (id: string, newParentId: string | null, position: number) => typedError<null, AppError>(__TAURI_INVOKE("move_folder", { id, newParentId, position })),
 	/**
+	 *  Reorder a folder within the tree: reparent to `new_parent_id` (None = root)
+	 *  and place it at `index` among that parent's children (in display order),
+	 *  then renumber all of that parent's children to a contiguous 0..n so ties
+	 *  never arise. `index` is clamped, and interpreted over the sibling list that
+	 *  EXCLUDES the moved folder (the frontend computes it the same way). Rejects
+	 *  moving a folder into itself or its own subtree.
+	 */
+	reorderFolder: (id: string, newParentId: string | null, index: number) => typedError<null, AppError>(__TAURI_INVOKE("reorder_folder", { id, newParentId, index })),
+	/**
 	 *  Delete a folder and its whole subtree. Assets are never deleted — their
 	 *  membership rows cascade away and they fall back to "uncategorized"
 	 *  (Eagle semantics).

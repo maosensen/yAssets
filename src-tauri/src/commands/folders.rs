@@ -336,6 +336,71 @@ pub async fn move_folder(
         .await
 }
 
+/// Reorder a folder within the tree: reparent to `new_parent_id` (None = root)
+/// and place it at `index` among that parent's children (in display order),
+/// then renumber all of that parent's children to a contiguous 0..n so ties
+/// never arise. `index` is clamped, and interpreted over the sibling list that
+/// EXCLUDES the moved folder (the frontend computes it the same way). Rejects
+/// moving a folder into itself or its own subtree.
+#[tauri::command]
+#[specta::specta]
+pub async fn reorder_folder(
+    id: String,
+    new_parent_id: Option<String>,
+    index: u32,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    let library = state.current_library()?;
+    library
+        .write(move |conn| reorder_folder_in(conn, &id, new_parent_id.as_deref(), index))
+        .await
+}
+
+fn reorder_folder_in(
+    conn: &mut rusqlite::Connection,
+    id: &str,
+    new_parent_id: Option<&str>,
+    index: u32,
+) -> AppResult<()> {
+    if let Some(parent) = new_parent_id {
+        one_folder(conn, parent)?;
+        if is_self_or_descendant(conn, id, parent)? {
+            return Err(AppError::Conflict(
+                "cannot move a folder into itself or its subtree".into(),
+            ));
+        }
+    }
+    one_folder(conn, id)?;
+
+    let tx = conn.transaction()?;
+    tx.execute(
+        "UPDATE folders SET parent_id = ?2, updated_at = ?3 WHERE id = ?1",
+        rusqlite::params![id, new_parent_id, now_ms()],
+    )?;
+    // Siblings under the new parent, in display order, minus the moved one.
+    let mut siblings: Vec<String> = {
+        let mut stmt = tx.prepare(
+            "SELECT id FROM folders
+             WHERE parent_id IS ?1 AND id != ?2
+             ORDER BY position, name COLLATE NOCASE",
+        )?;
+        let rows = stmt
+            .query_map(rusqlite::params![new_parent_id, id], |row| row.get(0))?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        rows
+    };
+    let at = (index as usize).min(siblings.len());
+    siblings.insert(at, id.to_string());
+    {
+        let mut upd = tx.prepare("UPDATE folders SET position = ?2 WHERE id = ?1")?;
+        for (pos, sid) in siblings.iter().enumerate() {
+            upd.execute(rusqlite::params![sid, pos as i64])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
 /// Delete a folder and its whole subtree. Assets are never deleted — their
 /// membership rows cascade away and they fall back to "uncategorized"
 /// (Eagle semantics).
@@ -594,6 +659,109 @@ mod tests {
             Ok(())
         })
         .expect("reader");
+    }
+
+    fn positions(lib: &Library, parent: Option<&str>) -> Vec<(String, i64)> {
+        lib.with_reader(|conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, position FROM folders WHERE parent_id IS ?1
+                 ORDER BY position, name COLLATE NOCASE",
+            )?;
+            let rows = stmt
+                .query_map([parent], |r| {
+                    Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .expect("positions")
+    }
+
+    #[test]
+    fn reorder_within_siblings_renumbers_contiguously() {
+        let (_tmp, lib) = lib();
+        // Three roots A, B, C at positions 0,1,2.
+        for (i, id) in [
+            "fa000000000000000001",
+            "fb000000000000000002",
+            "fc000000000000000003",
+        ]
+        .iter()
+        .enumerate()
+        {
+            lib.with_writer(|conn| {
+                conn.execute(
+                    "INSERT INTO folders (id, parent_id, name, position, created_at, updated_at)
+                     VALUES (?1, NULL, ?2, ?3, 0, 0)",
+                    rusqlite::params![id, format!("F{i}"), i as i64],
+                )?;
+                Ok(())
+            })
+            .expect("seed");
+        }
+        // Move C (index 2) to the front (index 0).
+        lib.with_writer(|conn| reorder_folder_in(conn, "fc000000000000000003", None, 0))
+            .expect("reorder");
+        let order: Vec<String> = positions(&lib, None)
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+        assert_eq!(
+            order,
+            [
+                "fc000000000000000003",
+                "fa000000000000000001",
+                "fb000000000000000002"
+            ]
+        );
+        // Positions are a contiguous 0..n.
+        assert_eq!(
+            positions(&lib, None)
+                .into_iter()
+                .map(|(_, p)| p)
+                .collect::<Vec<_>>(),
+            [0, 1, 2]
+        );
+    }
+
+    #[test]
+    fn reorder_reparents_and_rejects_into_own_subtree() {
+        let (_tmp, lib) = lib();
+        insert_folder(&lib, "fa000000000000000001", None, "A");
+        insert_folder(&lib, "fb000000000000000002", None, "B");
+        insert_folder(
+            &lib,
+            "fc000000000000000003",
+            Some("fa000000000000000001"),
+            "C",
+        );
+        // Move B under A at index 0.
+        lib.with_writer(|conn| {
+            reorder_folder_in(
+                conn,
+                "fb000000000000000002",
+                Some("fa000000000000000001"),
+                0,
+            )
+        })
+        .expect("reparent");
+        let under_a: Vec<String> = positions(&lib, Some("fa000000000000000001"))
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+        assert_eq!(under_a, ["fb000000000000000002", "fc000000000000000003"]);
+        // A into C (its own descendant) must be rejected.
+        let err = lib
+            .with_writer(|conn| {
+                reorder_folder_in(
+                    conn,
+                    "fa000000000000000001",
+                    Some("fc000000000000000003"),
+                    0,
+                )
+            })
+            .expect_err("cycle rejected");
+        assert!(matches!(err, AppError::Conflict(_)));
     }
 
     #[test]

@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { Folder } from "@/lib/bindings";
 import {
 	buildFolderTree,
+	collectSubtreeIds,
 	filterFolderTree,
 	flattenFolderTree,
 	flattenVisibleFolders,
+	resolveFolderDrop,
 } from "./folder-tree";
 
 function row(id: string, parent: string | null, name: string): Folder {
@@ -20,6 +22,62 @@ function row(id: string, parent: string | null, name: string): Folder {
 		icon: null,
 	};
 }
+
+describe("collectSubtreeIds", () => {
+	it("includes the node and all its descendants", () => {
+		const tree = buildFolderTree([
+			row("a", null, "A"),
+			row("b", "a", "B"),
+			row("c", "b", "C"),
+			row("d", null, "D"),
+		]);
+		const ids = collectSubtreeIds(tree[0] as FolderNodeForTest);
+		expect([...ids].sort()).toEqual(["a", "b", "c"]);
+	});
+});
+
+describe("resolveFolderDrop", () => {
+	// Rows in display order (position, name): three roots, c has a child c1.
+	const rows = [
+		row("a", null, "A"),
+		row("b", null, "B"),
+		row("c", null, "C"),
+		row("c1", "c", "C1"),
+	];
+
+	it("moves into a folder, appending after its existing children", () => {
+		expect(
+			resolveFolderDrop(rows, "a", { folderId: "c", zone: "into" }),
+		).toEqual({ newParentId: "c", index: 1 });
+	});
+
+	it("reorders among siblings via before / after", () => {
+		expect(
+			resolveFolderDrop(rows, "c", { folderId: "b", zone: "before" }),
+		).toEqual({ newParentId: null, index: 1 });
+		expect(
+			resolveFolderDrop(rows, "c", { folderId: "a", zone: "after" }),
+		).toEqual({ newParentId: null, index: 1 });
+	});
+
+	it("returns null for no-op, self, and own-subtree drops", () => {
+		// a is already before b.
+		expect(
+			resolveFolderDrop(rows, "a", { folderId: "b", zone: "before" }),
+		).toBeNull();
+		// onto itself.
+		expect(
+			resolveFolderDrop(rows, "a", { folderId: "a", zone: "into" }),
+		).toBeNull();
+		// into its own descendant.
+		expect(
+			resolveFolderDrop(rows, "c", { folderId: "c1", zone: "into" }),
+		).toBeNull();
+	});
+});
+
+// Local alias so the collectSubtreeIds cast reads clearly.
+type FolderNodeForTest = ReturnType<typeof buildFolderTree>[number];
 
 describe("buildFolderTree", () => {
 	it("nests children under parents, preserving input order", () => {

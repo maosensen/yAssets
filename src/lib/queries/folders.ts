@@ -99,6 +99,22 @@ export function useSetFolderAppearance() {
 	});
 }
 
+export function useReorderFolder() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async (input: {
+			id: string;
+			newParentId: string | null;
+			index: number;
+		}) =>
+			unwrap(
+				await commands.reorderFolder(input.id, input.newParentId, input.index),
+			),
+		onSuccess: () => invalidateFolders(queryClient),
+		onError: onToastError,
+	});
+}
+
 export function useDeleteFolder() {
 	const queryClient = useQueryClient();
 	return useMutation({

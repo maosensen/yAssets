@@ -18,6 +18,7 @@ import {
 	ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { useDropTarget } from "@/hooks/use-drop-target";
+import { useFolderDropZone } from "@/hooks/use-folder-drag";
 import type { FolderNode } from "@/lib/folder-tree";
 import { T } from "@/lib/text";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,12 @@ type FolderTreeItemProps = {
 	onRename: (folder: FolderNode) => void;
 	onCustomize: (folder: FolderNode) => void;
 	onDelete: (folder: FolderNode) => void;
+	/** Spread on the row to make the folder draggable (reorder / reparent). */
+	onFolderPointerDown: (
+		node: FolderNode,
+	) => (event: React.PointerEvent) => void;
+	/** True right after a drag, so the trailing click doesn't navigate. */
+	draggedRef: React.RefObject<boolean>;
 };
 
 export function FolderTreeItem(props: FolderTreeItemProps) {
@@ -45,10 +52,13 @@ export function FolderTreeItem(props: FolderTreeItemProps) {
 		onRename,
 		onCustomize,
 		onDelete,
+		onFolderPointerDown,
+		draggedRef,
 	} = props;
 	const expanded = isExpanded(node.id);
 	const active = activeFolderId === node.id;
 	const drop = useDropTarget({ kind: "folder", id: node.id });
+	const dropZone = useFolderDropZone(node);
 
 	// A custom icon overrides the default; without one, the default folder glyph
 	// fills in (bold) on the active row. Color, if set, tints whichever glyph.
@@ -60,14 +70,25 @@ export function FolderTreeItem(props: FolderTreeItemProps) {
 			<ContextMenu>
 				<ContextMenuTrigger
 					className={cn(
-						"flex items-center rounded-md",
-						drop.isOver && "ring-2 ring-primary ring-inset",
+						"relative flex items-center rounded-md",
+						(drop.isOver || dropZone.zone === "into") &&
+							"ring-2 ring-primary ring-inset",
 					)}
 					style={{ paddingLeft: depth * 12 }}
 					onPointerEnter={drop.onPointerEnter}
-					onPointerLeave={drop.onPointerLeave}
+					onPointerMove={dropZone.onPointerMove}
+					onPointerLeave={() => {
+						drop.onPointerLeave();
+						dropZone.onPointerLeave();
+					}}
 					onPointerUp={drop.onPointerUp}
 				>
+					{dropZone.zone === "before" && (
+						<div className="pointer-events-none absolute inset-x-1 top-0 z-10 h-0.5 rounded-full bg-primary" />
+					)}
+					{dropZone.zone === "after" && (
+						<div className="pointer-events-none absolute inset-x-1 bottom-0 z-10 h-0.5 rounded-full bg-primary" />
+					)}
 					{node.children.length > 0 ? (
 						<button
 							type="button"
@@ -94,6 +115,14 @@ export function FolderTreeItem(props: FolderTreeItemProps) {
 								? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
 								: "text-sidebar-foreground/80",
 						)}
+						onPointerDown={onFolderPointerDown(node)}
+						onClick={(event) => {
+							// Suppress the navigation click that trails a drag gesture.
+							if (draggedRef.current) {
+								event.preventDefault();
+								event.stopPropagation();
+							}
+						}}
 					>
 						<FolderGlyph
 							className="size-4 shrink-0"

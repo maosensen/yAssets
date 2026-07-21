@@ -21,6 +21,7 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { useFolderDragSource } from "@/hooks/use-folder-drag";
 import {
 	buildFolderTree,
 	type FolderNode,
@@ -32,6 +33,7 @@ import {
 	FolderCustomizeDialog,
 	type FolderCustomizeState,
 } from "./folder-customize-dialog";
+import { FolderDragGhost } from "./folder-drag-ghost";
 import { type FolderDialogState, FolderNameDialog } from "./folder-name-dialog";
 import { FolderTreeItem } from "./folder-tree-item";
 
@@ -48,6 +50,8 @@ export function FolderTree({ filter }: { filter: string }) {
 	);
 	const [deleting, setDeleting] = useState<FolderNode | null>(null);
 	const deleteMutation = useDeleteFolder();
+	const { onPointerDown: onFolderPointerDown, draggedRef } =
+		useFolderDragSource(folders ?? []);
 
 	const filtering = filter.trim().length > 0;
 	const tree = useMemo(
@@ -113,9 +117,13 @@ export function FolderTree({ filter }: { filter: string }) {
 							})
 						}
 						onDelete={setDeleting}
+						onFolderPointerDown={onFolderPointerDown}
+						draggedRef={draggedRef}
 					/>
 				))}
 			</div>
+
+			<FolderDragGhost />
 
 			<FolderNameDialog state={dialog} onClose={() => setDialog(null)} />
 

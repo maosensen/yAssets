@@ -4,6 +4,7 @@
  */
 
 import type { Folder } from "@/lib/bindings";
+import type { FolderDropZone } from "@/lib/stores/folder-drag-store";
 
 export type FolderNode = {
 	id: string;
@@ -99,4 +100,70 @@ export function flattenFolderTree(
 	roots: readonly FolderNode[],
 ): FlatFolderRow[] {
 	return flattenVisibleFolders(roots, NO_EXPANDED, true);
+}
+
+/** A folder plus all of its descendants — the set that can't receive itself. */
+export function collectSubtreeIds(node: FolderNode): Set<string> {
+	const ids = new Set<string>();
+	const visit = (n: FolderNode) => {
+		ids.add(n.id);
+		for (const child of n.children) visit(child);
+	};
+	visit(node);
+	return ids;
+}
+
+/**
+ * Resolve a drag drop (a hovered row + zone) into the `reorder_folder` args
+ * `{ newParentId, index }`, where `index` is over the target parent's children
+ * EXCLUDING the dragged folder — matching the backend. Returns null when the
+ * drop is invalid (onto itself / into its own subtree) or a no-op (same slot).
+ *
+ * `rows` must be the flat folder list in display order (position, name), i.e.
+ * exactly what `list_folders` returns, so sibling order is preserved by filter.
+ */
+export function resolveFolderDrop(
+	rows: readonly Pick<Folder, "id" | "parent_id">[],
+	draggingId: string,
+	target: { folderId: string; zone: FolderDropZone },
+): { newParentId: string | null; index: number } | null {
+	if (target.folderId === draggingId) return null;
+
+	const parentOf = new Map<string, string | null>();
+	for (const row of rows) parentOf.set(row.id, row.parent_id);
+
+	// A drop is illegal if the target sits inside the dragged folder's subtree.
+	let cursor: string | null | undefined = target.folderId;
+	while (cursor != null) {
+		if (cursor === draggingId) return null;
+		cursor = parentOf.get(cursor) ?? null;
+	}
+
+	const orderedChildren = (parent: string | null): string[] =>
+		rows.filter((row) => row.parent_id === parent).map((row) => row.id);
+
+	let newParentId: string | null;
+	let index: number;
+	if (target.zone === "into") {
+		newParentId = target.folderId;
+		index = orderedChildren(newParentId).filter(
+			(id) => id !== draggingId,
+		).length;
+	} else {
+		newParentId = parentOf.get(target.folderId) ?? null;
+		const siblings = orderedChildren(newParentId).filter(
+			(id) => id !== draggingId,
+		);
+		const targetIndex = siblings.indexOf(target.folderId);
+		if (targetIndex === -1) return null;
+		index = target.zone === "before" ? targetIndex : targetIndex + 1;
+	}
+
+	// No-op: same parent, and the dragged folder already sits in that slot.
+	const currentParent = parentOf.get(draggingId) ?? null;
+	if (newParentId === currentParent) {
+		const origIndex = orderedChildren(currentParent).indexOf(draggingId);
+		if (index === origIndex) return null;
+	}
+	return { newParentId, index };
 }
