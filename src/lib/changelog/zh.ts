@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.22",
+		date: "2026-07-21",
+		title: "用 ⌘C 把文件复制出去",
+		summary:
+			"选中素材按 ⌘C,即可粘贴到访达、浏览器或聊天框——⌘V 粘贴入库的镜像。",
+		changes: [
+			{
+				kind: "new",
+				title: "复制到其它应用",
+				text: "选中一个或多个素材按 ⌘C 放进剪贴板,再粘贴到访达、Chrome,或 Claude、ChatGPT 这类聊天框——文件会以真实文件名落下。在此之前,应用内复制在别处粘贴不出任何东西。",
+			},
+		],
+	},
+	{
 		version: "0.1.21",
 		date: "2026-07-17",
 		title: "把文件拖到任何地方",

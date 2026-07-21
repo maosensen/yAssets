@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.22",
+		date: "2026-07-21",
+		title: "Copy files out with ⌘C",
+		summary:
+			"Select assets, press ⌘C, and paste them into Finder, a browser, or a chat box — the mirror of ⌘V paste-import.",
+		changes: [
+			{
+				kind: "new",
+				title: "Copy to other apps",
+				text: "Select one or more items and press ⌘C to put them on the clipboard, then paste into Finder, Chrome, or a chat box like Claude or ChatGPT — they arrive under their real names. Until now an in-app copy pasted nothing elsewhere.",
+			},
+		],
+	},
+	{
 		version: "0.1.21",
 		date: "2026-07-17",
 		title: "Drag files anywhere",

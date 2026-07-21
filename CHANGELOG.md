@@ -9,6 +9,15 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.22] - 2026-07-21
+
+### Added
+
+- **Copy files out to other apps (⌘C).** Select one or more items and press ⌘C
+  to put them on the clipboard, then paste into Finder, a browser, or a chat box
+  (Claude, ChatGPT…) — the files arrive under their real names. The mirror of ⌘V
+  paste-import: an in-app copy is now pasteable everywhere else.
+
 ## [0.1.21] - 2026-07-17
 
 ### Added
@@ -298,7 +307,10 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.17...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.22...HEAD
+[0.1.22]: https://github.com/maosensen/yAssets/releases/tag/v0.1.22
+[0.1.21]: https://github.com/maosensen/yAssets/releases/tag/v0.1.21
+[0.1.20]: https://github.com/maosensen/yAssets/releases/tag/v0.1.20
 [0.1.19]: https://github.com/maosensen/yAssets/releases/tag/v0.1.19
 [0.1.18]: https://github.com/maosensen/yAssets/releases/tag/v0.1.18
 [0.1.17]: https://github.com/maosensen/yAssets/releases/tag/v0.1.17

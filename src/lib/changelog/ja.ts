@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const ja: ChangelogRelease[] = [
 	{
+		version: "0.1.22",
+		date: "2026-07-21",
+		title: "⌘C でファイルを外にコピー",
+		summary:
+			"素材を選んで ⌘C、Finder やブラウザ、チャット欄に貼り付け——⌘V 貼り付け取り込みの対になる機能です。",
+		changes: [
+			{
+				kind: "new",
+				title: "他のアプリへコピー",
+				text: "1つ以上の素材を選んで ⌘C でクリップボードに入れ、Finder や Chrome、Claude・ChatGPT などのチャット欄に貼り付け——本来のファイル名で届きます。これまでアプリ内のコピーは外部に貼り付けても何も出ませんでした。",
+			},
+		],
+	},
+	{
 		version: "0.1.21",
 		date: "2026-07-17",
 		title: "ファイルをどこへでもドラッグ",
