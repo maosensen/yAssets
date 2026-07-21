@@ -20,7 +20,7 @@ use std::path::PathBuf;
 
 use tauri::{Manager, WebviewWindow};
 
-use crate::commands::export::unique_path;
+use crate::commands::handoff;
 use crate::error::{AppError, AppResult};
 use crate::library::run_blocking;
 use crate::state::AppState;
@@ -77,23 +77,16 @@ pub async fn start_asset_drag(
     let staged = run_blocking(move || {
         let dir = std::env::temp_dir().join("yassets-drag");
         std::fs::create_dir_all(&dir)?;
-        sweep_stale(&dir);
+        handoff::sweep_stale(&dir, STALE_SECS);
 
         let mut used: HashSet<String> = HashSet::new();
         let mut paths: Vec<PathBuf> = Vec::new();
         let mut image: Option<PathBuf> = None;
         for (id, rel_path, name, ext) in &rows {
             let src = lib.resolve_rel(rel_path);
-            if !src.is_file() {
+            let Some(target) = handoff::stage_one(&src, &dir, name, ext, &mut used) else {
                 continue;
-            }
-            let target = unique_path(&dir, name, ext, &mut used);
-            // Hard link is instant regardless of size; a copy covers the rare
-            // cross-volume temp dir. Skip anything we can't materialize.
-            if std::fs::hard_link(&src, &target).is_err() && std::fs::copy(&src, &target).is_err() {
-                log::warn!("drag stage failed for {}", src.display());
-                continue;
-            }
+            };
             if image.is_none() {
                 let thumb = lib.thumb_path(id);
                 image = Some(if thumb.is_file() {
@@ -160,23 +153,4 @@ pub async fn start_asset_drag(
 struct Staged {
     paths: Vec<PathBuf>,
     image: Option<PathBuf>,
-}
-
-/// Best-effort removal of staged drag files older than [`STALE_SECS`]. The OS
-/// copies what it needs during the drop, so leftovers are pure garbage.
-fn sweep_stale(dir: &std::path::Path) {
-    let Ok(entries) = std::fs::read_dir(dir) else {
-        return;
-    };
-    let cutoff = std::time::SystemTime::now() - std::time::Duration::from_secs(STALE_SECS);
-    for entry in entries.flatten() {
-        let stale = entry
-            .metadata()
-            .and_then(|meta| meta.modified())
-            .map(|modified| modified < cutoff)
-            .unwrap_or(false);
-        if stale {
-            let _ = std::fs::remove_file(entry.path());
-        }
-    }
 }

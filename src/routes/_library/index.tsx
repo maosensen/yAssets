@@ -196,6 +196,18 @@ function LibraryHome() {
 					.catch(() => {});
 				return;
 			}
+			// Cmd/Ctrl+C — copy the selection onto the OS clipboard as files, so
+			// it pastes into Finder, a browser, or a chat box. Empty selection
+			// falls through to the browser's default copy.
+			if ((event.metaKey || event.ctrlKey) && event.key === "c") {
+				const { selectedIds } = useSelectionStore.getState();
+				if (selectedIds.size === 0) return;
+				event.preventDefault();
+				void commands.copyAssetsToClipboard([...selectedIds]).catch((err) => {
+					console.error("copy to clipboard failed", err);
+				});
+				return;
+			}
 			// Cmd/Ctrl+V — paste into the current folder view. A clipboard URL
 			// (no copied files/bitmap) imports as a link/media asset; otherwise
 			// fall back to the files/bitmap clipboard import.

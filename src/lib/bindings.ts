@@ -206,6 +206,11 @@ export const commands = {
 	 *  has started (the OS then owns the gesture); the drop target is external.
 	 */
 	startAssetDrag: (ids: string[]) => typedError<null, AppError>(__TAURI_INVOKE("start_asset_drag", { ids })),
+	/**
+	 *  Copy `ids` onto the OS clipboard as files. Returns once the clipboard holds
+	 *  the staged paths; pasting into another app then copies the real files out.
+	 */
+	copyAssetsToClipboard: (ids: string[]) => typedError<null, AppError>(__TAURI_INVOKE("copy_assets_to_clipboard", { ids })),
 	searchSource: (provider: SourceProvider, query: string, page: number, filters: SourceFilters, apiKey: string | null) => typedError<SourceSearchResult, AppError>(__TAURI_INVOKE("search_source", { provider, query, page, filters, apiKey })),
 	importSourceItems: (items: SourceItem[], folderId: string | null) => typedError<ImportSummary, AppError>(__TAURI_INVOKE("import_source_items", { items, folderId })),
 	/**

@@ -12,11 +12,13 @@
 //! - One file per domain.
 
 pub mod assets;
+pub mod clipboard;
 pub mod collect;
 pub mod drag;
 pub mod duplicates;
 pub mod export;
 pub mod folders;
+pub mod handoff;
 pub mod import;
 pub mod library;
 pub mod maintenance;
