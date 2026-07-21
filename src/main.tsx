@@ -21,6 +21,10 @@ const router = createRouter({
 	context: { queryClient: getQueryClient() },
 	// Never dead-end the user on a crash — always offer a way home.
 	defaultErrorComponent: AppErrorFallback,
+	// Restore scroll position per history entry — notably the asset grid's
+	// offset when returning from the full-page preview (see AssetGrid's
+	// `data-scroll-restoration-id`).
+	scrollRestoration: true,
 });
 
 // Type-safe router registration.

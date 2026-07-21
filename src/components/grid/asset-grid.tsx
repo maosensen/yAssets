@@ -7,6 +7,7 @@
  * - The scroll container is a plain overflow element (virtualizer needs it)
  */
 
+import { useElementScrollRestoration } from "@tanstack/react-router";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
 	useCallback,
@@ -37,6 +38,12 @@ import { useViewPrefsStore } from "@/lib/stores/view-prefs-store";
 const GAP = 8;
 const CAPTION_HEIGHT = 36;
 const PADDING = 12;
+/**
+ * Scroll-restoration id for the grid's scroll container. Only one AssetGrid is
+ * mounted at a time; the router caches its offset per history entry, so this
+ * stays a single stable id across every library view.
+ */
+const GRID_SCROLL_ID = "asset-grid";
 /** Pointer must travel this far before a blank-drag becomes a marquee. */
 const MARQUEE_THRESHOLD = 4;
 
@@ -103,12 +110,18 @@ export function AssetGrid({
 		[assets, contentWidth, targetRowHeight],
 	);
 
+	// Router-managed scroll restoration: returning from the full-page preview
+	// (a POP to the same history entry) restores this offset. `initialOffset`
+	// seeds the virtualizer so the first paint already renders the right rows;
+	// the router separately sets the element's scrollTop on render.
+	const scrollEntry = useElementScrollRestoration({ id: GRID_SCROLL_ID });
 	const virtualizer = useVirtualizer({
 		count: layout.rows.length,
 		getScrollElement: () => scrollRef.current,
 		estimateSize: (index) =>
 			(layout.rows[index]?.height ?? targetRowHeight + CAPTION_HEIGHT) + GAP,
 		overscan: 4,
+		initialOffset: scrollEntry?.scrollY,
 	});
 
 	// On any relayout (zoom / resize / data): refresh the virtualizer's size
@@ -341,6 +354,7 @@ export function AssetGrid({
 		<>
 			<div
 				ref={scrollRef}
+				data-scroll-restoration-id={GRID_SCROLL_ID}
 				className="h-full select-none overflow-y-auto"
 				style={{ padding: PADDING }}
 				onPointerDown={onPointerDown}
