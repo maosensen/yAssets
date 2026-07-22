@@ -175,7 +175,9 @@ pub fn open_link_window(
         // Re-check every navigation (redirects + in-page clicks), not just the
         // initial URL — the engine follows redirects on its own, so a public
         // page that 3xx-redirects to a private host would otherwise slip past.
-        .on_navigation(viewer_url_allowed)
+        // Nav-variant so WebView2's startup `about:blank` isn't cancelled (that
+        // left the link window blank on Windows).
+        .on_navigation(viewer_nav_allowed)
         .title(&title)
         .inner_size(1200.0, 820.0)
         .center()
@@ -189,6 +191,19 @@ pub fn open_link_window(
 /// the URL we are handed and every subsequent navigation via `on_navigation`.
 fn viewer_url_allowed(url: &Url) -> bool {
     matches!(url.scheme(), "http" | "https") && !host_is_blocked(url.host_str())
+}
+
+/// Navigation gate for the live viewer (`on_navigation`, fires on every
+/// in-webview navigation). Same SSRF block as `viewer_url_allowed` for real
+/// web fetches, but PERMITS engine-internal non-web schemes: WebView2 (Windows)
+/// fires a startup navigation to `about:blank`, and returning false there
+/// cancels it, leaving the window blank (WKWebView on macOS doesn't emit it, so
+/// the bug was Windows-only). Only http(s) to a private host is ever blocked.
+fn viewer_nav_allowed(url: &Url) -> bool {
+    match url.scheme() {
+        "http" | "https" => !host_is_blocked(url.host_str()),
+        _ => true,
+    }
 }
 
 fn window_err(err: tauri::Error) -> AppError {
@@ -512,6 +527,19 @@ mod tests {
         assert!(!allow("https://localhost/admin"));
         // Non-web schemes are refused.
         assert!(!allow("file:///etc/passwd"));
+    }
+
+    #[test]
+    fn viewer_nav_permits_internal_schemes_but_keeps_ssrf_block() {
+        let allow = |s: &str| viewer_nav_allowed(&Url::parse(s).unwrap());
+        // WebView2's startup navigation must pass, or the window stays blank.
+        assert!(allow("about:blank"));
+        assert!(allow("data:text/html,hi"));
+        // Real public pages load.
+        assert!(allow("https://x.com/user/status/1"));
+        // SSRF targets stay blocked on real web navigations (redirects too).
+        assert!(!allow("http://127.0.0.1:8080/"));
+        assert!(!allow("http://169.254.169.254/latest/meta-data/"));
     }
 
     #[test]
