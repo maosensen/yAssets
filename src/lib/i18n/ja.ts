@@ -544,6 +544,11 @@ export const ja: Messages = {
 		coverDone: "カバーを更新しました",
 		coverFailed: "このファイルのカバーを生成できませんでした",
 	},
+	cover: {
+		setCover: "カバーを設定…",
+		setting: "カバーを設定中…",
+		setDone: "カバーを更新しました",
+	},
 	preview: {
 		close: "プレビューを閉じる",
 		prev: "前へ",

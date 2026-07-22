@@ -400,6 +400,34 @@ export function useRegenerateCover() {
 	});
 }
 
+/**
+ * Set an asset's cover from a user-picked local image (e.g. a link bookmark
+ * that got no auto cover). Bumps the cover-bust token so the immutable-cached
+ * thumb reloads, mirroring `useRegenerateCover`.
+ */
+export function useSetAssetCover() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async (input: { id: string; sourcePath: string }) => {
+			unwrap(await commands.setAssetCover(input.id, input.sourcePath));
+			return input.id;
+		},
+		onMutate: ({ id }) => {
+			toast.loading(T.cover.setting, { id: `cover-${id}` });
+		},
+		onSuccess: (id) => {
+			useCoverBustStore.getState().bump(id);
+			void queryClient.invalidateQueries({ queryKey: assetKeys.all });
+			void queryClient.invalidateQueries({ queryKey: assetKeys.detail(id) });
+			void queryClient.invalidateQueries({ queryKey: libraryKeys.stats });
+			toast.success(T.cover.setDone, { id: `cover-${id}` });
+		},
+		onError: (error, { id }) => {
+			toast.error(describeError(error), { id: `cover-${id}` });
+		},
+	});
+}
+
 /** Set the same rating across a multi-selection (batch metadata editing). */
 export function useSetAssetsRating() {
 	const queryClient = useQueryClient();

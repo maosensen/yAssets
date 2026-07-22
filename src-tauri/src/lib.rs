@@ -42,6 +42,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::assets::list_cover_candidates,
             commands::assets::set_video_thumbnail,
             commands::assets::set_captured_thumbnail,
+            commands::assets::set_asset_cover,
             commands::assets::backfill_missing_thumbnails,
             commands::assets::find_similar_assets,
             commands::duplicates::scan_duplicates,

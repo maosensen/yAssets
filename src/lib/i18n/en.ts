@@ -537,6 +537,11 @@ export const en = {
 		coverDone: "Cover updated",
 		coverFailed: "Couldn't generate a cover for this file",
 	},
+	cover: {
+		setCover: "Set Cover…",
+		setting: "Setting cover…",
+		setDone: "Cover updated",
+	},
 	preview: {
 		close: "Close preview",
 		prev: "Previous",

@@ -529,6 +529,11 @@ export const zh: Messages = {
 		coverDone: "封面已更新",
 		coverFailed: "无法为此文件生成封面",
 	},
+	cover: {
+		setCover: "设置封面…",
+		setting: "正在设置封面…",
+		setDone: "封面已更新",
+	},
 	preview: {
 		close: "关闭预览",
 		prev: "上一个",

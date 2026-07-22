@@ -1219,6 +1219,79 @@ pub async fn set_captured_thumbnail(
         .await
 }
 
+/// Replace an asset's cover with a user-picked local image, run through the
+/// same thumbnail / color / dHash pipeline as an import. Gives a link bookmark
+/// (or any asset) a manual cover when auto-capture found none — path handling
+/// stays in Rust; the frontend only supplies the dialog-picked path.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_asset_cover(
+    asset_id: String,
+    source_path: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<()> {
+    let library = state.current_library()?;
+    // Confirm the asset is alive before touching the filesystem.
+    {
+        let asset_id = asset_id.clone();
+        library
+            .read(move |conn| {
+                conn.query_row(
+                    "SELECT 1 FROM assets WHERE id = ?1 AND deleted_at IS NULL",
+                    [asset_id.as_str()],
+                    |_| Ok(()),
+                )
+                .map_err(|_| AppError::NotFound("asset not found".into()))
+            })
+            .await?;
+    }
+
+    let src = std::path::PathBuf::from(&source_path);
+    let ext_lc = src
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_lowercase)
+        .unwrap_or_default();
+    if !crate::import::thumbs::is_thumbable_ext(&ext_lc) {
+        return Err(AppError::Conflict(
+            "unsupported image format for a cover".into(),
+        ));
+    }
+
+    let dest = library.thumb_path(&asset_id);
+    let outcome = tauri::async_runtime::spawn_blocking(move || {
+        crate::import::thumbs::generate(&src, &dest, &ext_lc)
+    })
+    .await
+    .map_err(|err| {
+        log::error!("set cover task failed: {err}");
+        AppError::Internal
+    })?
+    .map_err(|err| AppError::Conflict(format!("cover generation failed: {err}")))?;
+
+    let (width, height) = (outcome.width, outcome.height);
+    library
+        .write(move |conn| {
+            conn.execute(
+                "UPDATE assets
+                 SET has_thumb = 1, width = ?2, height = ?3,
+                     hue = ?4, palette = ?5, dhash = ?6, updated_at = ?7
+                 WHERE id = ?1 AND deleted_at IS NULL",
+                rusqlite::params![
+                    asset_id,
+                    width,
+                    height,
+                    outcome.hue,
+                    outcome.palette,
+                    outcome.dhash,
+                    now_ms(),
+                ],
+            )?;
+            Ok(())
+        })
+        .await
+}
+
 /// Visual similarity search (dHash, layer L2 of the duplicate strategy):
 /// popcount the target's fingerprint against every alive asset, return
 /// summaries ordered by distance (the target itself leads at distance 0).

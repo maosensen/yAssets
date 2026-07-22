@@ -17,3 +17,18 @@ export async function pickFiles(title?: string): Promise<string[]> {
 	if (Array.isArray(result)) return result;
 	return typeof result === "string" ? [result] : [];
 }
+
+/** Native single-image picker; `null` when the user cancels. */
+export async function pickImageFile(title?: string): Promise<string | null> {
+	const result = await open({
+		multiple: false,
+		title,
+		filters: [
+			{
+				name: "Image",
+				extensions: ["png", "jpg", "jpeg", "webp", "gif", "bmp", "svg"],
+			},
+		],
+	});
+	return typeof result === "string" ? result : null;
+}
