@@ -92,6 +92,8 @@ export { default as IconReload } from "~icons/solar/restart-linear";
 export { default as IconSettings } from "~icons/solar/settings-linear";
 export { default as IconSort } from "~icons/solar/sort-vertical-linear";
 export { default as IconReveal } from "~icons/solar/square-top-up-linear";
+// Rating uses the filled (bold) star for earned stars, outline for the rest.
+export { default as IconStarBold } from "~icons/solar/star-bold";
 export { default as IconStar } from "~icons/solar/star-linear";
 export { default as IconSun } from "~icons/solar/sun-2-linear";
 export { default as IconTagBold } from "~icons/solar/tag-bold";
