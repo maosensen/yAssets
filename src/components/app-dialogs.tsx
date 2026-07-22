@@ -8,6 +8,7 @@
 import { AboutDialog } from "@/components/about-dialog";
 import { ChangelogDialog } from "@/components/changelog-dialog";
 import { PreferencesDialog } from "@/components/preferences/preferences-dialog";
+import { SetCoverDialog } from "@/components/set-cover-dialog";
 import { useUiStore } from "@/lib/stores/ui-store";
 
 export function AppDialogs() {
@@ -18,6 +19,7 @@ export function AppDialogs() {
 			<PreferencesDialog open={prefsOpen} onOpenChange={setPrefsOpen} />
 			<AboutDialog />
 			<ChangelogDialog />
+			<SetCoverDialog />
 		</>
 	);
 }

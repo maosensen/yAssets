@@ -539,6 +539,10 @@ export const en = {
 	},
 	cover: {
 		setCover: "Set Cover…",
+		title: "Set Cover",
+		hint: "Paste an image (⌘V), or click to upload",
+		save: "Set as Cover",
+		invalid: "That's not an image",
 		setting: "Setting cover…",
 		setDone: "Cover updated",
 	},

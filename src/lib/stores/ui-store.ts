@@ -20,6 +20,10 @@ type UiState = {
 	setAboutOpen: (open: boolean) => void;
 	changelogOpen: boolean;
 	setChangelogOpen: (open: boolean) => void;
+	/** Asset whose cover the Set-Cover dialog is editing; null = closed. */
+	coverAssetId: string | null;
+	openCoverDialog: (assetId: string) => void;
+	closeCoverDialog: () => void;
 };
 
 export const useUiStore = create<UiState>()((set) => ({
@@ -32,4 +36,7 @@ export const useUiStore = create<UiState>()((set) => ({
 	setAboutOpen: (open) => set({ aboutOpen: open }),
 	changelogOpen: false,
 	setChangelogOpen: (open) => set({ changelogOpen: open }),
+	coverAssetId: null,
+	openCoverDialog: (assetId) => set({ coverAssetId: assetId }),
+	closeCoverDialog: () => set({ coverAssetId: null }),
 }));

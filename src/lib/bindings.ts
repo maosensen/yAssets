@@ -111,13 +111,6 @@ export const commands = {
 	 */
 	setCapturedThumbnail: (assetId: string, frameBase64: string, width: number, height: number) => typedError<null, AppError>(__TAURI_INVOKE("set_captured_thumbnail", { assetId, frameBase64, width, height })),
 	/**
-	 *  Replace an asset's cover with a user-picked local image, run through the
-	 *  same thumbnail / color / dHash pipeline as an import. Gives a link bookmark
-	 *  (or any asset) a manual cover when auto-capture found none — path handling
-	 *  stays in Rust; the frontend only supplies the dialog-picked path.
-	 */
-	setAssetCover: (assetId: string, sourcePath: string) => typedError<null, AppError>(__TAURI_INVOKE("set_asset_cover", { assetId, sourcePath })),
-	/**
 	 *  Regenerate thumbnails for alive `managed` assets that lack one but whose
 	 *  format is decodable headless in Rust (TIFF/ICO/PSD/Sketch added after they
 	 *  were first imported). Best-effort: per-asset failures are logged and skipped;

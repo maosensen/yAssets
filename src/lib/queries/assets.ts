@@ -401,15 +401,29 @@ export function useRegenerateCover() {
 }
 
 /**
- * Set an asset's cover from a user-picked local image (e.g. a link bookmark
- * that got no auto cover). Bumps the cover-bust token so the immutable-cached
- * thumb reloads, mirroring `useRegenerateCover`.
+ * Set an asset's cover from an in-app image (pasted or uploaded) — e.g. a link
+ * bookmark that got no auto cover. `dataBase64` is the raw base64 (no data-URL
+ * prefix) with its source pixel dimensions; runs through the same capture
+ * pipeline as PDF/HEIC covers. Bumps the cover-bust token so the
+ * immutable-cached thumb reloads, mirroring `useRegenerateCover`.
  */
 export function useSetAssetCover() {
 	const queryClient = useQueryClient();
 	return useMutation({
-		mutationFn: async (input: { id: string; sourcePath: string }) => {
-			unwrap(await commands.setAssetCover(input.id, input.sourcePath));
+		mutationFn: async (input: {
+			id: string;
+			dataBase64: string;
+			width: number;
+			height: number;
+		}) => {
+			unwrap(
+				await commands.setCapturedThumbnail(
+					input.id,
+					input.dataBase64,
+					input.width,
+					input.height,
+				),
+			);
 			return input.id;
 		},
 		onMutate: ({ id }) => {

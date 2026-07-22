@@ -12,17 +12,16 @@ import {
 } from "@/components/ui/context-menu";
 import { useExport } from "@/hooks/use-export";
 import { hasCapturableCover } from "@/lib/cover-capture";
-import { pickImageFile } from "@/lib/dialogs";
 import { openExternalUrl, openLinkWindow } from "@/lib/opener";
 import {
 	revealAsset,
 	useRegenerateCover,
 	useRestoreAssets,
-	useSetAssetCover,
 	useTrashAssets,
 } from "@/lib/queries/assets";
 import { useRemoveAssetsFromFolder } from "@/lib/queries/folders";
 import { useSelectionStore } from "@/lib/stores/selection-store";
+import { useUiStore } from "@/lib/stores/ui-store";
 import { T } from "@/lib/text";
 
 type AssetContextItemsProps = {
@@ -72,13 +71,8 @@ export function AssetContextItems({
 	const restoreMutation = useRestoreAssets();
 	const removeMutation = useRemoveAssetsFromFolder();
 	const regenerateCover = useRegenerateCover();
-	const setCover = useSetAssetCover();
+	const openCoverDialog = useUiStore((state) => state.openCoverDialog);
 	const { exportAssets } = useExport();
-
-	const chooseCover = async () => {
-		const path = await pickImageFile();
-		if (path) setCover.mutate({ id: assetId, sourcePath: path });
-	};
 
 	// Selection size at open time — the menu is mounted per open.
 	const count = targetIds(assetId).length;
@@ -166,7 +160,7 @@ export function AssetContextItems({
 						</ContextMenuItem>
 					)}
 					{kind === "link" && (
-						<ContextMenuItem onClick={() => void chooseCover()}>
+						<ContextMenuItem onClick={() => openCoverDialog(assetId)}>
 							{T.cover.setCover}
 						</ContextMenuItem>
 					)}

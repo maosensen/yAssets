@@ -29,13 +29,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useExport } from "@/hooks/use-export";
 import type { AssetDetail } from "@/lib/bindings";
-import { pickImageFile } from "@/lib/dialogs";
 import { formatBytes, formatDateTime, formatDimensions } from "@/lib/format";
 import { openExternalUrl } from "@/lib/opener";
 import {
 	assetDetailQueryOptions,
 	revealAsset,
-	useSetAssetCover,
 	useUpdateAsset,
 } from "@/lib/queries/assets";
 import {
@@ -110,14 +108,9 @@ function PreviewBox({ detail }: { detail: AssetDetail }) {
 	const thumbSrc = useThumbSrc(detail.id);
 	const [brokenSrc, setBrokenSrc] = useState<string | null>(null);
 	const showImage = detail.has_thumb && brokenSrc !== thumbSrc;
-	const setCover = useSetAssetCover();
+	const openCoverDialog = useUiStore((state) => state.openCoverDialog);
 	// Link bookmarks often can't auto-fetch a cover — let the user pick one.
 	const isLink = detail.kind === "link";
-
-	const chooseCover = async () => {
-		const path = await pickImageFile();
-		if (path) setCover.mutate({ id: detail.id, sourcePath: path });
-	};
 
 	return (
 		<div className="relative flex max-h-48 min-h-24 items-center justify-center overflow-hidden rounded-md bg-muted">
@@ -145,9 +138,8 @@ function PreviewBox({ detail }: { detail: AssetDetail }) {
 			{isLink && (
 				<button
 					type="button"
-					disabled={setCover.isPending}
-					className="absolute right-1.5 bottom-1.5 rounded-sm bg-black/55 px-1.5 py-0.5 font-medium text-[10px] text-white uppercase tracking-wide hover:bg-black/70 disabled:opacity-60"
-					onClick={() => void chooseCover()}
+					className="absolute right-1.5 bottom-1.5 rounded-sm bg-black/55 px-1.5 py-0.5 font-medium text-[10px] text-white uppercase tracking-wide hover:bg-black/70"
+					onClick={() => openCoverDialog(detail.id)}
 				>
 					{T.cover.setCover}
 				</button>

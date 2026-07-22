@@ -546,6 +546,10 @@ export const ja: Messages = {
 	},
 	cover: {
 		setCover: "カバーを設定…",
+		title: "カバーを設定",
+		hint: "画像を貼り付け（⌘V）、またはクリックしてアップロード",
+		save: "カバーに設定",
+		invalid: "画像ではありません",
 		setting: "カバーを設定中…",
 		setDone: "カバーを更新しました",
 	},

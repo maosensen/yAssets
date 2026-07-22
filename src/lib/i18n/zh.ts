@@ -531,6 +531,10 @@ export const zh: Messages = {
 	},
 	cover: {
 		setCover: "设置封面…",
+		title: "设置封面",
+		hint: "粘贴图片（⌘V），或点击上传",
+		save: "设为封面",
+		invalid: "这不是图片",
 		setting: "正在设置封面…",
 		setDone: "封面已更新",
 	},
