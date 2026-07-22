@@ -2,6 +2,35 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.24",
+		date: "2026-07-22",
+		title: "Folders, your way",
+		summary:
+			"Give folders a color and an icon, drag them to reorder or nest, and hand any link the cover it couldn't fetch.",
+		changes: [
+			{
+				kind: "new",
+				title: "Color & icon for folders",
+				text: "Right-click a sidebar folder ▸ Color & Icon… to tint its glyph and pick from a curated icon set — one popover for both, each with a default option to clear back.",
+			},
+			{
+				kind: "new",
+				title: "Drag to reorder & nest",
+				text: "Drag a sidebar folder and drop it between rows to reorder it, or onto another folder to move it inside — a line or highlight shows where it lands.",
+			},
+			{
+				kind: "new",
+				title: "Set a link's cover",
+				text: "For bookmarks that got no automatic cover, right-click a link ▸ Set Cover… (or the button on its inspector preview) to paste an image (⌘V) or upload one, preview, and save.",
+			},
+			{
+				kind: "improved",
+				title: "Refined rating stars",
+				text: "Earned stars are now solid and a warm amber instead of the theme color, and hovering previews the rating up to the star you point at.",
+			},
+		],
+	},
+	{
 		version: "0.1.23",
 		date: "2026-07-21",
 		title: "Sharper icons, steadier scrolling",

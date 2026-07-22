@@ -9,6 +9,27 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.24] - 2026-07-22
+
+### Added
+
+- **Color & icon for folders.** Right-click a sidebar folder ▸ Color & Icon…
+  to tint its glyph and pick from a curated icon set — one popover for both,
+  each with a "default" choice to clear back to the plain folder.
+- **Drag folders to reorder or nest them.** Drag a sidebar folder and drop it
+  between rows to reorder it among its siblings, or onto another folder to move
+  it inside — with a line or highlight showing where it will land.
+- **Set a link's cover by hand.** Some bookmarks can't fetch a cover
+  automatically; now you can give them one — right-click a link ▸ Set Cover…
+  (or the button on its inspector preview) opens a dialog where you paste an
+  image (⌘V) or upload a file, preview it, and save.
+
+### Changed
+
+- **Rating stars, refined.** Earned stars are now solid and a warm amber
+  (the universal rating gold) instead of the theme color, hovering previews the
+  value up to the pointer, and the star you point at pops.
+
 ## [0.1.23] - 2026-07-21
 
 ### Changed
@@ -322,6 +343,7 @@ with Tauri 2.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
 [Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.23...HEAD
+[0.1.24]: https://github.com/maosensen/yAssets/releases/tag/v0.1.24
 [0.1.23]: https://github.com/maosensen/yAssets/releases/tag/v0.1.23
 [0.1.22]: https://github.com/maosensen/yAssets/releases/tag/v0.1.22
 [0.1.21]: https://github.com/maosensen/yAssets/releases/tag/v0.1.21
