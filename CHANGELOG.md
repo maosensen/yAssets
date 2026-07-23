@@ -9,6 +9,14 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.25] - 2026-07-23
+
+### Fixed
+
+- **Blank in-app page when opening a saved link (Windows).** Double-clicking a
+  bookmark opened an empty window on Windows — the page never appeared. It now
+  loads the site, matching macOS.
+
 ## [0.1.24] - 2026-07-22
 
 ### Added
@@ -343,6 +351,7 @@ with Tauri 2.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
 [Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.23...HEAD
+[0.1.25]: https://github.com/maosensen/yAssets/releases/tag/v0.1.25
 [0.1.24]: https://github.com/maosensen/yAssets/releases/tag/v0.1.24
 [0.1.23]: https://github.com/maosensen/yAssets/releases/tag/v0.1.23
 [0.1.22]: https://github.com/maosensen/yAssets/releases/tag/v0.1.22

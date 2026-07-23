@@ -2,6 +2,19 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.25",
+		date: "2026-07-23",
+		title: "Windows 上收藏的链接又能打开了",
+		summary: "修复 Windows 专属问题:双击收藏的链接弹出空白窗口。",
+		changes: [
+			{
+				kind: "fixed",
+				title: "Windows 链接窗口空白",
+				text: "在 Windows 上双击书签会弹出空白窗口——现在能正常加载页面,与 macOS 一致。",
+			},
+		],
+	},
+	{
 		version: "0.1.24",
 		date: "2026-07-22",
 		title: "文件夹,随你定制",

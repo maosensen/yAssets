@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.25",
+		date: "2026-07-23",
+		title: "Saved links open again on Windows",
+		summary:
+			"Fixes a Windows-only bug where double-clicking a saved link opened a blank window.",
+		changes: [
+			{
+				kind: "fixed",
+				title: "Blank link window on Windows",
+				text: "Double-clicking a bookmark opened an empty window on Windows — the page now loads the site, matching macOS.",
+			},
+		],
+	},
+	{
 		version: "0.1.24",
 		date: "2026-07-22",
 		title: "Folders, your way",

@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const ja: ChangelogRelease[] = [
 	{
+		version: "0.1.25",
+		date: "2026-07-23",
+		title: "Windows で保存したリンクが再び開く",
+		summary:
+			"保存したリンクをダブルクリックすると空白のウィンドウが開く Windows 固有の不具合を修正しました。",
+		changes: [
+			{
+				kind: "fixed",
+				title: "Windows でリンクウィンドウが空白",
+				text: "Windows でブックマークをダブルクリックすると空白のウィンドウが開いていました。macOS と同様にページが読み込まれるようになりました。",
+			},
+		],
+	},
+	{
 		version: "0.1.24",
 		date: "2026-07-22",
 		title: "フォルダを自分好みに",
