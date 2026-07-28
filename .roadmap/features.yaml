@@ -1,0 +1,451 @@
+# .roadmap/features.yaml — 功能台账
+# 本文件是该项目功能状态的唯一事实源;yPulse 每晚采集(schema v1,见 yPulse 仓库 docs/feature-ledger.md)。
+# 约定:完成一个功能 = 同一次提交里更新对应条目(置 done + completedAt)。
+#
+# 初稿由功能考古生成(2026-07-28,依据 CHANGELOG v0.1.0→v0.1.25 + 全量功能核对 + readiness DB 迁移),待人批改。
+# 部分历史条目的 shippedIn 无法从 CHANGELOG 唯一对应,已省略(不猜)。
+
+project: maosensen/yAssets
+track: product
+launchedAt: null
+areas:
+  [
+    库与数据,
+    素材入库,
+    浏览与查找,
+    组织,
+    预览查看,
+    元数据详情,
+    素材出库,
+    Discover,
+    键盘与交互,
+    外观与系统,
+  ]
+
+modules:
+  # —— 自 readiness DB 迁移(2026-07-28),含手工判断(skipped 等),原样保留 ——
+  - id: landing-page
+    title: 能卖出去的落地页
+    tier: required
+    status: todo
+    note: 给谁用、解决什么、为什么值得付钱。不是功能清单。
+  - id: pricing-page
+    title: 定价页
+    tier: required
+    status: todo
+  - id: payments
+    title: 支付已接通
+    tier: required
+    status: todo
+    note: 一笔真实的钱能落进一个真实的账户。
+  - id: accounts
+    title: 账号体系:注册、登录、找回
+    tier: required
+    status: skipped
+    note: 本地优先应用,无服务端账号;付费走许可证路径。
+  - id: paid-unlock
+    title: 付费权益端到端解锁
+    tier: required
+    status: todo
+    note: 用一笔真实购买验证过,而不是测试模式下的想当然。
+  - id: legal-terms
+    title: 隐私政策 + 服务条款
+    tier: required
+    status: todo
+  - id: refund-path
+    title: 取消 / 退款路径
+    tier: required
+    status: todo
+    note: 多数商店会强制要求,想信任你的人也会先找这个。
+  - id: support-contact
+    title: 客服联系方式
+    tier: required
+    status: todo
+  - id: public-access
+    title: 公开可访问
+    tier: required
+    status: skipped
+    note: 线上地址或已过审的商店页面 —— 陌生人能走到它面前。
+  - id: usage-visibility
+    title: 知道到底有没有人在用
+    tier: required
+    status: todo
+    note: 错误监控 + 基础埋点。盲发不算发。
+  - id: first-paying-customer
+    title: 第一个付费用户
+    tier: required
+    status: todo
+    note: 一个就够。整条赛道就是为这一项存在的。
+  - id: code-signing
+    title: 代码签名 + 公证
+    tier: required
+    status: todo
+    note: 未签名的桌面包会弹一个没人敢点「继续」的警告。
+  - id: platform-installers
+    title: 各目标平台的安装包
+    tier: required
+    status: done
+    completedAt: 2026-07-27
+  - id: apple-dev-account
+    title: 苹果开发者账号
+    tier: required
+    status: todo
+  - id: i18n
+    title: 多语言
+    tier: enhancement
+    status: done
+    completedAt: 2026-07-27
+  - id: seo-og
+    title: SEO + OG 卡片
+    tier: enhancement
+    status: todo
+  - id: trial-promo
+    title: 试用或优惠码
+    tier: enhancement
+    status: todo
+  - id: onboarding
+    title: 新手引导
+    tier: enhancement
+    status: todo
+  - id: transactional-email
+    title: 事务性邮件
+    tier: enhancement
+    status: todo
+  - id: revenue-dashboard
+    title: 收入看板
+    tier: enhancement
+    status: todo
+  - id: auto-update-channel
+    title: 自动更新通道
+    tier: enhancement
+    status: done
+    completedAt: 2026-07-28
+  - id: crash-reporting
+    title: 崩溃上报
+    tier: enhancement
+    status: todo
+
+features:
+  # —— 库与数据 ——
+  - id: local-library
+    title: 本地优先素材库
+    area: 库与数据
+    status: done
+    completedAt: 2026-07-04
+    shippedIn: v0.1.0
+    note: 创建 / 打开 / 关闭,自动重开上次库,最近库列表,库统计。
+  - id: multi-library
+    title: 多库切换
+    area: 库与数据
+    status: done
+    note: 切换器菜单,同一应用管理多个独立库。
+  - id: sqlite-source-of-truth
+    title: SQLite 单一事实源
+    area: 库与数据
+    status: done
+    completedAt: 2026-07-04
+    shippedIn: v0.1.0
+    note: schema 追加式 migration,开库自动升级;SQL 永不跨 IPC。
+  - id: maintenance-tools
+    title: 库维护工具
+    area: 库与数据
+    status: done
+    completedAt: 2026-07-06
+    shippedIn: v0.1.6
+    note: 数据库瘦身(VACUUM)、完整性校验、孤儿文件清理、维护报告。
+
+  # —— 素材入库 ——
+  - id: drag-import
+    title: 拖拽 / 文件夹导入
+    area: 素材入库
+    status: done
+    completedAt: 2026-07-04
+    shippedIn: v0.1.0
+    note: 递归导入并保留原目录嵌套结构。
+  - id: paste-import
+    title: 剪贴板粘贴导入
+    area: 素材入库
+    status: done
+    note: ⌘V 文件列表 + 位图截图。
+  - id: url-bookmark-import
+    title: 粘贴链接成书签
+    area: 素材入库
+    status: done
+    completedAt: 2026-07-09
+    shippedIn: v0.1.16
+    note: 自动抓 OG 封面 / 标题;直链图片视频按文件入库。
+  - id: watched-folders
+    title: 监视文件夹自动入库
+    area: 素材入库
+    status: done
+    completedAt: 2026-07-06
+    shippedIn: v0.1.6
+    note: 外部目录新文件自动入库,可开关;v0.1.20 起启动时静默跳过已导入。
+  - id: yclip-collect
+    title: yClip 浏览器扩展直采
+    area: 素材入库
+    status: done
+    completedAt: 2026-07-16
+    shippedIn: v0.1.18
+    note: 右键网页图片 / 链接 / 页面直采,防盗链经浏览器会话;v0.1.19 平台视频经内置 yt-dlp;走本地 Collect API(默认关闭、token 保护)。
+  - id: import-pipeline
+    title: 导入管线(去重 + 缩略图 + 取色)
+    area: 素材入库
+    status: done
+    completedAt: 2026-07-04
+    shippedIn: v0.1.0
+    note: blake3 内容哈希去重 + dHash 感知指纹,并行处理,微事务写库,进度 toast 可取消。
+
+  # —— 浏览与查找 ——
+  - id: virtual-grid
+    title: 虚拟化瀑布流网格
+    area: 浏览与查找
+    status: done
+    completedAt: 2026-07-04
+    shippedIn: v0.1.0
+    note: v0.1.6 起万级素材流畅滚动;无限滚动分页,缩放条;v0.1.23 返回保留滚动位置。
+  - id: sorting
+    title: 排序体系
+    area: 浏览与查找
+    status: done
+    note: 名称 / 大小 / 时间 / 评分 + 升降序。
+  - id: fulltext-search
+    title: 全文搜索
+    area: 浏览与查找
+    status: done
+    completedAt: 2026-07-05
+    shippedIn: v0.1.4
+    note: FTS5,覆盖名称 + 备注。
+  - id: faceted-filters
+    title: 组合筛选
+    area: 浏览与查找
+    status: done
+    completedAt: 2026-07-05
+    shippedIn: v0.1.4
+    note: 评分下限、文件类型、标签、颜色(12 色相球 + 中性)。
+  - id: builtin-views
+    title: 内置视图集
+    area: 浏览与查找
+    status: done
+    note: 全部 / 未分类 / 最近 / 按文件夹 / 按标签 / 未标签 / 回收站 / 相似。
+  - id: find-similar
+    title: 视觉相似检索
+    area: 浏览与查找
+    status: done
+    note: dHash 感知指纹。
+  - id: duplicate-center
+    title: 重复清理中心
+    area: 浏览与查找
+    status: done
+    note: 全库精确(哈希)+ 视觉(dHash)双层扫描报告 + 批量清理;导入时弹 Duplicate File Alert。
+
+  # —— 组织 ——
+  - id: folder-tree
+    title: 无限层级文件夹树
+    area: 组织
+    status: done
+    completedAt: 2026-07-04
+    shippedIn: v0.1.0
+    note: 建 / 重命名 / 删除(子树级联,素材回未分类),描述备注,信息面板。
+  - id: folder-style
+    title: 文件夹换色换图标
+    area: 组织
+    status: done
+    completedAt: 2026-07-22
+    shippedIn: v0.1.24
+    note: 8 色板 + 约 50 个精选图标,含「默认」清除。
+  - id: folder-drag
+    title: 拖动文件夹重排 / 嵌套
+    area: 组织
+    status: done
+    completedAt: 2026-07-22
+    shippedIn: v0.1.24
+    note: 落点线 / 高亮提示,禁止拖入自身子树。
+  - id: subfolder-bar
+    title: 子文件夹条
+    area: 组织
+    status: done
+    note: 文件夹视图顶部显示直接子文件夹。
+  - id: tags
+    title: 标签系统
+    area: 组织
+    status: done
+    completedAt: 2026-07-04
+    shippedIn: v0.1.0
+    note: 建 / 重命名 / 换色 / 删除,批量打标 / 移除。
+  - id: smart-folders
+    title: 智能文件夹
+    area: 组织
+    status: done
+    completedAt: 2026-07-04
+    shippedIn: v0.1.0
+    note: 规则引擎(规则 → SQL 实时查询,无成员表)+ 规则编辑器。
+  - id: asset-drag-organize
+    title: 拖拽素材归档
+    area: 组织
+    status: done
+    note: 拖入文件夹 / 回收站;Eagle 式文件夹选择器。
+  - id: trash
+    title: 回收站
+    area: 组织
+    status: done
+    completedAt: 2026-07-04
+    shippedIn: v0.1.0
+    note: 软删除、还原、永久删除、清空。
+
+  # —— 预览查看 ——
+  - id: viewer-registry
+    title: 分发式多格式查看器
+    area: 预览查看
+    status: done
+    completedAt: 2026-07-04
+    shippedIn: v0.1.0
+    note: 图片(SVG/HEIC/TIFF/AVIF,自由拖动缩放)、视频、音频、PDF、Markdown / 文本 / 30+ 代码格式、HTML(sandbox iframe)。
+  - id: bookmark-browser
+    title: 书签应用内浏览窗口
+    area: 预览查看
+    status: done
+    note: 单窗口复用,SSRF 防护;v0.1.25 修复 Windows 空白页。
+  - id: slideshow-compare
+    title: 全屏幻灯片 + 并排对比
+    area: 预览查看
+    status: done
+    completedAt: 2026-07-06
+    shippedIn: v0.1.5
+    note: 幻灯片无障碍 modal;对比 2–4 路。
+  - id: video-covers
+    title: 视频封面与时长
+    area: 预览查看
+    status: done
+    note: canvas 截帧封面(零 ffmpeg)+ 时长徽标;v0.1.21 起采集视频立即有封面。
+  - id: design-thumbnails
+    title: 设计格式缩略图
+    area: 预览查看
+    status: done
+    note: PDF / HEIC / TIFF / PSD / Sketch 等;缺失自动补齐。
+
+  # —— 元数据详情 ——
+  - id: inspector
+    title: Inspector 详情面板
+    area: 元数据详情
+    status: done
+    completedAt: 2026-07-04
+    shippedIn: v0.1.0
+    note: 重命名、防抖备注、来源 URL、评分(v0.1.24 实心暖金星 + 悬停预览)、标签、所属文件夹、色板、属性表。
+  - id: manual-cover
+    title: 手动设置封面
+    area: 元数据详情
+    status: done
+    completedAt: 2026-07-22
+    shippedIn: v0.1.24
+    note: 粘贴(⌘V)或上传图片,预览后保存 —— 用于抓不到封面的链接。
+  - id: reveal-regen
+    title: Reveal in Finder + 重新生成封面
+    area: 元数据详情
+    status: done
+
+  # —— 素材出库 ——
+  - id: copy-out
+    title: ⌘C 复制到其他应用
+    area: 素材出库
+    status: done
+    completedAt: 2026-07-21
+    shippedIn: v0.1.22
+    note: 粘贴进 Finder / 浏览器 / 聊天框,按真实文件名。
+  - id: drag-out
+    title: 拖出到其他应用
+    area: 素材出库
+    status: done
+    completedAt: 2026-07-17
+    shippedIn: v0.1.21
+    note: 原生 OS 拖拽;同一次拖拽仍可落在侧栏文件夹 / 回收站。
+  - id: export
+    title: 导出
+    area: 素材出库
+    status: done
+    note: 单个 / 批量导出到指定目录,三处入口。
+
+  # —— Discover ——
+  - id: discover
+    title: Discover 站内浏览第三方源
+    area: Discover
+    status: done
+    completedAt: 2026-07-07
+    shippedIn: v0.1.9
+    note: 六源:Wallhaven(v0.1.9)、Pixabay(v0.1.10)、Openverse + Pexels(v0.1.12)、Iconify 20 万+ 图标(v0.1.13)、Openverse 音频(v0.1.15);两层工具栏(v0.1.14),无限滚动;可选 API key。
+  - id: discover-add
+    title: Discover 一键入库
+    area: Discover
+    status: done
+    completedAt: 2026-07-07
+    shippedIn: v0.1.9
+    note: 单个或批量 Add to Library,自动记录出处与作者 / 许可。
+
+  # —— 键盘与交互 ——
+  - id: keyboard-nav
+    title: 键盘操作体系
+    area: 键盘与交互
+    status: done
+    note: ⌘C / ⌘V、方向键网格导航、Space 快速预览、Enter / F2 重命名。
+  - id: multi-select-batch
+    title: 多选与批量操作
+    area: 键盘与交互
+    status: done
+    note: ⌘ / Shift 点选 + 框选;批量评分 / 打标 / 移动 / 导出 / 删除。
+  - id: context-menus
+    title: 右键上下文菜单
+    area: 键盘与交互
+    status: done
+    note: 素材 / 文件夹两套;v0.1.14 修复失效。
+
+  # —— 外观与系统 ——
+  - id: theming
+    title: 主题与质感
+    area: 外观与系统
+    status: done
+    note: 暗 / 亮 / 跟随系统;毛玻璃(macOS vibrancy + Windows mica/acrylic)。
+  - id: i18n-ui
+    title: 三语界面
+    area: 外观与系统
+    status: done
+    completedAt: 2026-07-07
+    shippedIn: v0.1.8
+    note: English / 简体中文 / 日本語,实时切换。
+  - id: native-macos
+    title: macOS 原生集成
+    area: 外观与系统
+    status: done
+    completedAt: 2026-07-07
+    shippedIn: v0.1.8
+    note: 原生菜单栏 + About 窗口;自定义窗口拖动 / 双击最大化;窗口状态记忆。
+  - id: icon-language
+    title: 统一图标语言
+    area: 外观与系统
+    status: done
+    completedAt: 2026-07-21
+    shippedIn: v0.1.23
+    note: Solar Linear,选中态实心。
+  - id: auto-update
+    title: 应用自动更新
+    area: 外观与系统
+    status: done
+    note: 启动检查 + 更新 toast(Install & Restart),签名校验;Preferences 手动检查。
+  - id: whats-new
+    title: 应用内 What's New
+    area: 外观与系统
+    status: done
+    completedAt: 2026-07-07
+    shippedIn: v0.1.11
+    note: 三语版本历史时间线;v0.1.17 重设计。
+  - id: preferences
+    title: 偏好设置中心
+    area: 外观与系统
+    status: done
+    completedAt: 2026-07-07
+    shippedIn: v0.1.11
+    note: 语言 / 主题 / Discover API keys / 维护 / 更新检查。
+  - id: cross-platform
+    title: 跨平台打包
+    area: 外观与系统
+    status: done
+    note: macOS(Apple Silicon + Intel)、Windows、Linux(deb / rpm / AppImage)。
