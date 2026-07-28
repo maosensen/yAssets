@@ -230,6 +230,20 @@ pnpm check            # typecheck + lint + test + rust fmt-check + clippy (the f
 pnpm biome check --write   # Apply lint/format fixes
 ```
 
+## Feature ledger
+
+`.roadmap/features.yaml` is this project's **feature ledger** — the single
+source of truth for what exists, what's planned, and what blocks launch
+(schema v1: yPulse repo `docs/feature-ledger.md`). yPulse collects it nightly.
+
+**The one rule: completing a feature updates the ledger in the same commit.**
+Set the entry's `status: done` and `completedAt: YYYY-MM-DD`; when starting
+something new that has no entry, add one first. Granularity is announce-level —
+one entry = one capability you could put in What's New; implementation details
+go in the host entry's `note`, not into new entries. `id` values are permanent —
+never rename or reuse them. Releases reconcile the ledger as a gate step
+(`shippedIn` backfill happens there).
+
 ## Before committing
 
 `pnpm check` must pass. That runs, in order:
