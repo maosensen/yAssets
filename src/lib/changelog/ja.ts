@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const ja: ChangelogRelease[] = [
 	{
+		version: "0.1.26",
+		date: "2026-07-28",
+		title: "内部整理リリース",
+		summary:
+			"アプリ自体に変更はありません — 提供済み・計画中のすべての機能をリポジトリ内の公開台帳で管理するようになりました。",
+		changes: [
+			{
+				kind: "improved",
+				title: "機能台帳",
+				text: "提供済み・計画中のすべての機能を機械可読の台帳としてリポジトリで管理し、ロードマップとリリース履歴を一箇所で追跡できるようになりました。",
+			},
+		],
+	},
+	{
 		version: "0.1.25",
 		date: "2026-07-23",
 		title: "Windows で保存したリンクが再び開く",

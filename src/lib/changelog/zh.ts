@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.26",
+		date: "2026-07-28",
+		title: "内部整理版本",
+		summary:
+			"应用本身无变化——项目现在用一份公开台账跟踪所有已交付与计划中的功能。",
+		changes: [
+			{
+				kind: "improved",
+				title: "功能台账",
+				text: "所有功能(已交付与计划中)现以机器可读的台账形式随代码仓库维护,路线图与发布历史合于一处、可查可溯。",
+			},
+		],
+	},
+	{
 		version: "0.1.25",
 		date: "2026-07-23",
 		title: "Windows 上收藏的链接又能打开了",

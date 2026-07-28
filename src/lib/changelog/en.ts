@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.26",
+		date: "2026-07-28",
+		title: "Under-the-hood release",
+		summary:
+			"No app changes — the project now tracks every shipped and planned feature in a public ledger alongside the code.",
+		changes: [
+			{
+				kind: "improved",
+				title: "Feature ledger",
+				text: "Every capability — shipped and planned — is now recorded in a machine-readable ledger in the repository, keeping the roadmap and release history in one auditable place.",
+			},
+		],
+	},
+	{
 		version: "0.1.25",
 		date: "2026-07-23",
 		title: "Saved links open again on Windows",

@@ -31,9 +31,10 @@ coverage
 *.sln
 *.sw?
 
-# Local Claude Code workspace config (skills are shared and committed)
+# Local Claude Code workspace config (skills and the release card are shared and committed)
 .claude/*
 !.claude/skills/
+!.claude/release.md
 
 # CodeGraph index (local, regenerable via `codegraph init`)
 .codegraph/

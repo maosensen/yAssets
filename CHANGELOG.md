@@ -9,6 +9,16 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.26] - 2026-07-28
+
+### Added
+
+- **Feature ledger.** The repository now carries a machine-readable ledger of
+  every shipped and planned capability (`.roadmap/features.yaml`) — 47 features
+  distilled from the v0.1.0 → v0.1.25 release history plus the launch-readiness
+  checklist, kept in sync with every future release. No changes to the app
+  itself in this version.
+
 ## [0.1.25] - 2026-07-23
 
 ### Fixed
@@ -350,7 +360,8 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.23...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.26...HEAD
+[0.1.26]: https://github.com/maosensen/yAssets/releases/tag/v0.1.26
 [0.1.25]: https://github.com/maosensen/yAssets/releases/tag/v0.1.25
 [0.1.24]: https://github.com/maosensen/yAssets/releases/tag/v0.1.24
 [0.1.23]: https://github.com/maosensen/yAssets/releases/tag/v0.1.23
