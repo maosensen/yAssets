@@ -409,7 +409,14 @@ function PreviewBody({
 				/>
 			);
 		case "audio":
-			return <AudioViewer assetId={asset.id} name={asset.name} />;
+			return (
+				<AudioViewer
+					assetId={asset.id}
+					name={asset.name}
+					ext={asset.ext}
+					size={asset.size}
+				/>
+			);
 		case "pdf":
 			return <PdfViewer assetId={asset.id} name={asset.name} />;
 		case "html":
