@@ -2,6 +2,30 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.27",
+		date: "2026-08-03",
+		title: "打开就播,音频还带波形",
+		summary:
+			"音频有了真正的播放器(波形 + 电平读数),视频打开即播,导入 toast 再也不会卡住。",
+		changes: [
+			{
+				kind: "new",
+				title: "专业音频播放器",
+				text: "打开音频立即播放,配波形图(点击跳转)、传送控件(音量、0.5–2× 倍速、循环),以及采样率、声道、码率、峰值与平均音量等数值。",
+			},
+			{
+				kind: "new",
+				title: "视频打开即播",
+				text: "打开视频直接开始播放,不用再点一次播放键;用方向键切到下一个视频也会自动播。",
+			},
+			{
+				kind: "fixed",
+				title: "导入 toast 不再卡住",
+				text: "此前若导入任务停止上报,「正在准备导入…」会一直留在屏幕上且无法关闭。现在它带取消按钮,静默的任务也会自动清掉提示。",
+			},
+		],
+	},
+	{
 		version: "0.1.26",
 		date: "2026-07-28",
 		title: "内部整理版本",

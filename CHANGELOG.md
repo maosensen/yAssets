@@ -9,6 +9,24 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.27] - 2026-08-03
+
+### Added
+
+- **A real audio player.** Opening an audio file now starts it playing and
+  gives you a waveform you can click to seek, transport controls (play/pause,
+  volume, 0.5–2× speed, loop), and the file's numbers at a glance — format,
+  sample rate, channel layout, average bitrate, and peak / RMS level in dBFS.
+- **Videos play on open.** Opening a video starts playback instead of waiting
+  for a click on the play button; arrow-key navigation plays the next one too.
+
+### Fixed
+
+- **The import toast can't get stuck anymore.** A "Preparing import…" toast
+  whose job stopped reporting used to sit on screen with no way to dismiss it.
+  It now carries a Cancel button, and any job that goes silent has its toast
+  cleared automatically.
+
 ## [0.1.26] - 2026-07-28
 
 ### Added
@@ -361,6 +379,7 @@ with Tauri 2.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
 [Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.26...HEAD
+[0.1.27]: https://github.com/maosensen/yAssets/releases/tag/v0.1.27
 [0.1.26]: https://github.com/maosensen/yAssets/releases/tag/v0.1.26
 [0.1.25]: https://github.com/maosensen/yAssets/releases/tag/v0.1.25
 [0.1.24]: https://github.com/maosensen/yAssets/releases/tag/v0.1.24

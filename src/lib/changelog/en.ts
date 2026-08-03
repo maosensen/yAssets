@@ -2,6 +2,30 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.27",
+		date: "2026-08-03",
+		title: "Press play — or don't, it already did",
+		summary:
+			"Audio gets a real player with a waveform and level readout, videos start on open, and the import toast can no longer get stuck.",
+		changes: [
+			{
+				kind: "new",
+				title: "A real audio player",
+				text: "Opening an audio file starts it playing, with a waveform you click to seek, transport controls (volume, 0.5–2× speed, loop), and its numbers: sample rate, channels, bitrate, peak and RMS level.",
+			},
+			{
+				kind: "new",
+				title: "Videos play on open",
+				text: "Opening a video starts playback instead of waiting for a click, and moving to the next one with the arrow keys plays it too.",
+			},
+			{
+				kind: "fixed",
+				title: "No more stuck import toast",
+				text: "A \u201cPreparing import\u2026\u201d toast whose job went quiet used to stay on screen forever. It now has a Cancel button, and a silent job's toast clears itself.",
+			},
+		],
+	},
+	{
 		version: "0.1.26",
 		date: "2026-07-28",
 		title: "Under-the-hood release",
