@@ -14,12 +14,39 @@ import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { commands, events } from "@/lib/bindings";
 import { describeError, isCommandError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import { assetKeys, folderKeys, libraryKeys } from "@/lib/queries/keys";
 import { useDuplicatesStore } from "@/lib/stores/duplicates-store";
 import { unwrap } from "@/lib/tauri";
 import { T } from "@/lib/text";
 
 const PROGRESS_INVALIDATE_MS = 2000;
+/** No event for this long ⇒ treat the job's toast as stranded and drop it. */
+const STALE_JOB_MS = 60_000;
+const STALE_SWEEP_MS = 10_000;
+
+/**
+ * Last-seen time per in-flight import job. The progress toast is a `loading`
+ * toast (no auto-dismiss) whose only exits are the progress/finished events, so
+ * a job that stops reporting — a lost event, a webview reload mid-import —
+ * would strand it on screen forever. The sweeper below is that safety net.
+ */
+const activeJobs = new Map<string, number>();
+
+/** Mark a job alive; called when it starts and on every progress event. */
+function touchJob(jobId: string): void {
+	activeJobs.set(jobId, Date.now());
+}
+
+/** Cancel action offered on the progress toast, so there's always a way out. */
+function cancelAction(jobId: string) {
+	return {
+		label: T.common.cancel,
+		onClick: () => {
+			void commands.cancelImport(jobId);
+		},
+	};
+}
 
 export function useImportEvents() {
 	const queryClient = useQueryClient();
@@ -52,11 +79,16 @@ export function useImportEvents() {
 		track(
 			events.importProgress.listen((event) => {
 				const p = event.payload;
+				touchJob(p.job_id);
 				toast.loading(
 					p.phase === "Discovering"
 						? T.import.discovering(p.total)
 						: T.import.progress(p.done, p.total),
-					{ id: p.job_id, description: p.current ?? undefined },
+					{
+						id: p.job_id,
+						description: p.current ?? undefined,
+						action: cancelAction(p.job_id),
+					},
 				);
 				throttledInvalidate();
 			}),
@@ -64,6 +96,7 @@ export function useImportEvents() {
 		track(
 			events.importFinished.listen((event) => {
 				const f = event.payload;
+				activeJobs.delete(f.job_id);
 				// Library-wide exact duplicates → raise the Duplicate Alert
 				// (mounted in AppShell); clean finishes drop the job mapping.
 				if (!f.cancelled && f.duplicates.length > 0) {
@@ -95,8 +128,22 @@ export function useImportEvents() {
 			}),
 		);
 
+		// Safety net: drop the toast of any job that went silent (see activeJobs).
+		// The import itself may still be running — if it later finishes, its
+		// finished event simply shows the usual result toast.
+		const sweeper = window.setInterval(() => {
+			const now = Date.now();
+			for (const [jobId, seen] of activeJobs) {
+				if (now - seen < STALE_JOB_MS) continue;
+				activeJobs.delete(jobId);
+				toast.dismiss(jobId);
+				logger.warn({ jobId }, "import job went silent — dismissed its toast");
+			}
+		}, STALE_SWEEP_MS);
+
 		return () => {
 			disposed = true;
+			window.clearInterval(sweeper);
 			for (const fn of unlistens) fn();
 		};
 	}, [queryClient]);
@@ -122,7 +169,11 @@ export function useImport() {
 			useDuplicatesStore
 				.getState()
 				.registerJob(started.job_id, input.folderId ?? null);
-			toast.loading(T.import.started, { id: started.job_id });
+			touchJob(started.job_id);
+			toast.loading(T.import.started, {
+				id: started.job_id,
+				action: cancelAction(started.job_id),
+			});
 		},
 		onError: (error) => toast.error(describeError(error)),
 	});
@@ -156,7 +207,11 @@ export function useImportClipboard() {
 			unwrap(await commands.importClipboard(folderId)),
 		onSuccess: (started, folderId) => {
 			useDuplicatesStore.getState().registerJob(started.job_id, folderId);
-			toast.loading(T.import.started, { id: started.job_id });
+			touchJob(started.job_id);
+			toast.loading(T.import.started, {
+				id: started.job_id,
+				action: cancelAction(started.job_id),
+			});
 		},
 		onError: (error) => {
 			if (isCommandError(error) && error.code === "Conflict") {
