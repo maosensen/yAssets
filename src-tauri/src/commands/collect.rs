@@ -49,11 +49,9 @@ pub async fn set_collect_enabled(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<CollectStatus> {
     collect::set_enabled_flag(&app, enabled)?;
-    if enabled {
-        collect::start(&app).await?;
-    } else {
-        collect::stop(&app);
-    }
+    // The listener is shared with the Agent surface, so "disabled" does not
+    // necessarily mean "stopped" — `reapply` works that out.
+    collect::reapply(&app).await?;
     Ok(status(&app, &state))
 }
 
@@ -96,12 +94,7 @@ pub async fn regenerate_collect_token(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<CollectStatus> {
     collect::regenerate_token(&app)?;
-    // A running server captured the old token at spawn — bounce it. The brief
-    // sleep lets the old listener release its port so the same one rebinds.
-    if state.collect_port().is_some() {
-        collect::stop(&app);
-        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
-        collect::start(&app).await?;
-    }
+    // A running server captured the old token at spawn — bounce it.
+    collect::reapply(&app).await?;
     Ok(status(&app, &state))
 }

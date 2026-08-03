@@ -114,46 +114,48 @@ fn parse_rules(json: &str) -> AppResult<SmartRules> {
     serde_json::from_str(json).map_err(|_| AppError::Conflict("invalid smart folder rules".into()))
 }
 
+/// Every saved rule set, in sidebar order. Shared by the command and the agent
+/// API.
+pub(crate) fn all_smart_folders_in(conn: &rusqlite::Connection) -> AppResult<Vec<SmartFolder>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, name, rules, position FROM smart_folders
+         ORDER BY position, created_at",
+    )?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, i64>(3)? as u32,
+            ))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    // Unparseable rules (edited by hand / newer app) are skipped, not fatal.
+    Ok(rows
+        .into_iter()
+        .filter_map(
+            |(id, name, rules_json, position)| match parse_rules(&rules_json) {
+                Ok(rules) => Some(SmartFolder {
+                    id,
+                    name,
+                    rules,
+                    position,
+                }),
+                Err(_) => {
+                    log::warn!("skipping smart folder {id}: unparseable rules");
+                    None
+                }
+            },
+        )
+        .collect())
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn list_smart_folders(state: tauri::State<'_, AppState>) -> AppResult<Vec<SmartFolder>> {
     let library = state.current_library()?;
-    library
-        .read(|conn| {
-            let mut stmt = conn.prepare(
-                "SELECT id, name, rules, position FROM smart_folders
-                 ORDER BY position, created_at",
-            )?;
-            let rows = stmt
-                .query_map([], |row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        row.get::<_, String>(1)?,
-                        row.get::<_, String>(2)?,
-                        row.get::<_, i64>(3)? as u32,
-                    ))
-                })?
-                .collect::<rusqlite::Result<Vec<_>>>()?;
-            // Unparseable rules (edited by hand / newer app) are skipped, not fatal.
-            Ok(rows
-                .into_iter()
-                .filter_map(
-                    |(id, name, rules_json, position)| match parse_rules(&rules_json) {
-                        Ok(rules) => Some(SmartFolder {
-                            id,
-                            name,
-                            rules,
-                            position,
-                        }),
-                        Err(_) => {
-                            log::warn!("skipping smart folder {id}: unparseable rules");
-                            None
-                        }
-                    },
-                )
-                .collect())
-        })
-        .await
+    library.read(all_smart_folders_in).await
 }
 
 #[tauri::command]

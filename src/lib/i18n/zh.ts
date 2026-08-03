@@ -67,6 +67,31 @@ export const zh: Messages = {
 		videoToolInstalling: "下载中…",
 		videoToolReady: (version: string) => `视频下载器就绪(yt-dlp ${version})`,
 	},
+	agent: {
+		title: "Agent",
+		description:
+			"让 AI 编程助手(Claude Code、Codex)通过 MCP 访问这个素材库——搜索、看图,并给出打标签和归档建议。",
+		readOnlyBadge: "只读",
+		enable: "启用 Agent API",
+		enableHint: "仅监听 127.0.0.1,使用独立 token。默认关闭。",
+		runningOn: (port: number) => `正在监听 127.0.0.1:${port}`,
+		tokenLabel: "Agent token",
+		tokenHint:
+			"与 Collect token 相互独立,撤销其中一个不影响另一个。请当作密码保管。",
+		copy: "复制",
+		copied: "已复制",
+		copyFailed: "复制失败——请手动选中后复制",
+		regenerate: "重新生成",
+		regenerated: "已生成新 token——请重新连接你的 agent",
+		connectTitle: "接入 agent",
+		claudeCodeLabel: "Claude Code",
+		claudeCodeHint: "在终端里执行一次,之后就能直接询问你的素材库。",
+		stdioLabel: "Codex(stdio)",
+		stdioHint:
+			"加进 ~/.codex/config.toml。桥脚本会自己读取端口和 token,所以轮换 token 后无需改动。",
+		bridgePathLabel: "桥脚本路径",
+		bridgePathHint: "供只支持 stdio(而非 HTTP)的 MCP 客户端使用。",
+	},
 	updates: {
 		available: (version: string) => `yAssets ${version} 可供更新`,
 		installAction: "安装并重启",

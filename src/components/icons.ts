@@ -41,6 +41,7 @@ export { default as IconDiscoverBold } from "~icons/solar/compass-bold";
 // Discover (browse third-party sources).
 export { default as IconDiscover } from "~icons/solar/compass-linear";
 export { default as IconCopy } from "~icons/solar/copy-linear";
+export { default as IconCpuBolt } from "~icons/solar/cpu-bolt-linear";
 export { default as IconError } from "~icons/solar/danger-circle-linear";
 export { default as IconWarning } from "~icons/solar/danger-triangle-linear";
 export { default as IconFileText } from "~icons/solar/document-text-linear";

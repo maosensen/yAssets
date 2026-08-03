@@ -34,6 +34,11 @@ pub struct CollectCtx<R: tauri::Runtime = tauri::Wry> {
     pub app: tauri::AppHandle<R>,
     pub token: String,
     pub port: u16,
+    /// Whether the Collect surface itself is switched on. Baked in at spawn
+    /// rather than read per request: the listener is shared with the Agent
+    /// surface, and every flag or token change bounces it (`collect::reapply`),
+    /// so this is always current.
+    pub enabled: bool,
 }
 
 impl<R: tauri::Runtime> Clone for CollectCtx<R> {
@@ -42,11 +47,18 @@ impl<R: tauri::Runtime> Clone for CollectCtx<R> {
             app: self.app.clone(),
             token: self.token.clone(),
             port: self.port,
+            enabled: self.enabled,
         }
     }
 }
 
-pub fn build_router<R: tauri::Runtime>(ctx: CollectCtx<R>) -> Router {
+/// The listener hosts two independent surfaces: Collect (the yClip extension)
+/// and Agent (`crate::agent`). Each carries its own token and enable flag; only
+/// the transport guard and the body limit are shared.
+pub fn build_router<R: tauri::Runtime>(
+    ctx: CollectCtx<R>,
+    agent: crate::agent::AgentCtx<R>,
+) -> Router {
     let authed = Router::new()
         .route("/api/collect/url", post(collect_url::<R>))
         .route("/api/collect/data", post(collect_data::<R>))
@@ -56,15 +68,15 @@ pub fn build_router<R: tauri::Runtime>(ctx: CollectCtx<R>) -> Router {
             ctx.clone(),
             require_token::<R>,
         ));
-    Router::new()
+    let collect = Router::new()
         .route("/api/info", get(info::<R>))
         .merge(authed)
-        .route_layer(middleware::from_fn_with_state(
-            ctx.clone(),
-            guard_transport::<R>,
-        ))
+        .with_state(ctx.clone());
+    Router::new()
+        .merge(collect)
+        .merge(crate::agent::routes::router(agent))
+        .route_layer(middleware::from_fn_with_state(ctx, guard_transport::<R>))
         .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
-        .with_state(ctx)
 }
 
 #[derive(Serialize)]
@@ -73,7 +85,13 @@ struct ErrBody {
     message: String,
 }
 
-fn err_response(status: StatusCode, code: &'static str, message: impl Into<String>) -> Response {
+/// The one error envelope for every local-API surface (Collect and Agent) —
+/// `{ code, message }`, so clients branch on a stable code.
+pub(crate) fn err_response(
+    status: StatusCode,
+    code: &'static str,
+    message: impl Into<String>,
+) -> Response {
     (
         status,
         Json(ErrBody {
@@ -111,12 +129,21 @@ async fn guard_transport<R: tauri::Runtime>(
     next.run(req).await
 }
 
-/// Bearer-token gate for everything except `/api/info`.
+/// Bearer-token gate for everything except `/api/info`. Also checks the enable
+/// flag: since the Agent surface can hold the listener open on its own, "server
+/// is running" no longer implies "Collect is on".
 async fn require_token<R: tauri::Runtime>(
     State(ctx): State<CollectCtx<R>>,
     req: Request,
     next: Next,
 ) -> Response {
+    if !ctx.enabled {
+        return err_response(
+            StatusCode::FORBIDDEN,
+            "collect_disabled",
+            "turn on Preferences → Collect in yAssets first",
+        );
+    }
     let header = req
         .headers()
         .get(header::AUTHORIZATION)
@@ -543,11 +570,108 @@ fn ext_is_clean(ext: &str) -> bool {
     !ext.is_empty() && ext.len() <= 8 && ext.chars().all(|c| c.is_ascii_alphanumeric())
 }
 
+/// Router-level test scaffolding, shared by both surfaces' tests (the Agent
+/// routes are merged into this router, so they need the same mock app).
+#[cfg(test)]
+pub(crate) mod testing {
+    use axum::body::Body;
+    use axum::extract::Request;
+    use axum::http::header;
+    use axum::response::Response;
+    use axum::Router;
+    use tauri::Manager;
+
+    use super::{build_router, CollectCtx};
+    use crate::library::Library;
+    use crate::state::AppState;
+
+    pub const COLLECT_TOKEN: &str = "secret-token";
+    pub const AGENT_TOKEN: &str = "agent-token";
+    pub const PORT: u16 = 41420;
+
+    pub struct Harness {
+        pub _app: tauri::App<tauri::test::MockRuntime>,
+        pub router: Router,
+        pub _tmp: Option<tempfile::TempDir>,
+        /// The open library, when the harness was built with one — tests seed
+        /// rows through it directly.
+        pub library: Option<std::sync::Arc<Library>>,
+    }
+
+    /// `collect_enabled` / `agent_enabled` mirror the persisted preferences: the
+    /// router bakes them in at spawn (see `CollectCtx::enabled`).
+    pub fn build(with_library: bool, collect_enabled: bool, agent_enabled: bool) -> Harness {
+        let app = tauri::test::mock_app();
+        app.manage(AppState::default());
+        // Handlers emit CollectImported via tauri-specta, which panics unless
+        // the event registry is mounted (lib.rs does this for the real app).
+        tauri_specta::Builder::<tauri::test::MockRuntime>::new()
+            .events(tauri_specta::collect_events![
+                crate::events::CollectImported
+            ])
+            .mount_events(&app);
+        let mut tmp = None;
+        let mut library = None;
+        if with_library {
+            let dir = tempfile::tempdir().expect("tempdir");
+            let lib = std::sync::Arc::new(
+                Library::create(&dir.path().join("Lib")).expect("create library"),
+            );
+            let state = app.state::<AppState>();
+            *state.library.write().expect("library slot") = Some(lib.clone());
+            library = Some(lib);
+            tmp = Some(dir);
+        }
+        let router = build_router(
+            CollectCtx {
+                app: app.handle().clone(),
+                token: COLLECT_TOKEN.into(),
+                port: PORT,
+                enabled: collect_enabled,
+            },
+            crate::agent::AgentCtx {
+                app: app.handle().clone(),
+                token: AGENT_TOKEN.into(),
+                enabled: agent_enabled,
+            },
+        );
+        Harness {
+            router,
+            _app: app,
+            _tmp: tmp,
+            library,
+        }
+    }
+
+    pub fn request(method: &str, path: &str, token: Option<&str>, body: Option<String>) -> Request {
+        let mut builder = Request::builder()
+            .method(method)
+            .uri(path)
+            .header(header::HOST, format!("127.0.0.1:{PORT}"))
+            .header(header::CONTENT_TYPE, "application/json");
+        if let Some(token) = token {
+            builder = builder.header(header::AUTHORIZATION, format!("Bearer {token}"));
+        }
+        builder
+            .body(body.map(Body::from).unwrap_or_else(Body::empty))
+            .expect("request")
+    }
+
+    pub async fn body_bytes(resp: Response) -> Vec<u8> {
+        axum::body::to_bytes(resp.into_body(), 1 << 22)
+            .await
+            .expect("body")
+            .to_vec()
+    }
+
+    pub async fn body_json(resp: Response) -> serde_json::Value {
+        serde_json::from_slice(&body_bytes(resp).await).expect("json body")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::library::Library;
-    use axum::body::Body;
     use tower::ServiceExt;
 
     fn split(f: &str, m: Option<&str>) -> (String, String) {
@@ -606,61 +730,11 @@ mod tests {
 
     // ---- Router-level tests over the mock runtime ----
 
-    struct Harness {
-        _app: tauri::App<tauri::test::MockRuntime>,
-        router: Router,
-        _tmp: Option<tempfile::TempDir>,
-    }
+    use super::testing::{body_json, request, Harness};
 
+    /// Collect on, Agent off — the shape these tests were written against.
     fn harness(with_library: bool) -> Harness {
-        let app = tauri::test::mock_app();
-        app.manage(AppState::default());
-        // Handlers emit CollectImported via tauri-specta, which panics unless
-        // the event registry is mounted (lib.rs does this for the real app).
-        tauri_specta::Builder::<tauri::test::MockRuntime>::new()
-            .events(tauri_specta::collect_events![
-                crate::events::CollectImported
-            ])
-            .mount_events(&app);
-        let mut tmp = None;
-        if with_library {
-            let dir = tempfile::tempdir().expect("tempdir");
-            let lib = Library::create(&dir.path().join("Lib")).expect("create library");
-            let state = app.state::<AppState>();
-            *state.library.write().expect("library slot") = Some(std::sync::Arc::new(lib));
-            tmp = Some(dir);
-        }
-        let ctx = CollectCtx {
-            app: app.handle().clone(),
-            token: "secret-token".into(),
-            port: 41420,
-        };
-        Harness {
-            router: build_router(ctx),
-            _app: app,
-            _tmp: tmp,
-        }
-    }
-
-    fn request(method: &str, path: &str, token: Option<&str>, body: Option<String>) -> Request {
-        let mut builder = Request::builder()
-            .method(method)
-            .uri(path)
-            .header(header::HOST, "127.0.0.1:41420")
-            .header(header::CONTENT_TYPE, "application/json");
-        if let Some(token) = token {
-            builder = builder.header(header::AUTHORIZATION, format!("Bearer {token}"));
-        }
-        builder
-            .body(body.map(Body::from).unwrap_or_else(Body::empty))
-            .expect("request")
-    }
-
-    async fn body_json(resp: Response) -> serde_json::Value {
-        let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20)
-            .await
-            .expect("body");
-        serde_json::from_slice(&bytes).expect("json body")
+        super::testing::build(with_library, true, false)
     }
 
     fn png_base64() -> String {
@@ -689,11 +763,19 @@ mod tests {
             .await
             .expect("bind");
         let port = listener.local_addr().expect("addr").port();
-        let router = build_router(CollectCtx {
-            app: app.handle().clone(),
-            token: "secret-token".into(),
-            port,
-        });
+        let router = build_router(
+            CollectCtx {
+                app: app.handle().clone(),
+                token: "secret-token".into(),
+                port,
+                enabled: true,
+            },
+            crate::agent::AgentCtx {
+                app: app.handle().clone(),
+                token: String::new(),
+                enabled: false,
+            },
+        );
         let server = tokio::spawn(async move {
             let _ = axum::serve(listener, router).await;
         });

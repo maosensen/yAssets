@@ -1,5 +1,13 @@
-//! Local Collect API — a loopback-only HTTP server the yClip browser
-//! extension talks to (contract mirror: yClip `lib/contract.ts`).
+//! Local API server — loopback-only HTTP, owner of the listener that hosts two
+//! independent surfaces:
+//!
+//! - **Collect** (this module): what the yClip browser extension talks to
+//!   (contract mirror: yClip `lib/contract.ts`).
+//! - **Agent** (`crate::agent`): the read-only surface for AI coding agents,
+//!   with its own enable flag and its own bearer token.
+//!
+//! Either surface being enabled keeps the listener up; each gates its own routes
+//! per request, so "the server is running" never implies "this surface is on".
 //!
 //! Architecture: the extension is a thin client; every capture lands in the
 //! existing import pipeline (`import_url_core` / `write_and_process`), so
@@ -13,7 +21,7 @@
 //! as the watch-folder watcher.
 
 pub mod auth;
-mod server;
+pub(crate) mod server;
 
 use tauri::Manager;
 use tauri_plugin_store::StoreExt;
@@ -116,6 +124,11 @@ fn persist_new_token<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> AppResult<
     Ok(token)
 }
 
+/// True when either surface wants the listener up.
+pub fn any_surface_enabled(app: &tauri::AppHandle) -> bool {
+    is_enabled(app) || crate::agent::is_enabled(app)
+}
+
 /// Bind the first free port and serve. No-op (returns the port) when already
 /// running. The handle lands in `AppState`; errors mean every port was taken.
 pub async fn start(app: &tauri::AppHandle) -> AppResult<u16> {
@@ -124,17 +137,32 @@ pub async fn start(app: &tauri::AppHandle) -> AppResult<u16> {
         return Ok(port);
     }
     let token = ensure_token(app)?;
+    // Only provision an agent token once the user actually turns that surface
+    // on. An absent token authenticates nothing (see `auth::token_matches`).
+    let agent_token = if crate::agent::is_enabled(app) {
+        crate::agent::ensure_token(app)?
+    } else {
+        crate::agent::stored_token(app).unwrap_or_default()
+    };
     for port in PORTS {
         let listener =
             match tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, port)).await {
                 Ok(listener) => listener,
                 Err(_) => continue,
             };
-        let router = server::build_router(CollectCtx {
-            app: app.clone(),
-            token: token.clone(),
-            port,
-        });
+        let router = server::build_router(
+            CollectCtx {
+                app: app.clone(),
+                token: token.clone(),
+                port,
+                enabled: is_enabled(app),
+            },
+            crate::agent::AgentCtx {
+                app: app.clone(),
+                token: agent_token.clone(),
+                enabled: crate::agent::is_enabled(app),
+            },
+        );
         let (tx, rx) = tokio::sync::oneshot::channel::<()>();
         tauri::async_runtime::spawn(async move {
             if let Err(err) = axum::serve(listener, router)
@@ -150,7 +178,10 @@ pub async fn start(app: &tauri::AppHandle) -> AppResult<u16> {
             port,
             shutdown: Some(tx),
         }));
-        log::info!("collect API listening on 127.0.0.1:{port}");
+        if crate::agent::is_enabled(app) {
+            crate::agent::write_endpoint_file(app, port, &agent_token);
+        }
+        log::info!("local API listening on 127.0.0.1:{port}");
         return Ok(port);
     }
     Err(AppError::Conflict(
@@ -162,20 +193,36 @@ pub async fn start(app: &tauri::AppHandle) -> AppResult<u16> {
 pub fn stop(app: &tauri::AppHandle) {
     let state = app.state::<AppState>();
     if state.collect_port().is_some() {
-        log::info!("collect API stopped");
+        log::info!("local API stopped");
     }
     state.set_collect(None);
+    crate::agent::remove_endpoint_file(app);
 }
 
-/// Startup hook: bring the server up if the user left it enabled.
+/// Re-apply the persisted flags and tokens to the listener. The router captures
+/// its tokens when it spawns, so any change to either surface's flag or token
+/// means: drop what is running, then bind again if anyone still wants it. The
+/// short sleep lets the old listener release the port so the same one rebinds.
+pub async fn reapply(app: &tauri::AppHandle) -> AppResult<()> {
+    if app.state::<AppState>().collect_port().is_some() {
+        stop(app);
+        tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+    }
+    if any_surface_enabled(app) {
+        start(app).await?;
+    }
+    Ok(())
+}
+
+/// Startup hook: bring the server up if the user left either surface enabled.
 pub fn autostart(app: &tauri::AppHandle) {
-    if !is_enabled(app) {
+    if !any_surface_enabled(app) {
         return;
     }
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
         if let Err(err) = start(&handle).await {
-            log::error!("collect autostart failed: {err}");
+            log::error!("local API autostart failed: {err}");
         }
     });
 }

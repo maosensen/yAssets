@@ -58,25 +58,26 @@ const FOLDER_SELECT: &str = "SELECT f.id, f.parent_id, f.name, f.position,
        f.created_at, f.description, f.color, f.icon
   FROM folders f";
 
-/// Flat folder list, siblings ordered by manual position then name.
+/// Flat folder list, siblings ordered by manual position then name. Shared by
+/// the command and the agent API.
+pub(crate) fn all_folders_in(conn: &rusqlite::Connection) -> AppResult<Vec<Folder>> {
+    let mut stmt = conn.prepare(&format!(
+        "{FOLDER_SELECT} ORDER BY f.position, f.name COLLATE NOCASE"
+    ))?;
+    let folders = stmt
+        .query_map([], folder_from_row)?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(folders)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn list_folders(state: tauri::State<'_, AppState>) -> AppResult<Vec<Folder>> {
     let library = state.current_library()?;
-    library
-        .read(|conn| {
-            let mut stmt = conn.prepare(&format!(
-                "{FOLDER_SELECT} ORDER BY f.position, f.name COLLATE NOCASE"
-            ))?;
-            let folders = stmt
-                .query_map([], folder_from_row)?
-                .collect::<rusqlite::Result<Vec<_>>>()?;
-            Ok(folders)
-        })
-        .await
+    library.read(all_folders_in).await
 }
 
-fn compute_folder_stats(
+pub(crate) fn compute_folder_stats(
     conn: &rusqlite::Connection,
     folder_id: &str,
 ) -> rusqlite::Result<FolderStats> {

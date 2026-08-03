@@ -57,20 +57,21 @@ fn validated_name(name: &str) -> AppResult<String> {
     Ok(trimmed.to_string())
 }
 
-/// All tags with usage counts, name-ordered.
+/// All tags with usage counts, name-ordered. Shared by the command and the
+/// agent API.
+pub(crate) fn all_tags_in(conn: &rusqlite::Connection) -> AppResult<Vec<Tag>> {
+    let mut stmt = conn.prepare(&format!("{TAG_SELECT} ORDER BY t.name COLLATE NOCASE"))?;
+    let tags = stmt
+        .query_map([], tag_from_row)?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(tags)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn list_tags(state: tauri::State<'_, AppState>) -> AppResult<Vec<Tag>> {
     let library = state.current_library()?;
-    library
-        .read(|conn| {
-            let mut stmt = conn.prepare(&format!("{TAG_SELECT} ORDER BY t.name COLLATE NOCASE"))?;
-            let tags = stmt
-                .query_map([], tag_from_row)?
-                .collect::<rusqlite::Result<Vec<_>>>()?;
-            Ok(tags)
-        })
-        .await
+    library.read(all_tags_in).await
 }
 
 /// Create-or-get by (case-insensitive) name. An existing tag is returned

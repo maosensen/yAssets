@@ -165,38 +165,38 @@ pub struct LibraryStats {
     pub total_size: f64,
 }
 
-/// One aggregate query over `assets` — cheap enough to refetch after any
-/// mutation that could move the counters.
+/// One aggregate query over `assets`. Shared by the command and the agent API.
+pub(crate) fn library_stats_in(conn: &rusqlite::Connection) -> AppResult<LibraryStats> {
+    let stats = conn.query_row(
+        "SELECT
+           COUNT(*) FILTER (WHERE deleted_at IS NULL),
+           COUNT(*) FILTER (WHERE deleted_at IS NULL AND NOT EXISTS (
+             SELECT 1 FROM asset_folders af WHERE af.asset_id = assets.id
+           )),
+           COUNT(*) FILTER (WHERE deleted_at IS NULL AND NOT EXISTS (
+             SELECT 1 FROM asset_tags at WHERE at.asset_id = assets.id
+           )),
+           COUNT(*) FILTER (WHERE deleted_at IS NOT NULL),
+           COALESCE(SUM(size) FILTER (WHERE deleted_at IS NULL), 0)
+         FROM assets",
+        [],
+        |row| {
+            Ok(LibraryStats {
+                total: row.get::<_, i64>(0)? as u32,
+                uncategorized: row.get::<_, i64>(1)? as u32,
+                untagged: row.get::<_, i64>(2)? as u32,
+                trash: row.get::<_, i64>(3)? as u32,
+                total_size: row.get::<_, i64>(4)? as f64,
+            })
+        },
+    )?;
+    Ok(stats)
+}
+
+/// Cheap enough to refetch after any mutation that could move the counters.
 #[tauri::command]
 #[specta::specta]
 pub async fn get_library_stats(state: tauri::State<'_, AppState>) -> AppResult<LibraryStats> {
     let library = state.current_library()?;
-    library
-        .read(|conn| {
-            let stats = conn.query_row(
-                "SELECT
-                   COUNT(*) FILTER (WHERE deleted_at IS NULL),
-                   COUNT(*) FILTER (WHERE deleted_at IS NULL AND NOT EXISTS (
-                     SELECT 1 FROM asset_folders af WHERE af.asset_id = assets.id
-                   )),
-                   COUNT(*) FILTER (WHERE deleted_at IS NULL AND NOT EXISTS (
-                     SELECT 1 FROM asset_tags at WHERE at.asset_id = assets.id
-                   )),
-                   COUNT(*) FILTER (WHERE deleted_at IS NOT NULL),
-                   COALESCE(SUM(size) FILTER (WHERE deleted_at IS NULL), 0)
-                 FROM assets",
-                [],
-                |row| {
-                    Ok(LibraryStats {
-                        total: row.get::<_, i64>(0)? as u32,
-                        uncategorized: row.get::<_, i64>(1)? as u32,
-                        untagged: row.get::<_, i64>(2)? as u32,
-                        trash: row.get::<_, i64>(3)? as u32,
-                        total_size: row.get::<_, i64>(4)? as f64,
-                    })
-                },
-            )?;
-            Ok(stats)
-        })
-        .await
+    library.read(library_stats_in).await
 }

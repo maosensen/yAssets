@@ -17,6 +17,7 @@ import {
 	IconClose,
 	type IconComponent,
 	IconCopy,
+	IconCpuBolt,
 	IconFolderAdd,
 	IconFolderOpen,
 	IconLink,
@@ -37,8 +38,14 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { buildAgentConfigSnippets } from "@/lib/agent-config";
 import { pickDirectory } from "@/lib/dialogs";
 import { formatBytes } from "@/lib/format";
+import {
+	agentStatusQueryOptions,
+	useRegenerateAgentToken,
+	useSetAgentEnabled,
+} from "@/lib/queries/agent";
 import {
 	collectStatusQueryOptions,
 	useInstallVideoTool,
@@ -77,7 +84,7 @@ const LANGUAGE_NAMES: Record<LocaleCode, string> = {
 	ja: "日本語",
 };
 
-type SectionId = "general" | "collect" | "watched" | "maintenance";
+type SectionId = "general" | "collect" | "agent" | "watched" | "maintenance";
 
 export function PreferencesDialog({
 	open,
@@ -91,6 +98,7 @@ export function PreferencesDialog({
 		[
 			{ id: "general", label: T.preferences.navGeneral, icon: IconSettings },
 			{ id: "collect", label: T.collect.title, icon: IconLink },
+			{ id: "agent", label: T.agent.title, icon: IconCpuBolt },
 			{ id: "watched", label: T.preferences.navWatched, icon: IconFolderOpen },
 			{
 				id: "maintenance",
@@ -164,6 +172,7 @@ export function PreferencesDialog({
 					<div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
 						{section === "general" && <GeneralPane />}
 						{section === "collect" && <CollectPane />}
+						{section === "agent" && <AgentPane />}
 						{section === "watched" && <WatchedFoldersPane />}
 						{section === "maintenance" && <MaintenancePane />}
 					</div>
@@ -389,6 +398,148 @@ function CollectPane() {
 				</SettingRow>
 			</SettingsCard>
 		</div>
+	);
+}
+
+function AgentPane() {
+	const { data: status } = useQuery(agentStatusQueryOptions());
+	const setEnabled = useSetAgentEnabled();
+	const regenerate = useRegenerateAgentToken();
+	const snippets = buildAgentConfigSnippets(
+		status?.port ?? null,
+		status?.token ?? "",
+		status?.bridge_path ?? null,
+	);
+
+	const copy = async (value: string) => {
+		try {
+			await navigator.clipboard.writeText(value);
+			toast.success(T.agent.copied);
+		} catch {
+			toast.error(T.agent.copyFailed);
+		}
+	};
+
+	return (
+		<div className="flex flex-col gap-5">
+			<SettingsCard title={T.agent.title}>
+				<div className="px-4 py-3.5">
+					<p className="text-muted-foreground text-xs leading-relaxed">
+						{T.agent.description}
+					</p>
+					{status?.read_only && (
+						<span className="mt-2.5 inline-flex items-center rounded-md bg-accent px-1.5 py-0.5 font-medium text-[11px] text-accent-foreground">
+							{T.agent.readOnlyBadge}
+						</span>
+					)}
+				</div>
+				<SettingRow
+					label={T.agent.enable}
+					description={
+						status?.enabled && status.running && status.port != null
+							? T.agent.runningOn(status.port)
+							: T.agent.enableHint
+					}
+				>
+					<Switch
+						checked={status?.enabled ?? false}
+						disabled={!status || setEnabled.isPending}
+						onCheckedChange={(checked) => setEnabled.mutate(checked)}
+					/>
+				</SettingRow>
+				{status?.enabled && status.token && (
+					<SettingBlock label={T.agent.tokenLabel} hint={T.agent.tokenHint}>
+						<div className="flex items-center gap-2">
+							<Input
+								readOnly
+								value={status.token}
+								className="font-mono text-xs"
+								spellCheck={false}
+								onFocus={(event) => event.currentTarget.select()}
+							/>
+							<Button
+								variant="outline"
+								size="sm"
+								className="shrink-0"
+								onClick={() => void copy(status.token)}
+							>
+								<IconCopy className="size-3.5" />
+								{T.agent.copy}
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								className="shrink-0"
+								disabled={regenerate.isPending}
+								onClick={() => regenerate.mutate()}
+							>
+								<IconReload className="size-3.5" />
+								{T.agent.regenerate}
+							</Button>
+						</div>
+					</SettingBlock>
+				)}
+			</SettingsCard>
+
+			{status?.enabled && snippets && (
+				<SettingsCard title={T.agent.connectTitle}>
+					<SnippetBlock
+						label={T.agent.claudeCodeLabel}
+						hint={T.agent.claudeCodeHint}
+						value={snippets.claudeCode}
+						onCopy={copy}
+					/>
+					{snippets.codex && (
+						<SnippetBlock
+							label={T.agent.stdioLabel}
+							hint={T.agent.stdioHint}
+							value={snippets.codex}
+							onCopy={copy}
+						/>
+					)}
+					{status.bridge_path && (
+						<SnippetBlock
+							label={T.agent.bridgePathLabel}
+							hint={T.agent.bridgePathHint}
+							value={status.bridge_path}
+							onCopy={copy}
+						/>
+					)}
+				</SettingsCard>
+			)}
+		</div>
+	);
+}
+
+/** A read-only command/config block with a copy button. */
+function SnippetBlock({
+	label,
+	hint,
+	value,
+	onCopy,
+}: {
+	label: string;
+	hint?: string;
+	value: string;
+	onCopy: (value: string) => Promise<void>;
+}) {
+	return (
+		<SettingBlock label={label} hint={hint}>
+			<div className="flex items-start gap-2">
+				<pre className="min-w-0 flex-1 overflow-x-auto rounded-lg border border-border/60 bg-muted/40 px-2.5 py-2 font-mono text-[11px] leading-relaxed">
+					{value}
+				</pre>
+				<Button
+					variant="outline"
+					size="sm"
+					className="shrink-0"
+					onClick={() => void onCopy(value)}
+				>
+					<IconCopy className="size-3.5" />
+					{T.agent.copy}
+				</Button>
+			</div>
+		</SettingBlock>
 	);
 }
 

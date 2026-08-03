@@ -392,9 +392,12 @@ fn list_where(
 
 /// One page of a list query: `total` over scope+search+facets (cursor-agnostic),
 /// then the page rows. When `cursor` is set it drives keyset paging (offset
-/// ignored); otherwise legacy `offset` applies. Shared by the command and the
-/// test harness so both exercise identical SQL.
-fn list_page(conn: &rusqlite::Connection, query: &AssetListQuery) -> AppResult<AssetListResult> {
+/// ignored); otherwise legacy `offset` applies. Shared by the command, the agent
+/// API and the test harness so all three exercise identical SQL.
+pub(crate) fn list_page(
+    conn: &rusqlite::Connection,
+    query: &AssetListQuery,
+) -> AppResult<AssetListResult> {
     let (where_clause, params) = list_where(conn, query)?;
 
     let total: u32 = conn.query_row(
@@ -471,7 +474,7 @@ pub async fn list_asset_ids(
     library.read(move |conn| list_ids(conn, &query)).await
 }
 
-fn detail_by_id(conn: &rusqlite::Connection, id: &str) -> AppResult<AssetDetail> {
+pub(crate) fn detail_by_id(conn: &rusqlite::Connection, id: &str) -> AppResult<AssetDetail> {
     let mut detail = conn
         .query_row(
             "SELECT id, name, ext, mime, size, width, height, has_thumb, rating,
@@ -1223,7 +1226,63 @@ pub async fn set_captured_thumbnail(
 /// popcount the target's fingerprint against every alive asset, return
 /// summaries ordered by distance (the target itself leads at distance 0).
 /// Capped at 200 hits — also keeps the follow-up IN() under SQLite's
-/// parameter limit.
+/// parameter limit. `max_distance` is expected pre-clamped by the caller.
+pub(crate) fn similar_in(
+    conn: &rusqlite::Connection,
+    asset_id: &str,
+    max_distance: u32,
+) -> AppResult<Vec<AssetSummary>> {
+    let target: Option<i64> = conn
+        .query_row(
+            "SELECT dhash FROM assets WHERE id = ?1 AND deleted_at IS NULL",
+            [asset_id],
+            |row| row.get(0),
+        )
+        .map_err(|_| AppError::NotFound("asset not found".into()))?;
+    let Some(target) = target else {
+        return Err(AppError::Conflict(
+            "asset has no visual fingerprint yet".into(),
+        ));
+    };
+
+    // Whole-library popcount sweep — a few ms even at 10k assets.
+    let mut stmt = conn.prepare(
+        "SELECT id, dhash FROM assets
+         WHERE deleted_at IS NULL AND dhash IS NOT NULL",
+    )?;
+    let mut matches: Vec<(u32, String)> = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+        })?
+        .filter_map(Result::ok)
+        .filter_map(|(id, hash)| {
+            let d = crate::import::dhash::distance(target as u64, hash as u64);
+            (d <= max_distance).then_some((d, id))
+        })
+        .collect();
+    matches.sort();
+    matches.truncate(200);
+    if matches.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Fetch summaries in one IN(), then re-emit in distance order.
+    let ids: Vec<String> = matches.into_iter().map(|(_, id)| id).collect();
+    let placeholders = vec!["?"; ids.len()].join(",");
+    let sql = format!("SELECT {SUMMARY_COLS} FROM assets WHERE id IN ({placeholders})");
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(ids.iter()), summary_from_row)?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let mut by_id: std::collections::HashMap<String, AssetSummary> =
+        rows.into_iter().map(|s| (s.id.clone(), s)).collect();
+    Ok(ids.iter().filter_map(|id| by_id.remove(id)).collect())
+}
+
+/// Distance ceiling accepted from callers — beyond this "similar" stops meaning
+/// anything useful and the sweep just returns the whole library.
+pub(crate) const MAX_SIMILAR_DISTANCE: u32 = 20;
+
 #[tauri::command]
 #[specta::specta]
 pub async fn find_similar_assets(
@@ -1232,54 +1291,8 @@ pub async fn find_similar_assets(
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Vec<AssetSummary>> {
     let library = state.current_library()?;
-    let max_distance = max_distance.min(20);
+    let max_distance = max_distance.min(MAX_SIMILAR_DISTANCE);
     library
-        .read(move |conn| {
-            let target: Option<i64> = conn
-                .query_row(
-                    "SELECT dhash FROM assets WHERE id = ?1 AND deleted_at IS NULL",
-                    [asset_id.as_str()],
-                    |row| row.get(0),
-                )
-                .map_err(|_| AppError::NotFound("asset not found".into()))?;
-            let Some(target) = target else {
-                return Err(AppError::Conflict(
-                    "asset has no visual fingerprint yet".into(),
-                ));
-            };
-
-            // Whole-library popcount sweep — a few ms even at 10k assets.
-            let mut stmt = conn.prepare(
-                "SELECT id, dhash FROM assets
-                 WHERE deleted_at IS NULL AND dhash IS NOT NULL",
-            )?;
-            let mut matches: Vec<(u32, String)> = stmt
-                .query_map([], |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-                })?
-                .filter_map(Result::ok)
-                .filter_map(|(id, hash)| {
-                    let d = crate::import::dhash::distance(target as u64, hash as u64);
-                    (d <= max_distance).then_some((d, id))
-                })
-                .collect();
-            matches.sort();
-            matches.truncate(200);
-            if matches.is_empty() {
-                return Ok(Vec::new());
-            }
-
-            // Fetch summaries in one IN(), then re-emit in distance order.
-            let ids: Vec<String> = matches.into_iter().map(|(_, id)| id).collect();
-            let placeholders = vec!["?"; ids.len()].join(",");
-            let sql = format!("SELECT {SUMMARY_COLS} FROM assets WHERE id IN ({placeholders})");
-            let mut stmt = conn.prepare(&sql)?;
-            let rows = stmt
-                .query_map(rusqlite::params_from_iter(ids.iter()), summary_from_row)?
-                .collect::<rusqlite::Result<Vec<_>>>()?;
-            let mut by_id: std::collections::HashMap<String, AssetSummary> =
-                rows.into_iter().map(|s| (s.id.clone(), s)).collect();
-            Ok(ids.iter().filter_map(|id| by_id.remove(id)).collect())
-        })
+        .read(move |conn| similar_in(conn, &asset_id, max_distance))
         .await
 }

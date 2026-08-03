@@ -47,10 +47,7 @@ export const commands = {
 	listRecentLibraries: () => typedError<RecentLibrary[], AppError>(__TAURI_INVOKE("list_recent_libraries")),
 	/**  Remove one entry from the recent list (does not touch the folder). */
 	removeRecentLibrary: (path: string) => typedError<null, AppError>(__TAURI_INVOKE("remove_recent_library", { path })),
-	/**
-	 *  One aggregate query over `assets` — cheap enough to refetch after any
-	 *  mutation that could move the counters.
-	 */
+	/**  Cheap enough to refetch after any mutation that could move the counters. */
 	getLibraryStats: () => typedError<LibraryStats, AppError>(__TAURI_INVOKE("get_library_stats")),
 	/**
 	 *  Start importing `paths` (files and/or directories, absolute) into the
@@ -118,15 +115,7 @@ export const commands = {
 	 *  Returns the number of covers filled — a cheap no-op when nothing is pending.
 	 */
 	backfillMissingThumbnails: () => typedError<number, AppError>(__TAURI_INVOKE("backfill_missing_thumbnails")),
-	/**
-	 *  Visual similarity search (dHash, layer L2 of the duplicate strategy):
-	 *  popcount the target's fingerprint against every alive asset, return
-	 *  summaries ordered by distance (the target itself leads at distance 0).
-	 *  Capped at 200 hits — also keeps the follow-up IN() under SQLite's
-	 *  parameter limit.
-	 */
 	findSimilarAssets: (assetId: string, maxDistance: number) => typedError<AssetSummary[], AppError>(__TAURI_INVOKE("find_similar_assets", { assetId, maxDistance })),
-	/**  Scan the whole library for exact and visual duplicates. */
 	scanDuplicates: () => typedError<DuplicateScan, AppError>(__TAURI_INVOKE("scan_duplicates")),
 	listSmartFolders: () => typedError<SmartFolder[], AppError>(__TAURI_INVOKE("list_smart_folders")),
 	createSmartFolder: (name: string, rules: SmartRules) => typedError<SmartFolder, AppError>(__TAURI_INVOKE("create_smart_folder", { name, rules })),
@@ -136,7 +125,6 @@ export const commands = {
 	conditions: SmartCondition[],
 } | null) => typedError<null, AppError>(__TAURI_INVOKE("update_smart_folder", { id, name, rules })),
 	deleteSmartFolder: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_smart_folder", { id })),
-	/**  Flat folder list, siblings ordered by manual position then name. */
 	listFolders: () => typedError<Folder[], AppError>(__TAURI_INVOKE("list_folders")),
 	/**  Direct-member aggregate (count + total bytes) for the folder info panel. */
 	getFolderStats: (folderId: string) => typedError<FolderStats, AppError>(__TAURI_INVOKE("get_folder_stats", { folderId })),
@@ -183,7 +171,6 @@ export const commands = {
 	deleteAssetsForever: (ids: string[]) => typedError<number, AppError>(__TAURI_INVOKE("delete_assets_forever", { ids })),
 	/**  Permanently delete everything in the trash. */
 	emptyTrash: () => typedError<number, AppError>(__TAURI_INVOKE("empty_trash")),
-	/**  All tags with usage counts, name-ordered. */
 	listTags: () => typedError<Tag[], AppError>(__TAURI_INVOKE("list_tags")),
 	/**
 	 *  Create-or-get by (case-insensitive) name. An existing tag is returned
@@ -250,6 +237,9 @@ export const commands = {
 	 *  verified. The Preferences button awaits this with a spinner.
 	 */
 	installVideoTool: () => typedError<VideoToolStatus, AppError>(__TAURI_INVOKE("install_video_tool")),
+	getAgentStatus: () => typedError<AgentStatus, AppError>(__TAURI_INVOKE("get_agent_status")),
+	setAgentEnabled: (enabled: boolean) => typedError<AgentStatus, AppError>(__TAURI_INVOKE("set_agent_enabled", { enabled })),
+	regenerateAgentToken: () => typedError<AgentStatus, AppError>(__TAURI_INVOKE("regenerate_agent_token")),
 };
 
 /** Events */
@@ -260,6 +250,27 @@ export const events = {
 };
 
 /* Types */
+export type AgentStatus = {
+	/**  The persisted preference (survives restarts). */
+	enabled: boolean,
+	/**
+	 *  Whether a listener is actually bound right now — possibly on behalf of
+	 *  the Collect surface, so check `enabled` too.
+	 */
+	running: boolean,
+	/**  The bound port (41420-41424), when running. */
+	port: number | null,
+	/**  Bearer token for MCP clients; empty until first enabled. */
+	token: string,
+	/**  Phase A exposes reads only. Flipped when write tools ship. */
+	read_only: boolean,
+	/**
+	 *  Absolute path of the stdio bridge script, when it shipped with this
+	 *  build. None means "use the HTTP transport".
+	 */
+	bridge_path: string | null,
+};
+
 export type AppError = { code: "NotFound"; detail: string } | { code: "Io"; detail: string } | { code: "Db"; detail: string } | 
 /**  A command that requires an open library was called without one. */
 { code: "NoLibraryOpen" } | 

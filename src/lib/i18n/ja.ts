@@ -71,6 +71,34 @@ export const ja: Messages = {
 		videoToolReady: (version: string) =>
 			`動画ダウンローダーの準備ができました(yt-dlp ${version})`,
 	},
+	agent: {
+		title: "Agent",
+		description:
+			"AI コーディングエージェント(Claude Code、Codex)が MCP 経由でこのライブラリを閲覧できるようにします。検索・サムネイル確認のうえ、タグ付けや整理の提案が可能です。",
+		readOnlyBadge: "読み取り専用",
+		enable: "Agent API を有効にする",
+		enableHint:
+			"127.0.0.1 のみで待ち受け、専用トークンを使用します。既定はオフです。",
+		runningOn: (port: number) => `127.0.0.1:${port} で待ち受け中`,
+		tokenLabel: "Agent トークン",
+		tokenHint:
+			"Collect のトークンとは別管理なので、一方を失効させても他方は使えます。パスワードと同様に扱ってください。",
+		copy: "コピー",
+		copied: "コピーしました",
+		copyFailed: "コピーできませんでした — 手動で選択してコピーしてください",
+		regenerate: "再生成",
+		regenerated:
+			"新しいトークンを生成しました — エージェントを再接続してください",
+		connectTitle: "エージェントを接続",
+		claudeCodeLabel: "Claude Code",
+		claudeCodeHint:
+			"ターミナルで一度実行すれば、そのままライブラリについて質問できます。",
+		stdioLabel: "Codex(stdio)",
+		stdioHint:
+			"~/.codex/config.toml に追加します。ブリッジがポートとトークンを自動で読むため、トークンを再生成しても書き換え不要です。",
+		bridgePathLabel: "ブリッジスクリプト",
+		bridgePathHint: "HTTP ではなく stdio で MCP を話すクライアント向けです。",
+	},
 	updates: {
 		available: (version: string) => `yAssets ${version} が利用可能です`,
 		installAction: "インストールして再起動",

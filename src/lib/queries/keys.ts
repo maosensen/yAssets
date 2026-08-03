@@ -71,6 +71,11 @@ export const collectKeys = {
 	videoTool: ["collect", "video-tool"] as const,
 };
 
+export const agentKeys = {
+	/** Agent/MCP API status (enabled/running/port/token) — Preferences ▸ Agent. */
+	status: ["agent", "status"] as const,
+};
+
 export const sourceKeys = {
 	/** Discover search results. The API key is part of the key so changing it
 	 *  (e.g. fixing an invalid one) refetches; react-query keys are in-memory

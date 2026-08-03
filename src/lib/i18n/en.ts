@@ -70,6 +70,33 @@ export const en = {
 		videoToolReady: (version: string) =>
 			`Video downloader ready (yt-dlp ${version})`,
 	},
+	agent: {
+		title: "Agent",
+		description:
+			"Let an AI coding agent (Claude Code, Codex) browse this library over MCP — search it, look at the thumbnails, and suggest how to tag or file things.",
+		readOnlyBadge: "Read-only",
+		enable: "Enable Agent API",
+		enableHint:
+			"Listens on 127.0.0.1 only, with its own token. Off until you turn it on.",
+		runningOn: (port: number) => `Listening on 127.0.0.1:${port}`,
+		tokenLabel: "Agent token",
+		tokenHint:
+			"Separate from the Collect token, so revoking one leaves the other working. Treat it like a password.",
+		copy: "Copy",
+		copied: "Copied",
+		copyFailed: "Copy failed — select the text and copy it manually",
+		regenerate: "Regenerate",
+		regenerated: "New token generated — reconnect your agent",
+		connectTitle: "Connect an agent",
+		claudeCodeLabel: "Claude Code",
+		claudeCodeHint: "Run this once in a terminal, then ask about your library.",
+		stdioLabel: "Codex (stdio)",
+		stdioHint:
+			"Add to ~/.codex/config.toml. The bridge finds the port and token itself, so this stays valid after a token rotation.",
+		bridgePathLabel: "Bridge script",
+		bridgePathHint:
+			"For any client that speaks MCP over stdio instead of HTTP.",
+	},
 	updates: {
 		available: (version: string) => `yAssets ${version} is available`,
 		installAction: "Install & Restart",

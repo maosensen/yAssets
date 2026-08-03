@@ -230,6 +230,16 @@ pnpm check            # typecheck + lint + test + rust fmt-check + clippy (the f
 pnpm biome check --write   # Apply lint/format fixes
 ```
 
+## Agent API (MCP)
+
+`src-tauri/src/agent/` is a loopback-only, read-only surface that lets an AI
+coding agent browse the library over MCP. It shares the Collect API's listener
+but keeps its own enable flag and bearer token. Two rules if you touch it:
+never widen it past reads without the dry-run + audit design, and never let an
+absolute path cross that boundary (`AssetDetail::src_path` is reduced to a
+basename; a test asserts no response body contains a host path). Contract,
+security model and the permanent deny-list: **`docs/agent-api.md`**.
+
 ## Feature ledger
 
 `.roadmap/features.yaml` is this project's **feature ledger** — the single

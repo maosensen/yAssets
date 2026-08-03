@@ -1,3 +1,4 @@
+mod agent;
 mod collect;
 mod commands;
 mod db;
@@ -91,7 +92,10 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::collect::set_collect_enabled,
             commands::collect::regenerate_collect_token,
             commands::collect::get_video_tool_status,
-            commands::collect::install_video_tool
+            commands::collect::install_video_tool,
+            commands::agent::get_agent_status,
+            commands::agent::set_agent_enabled,
+            commands::agent::regenerate_agent_token
         ])
         .events(collect_events![
             events::ImportProgress,

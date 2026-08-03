@@ -56,67 +56,68 @@ fn exact_duplicate_groups(conn: &rusqlite::Connection) -> rusqlite::Result<Vec<V
     Ok(exact)
 }
 
-/// Scan the whole library for exact and visual duplicates.
+/// Scan the whole library for exact and visual duplicates. Shared by the command
+/// and the agent API.
+pub(crate) fn scan_duplicates_in(conn: &rusqlite::Connection) -> AppResult<DuplicateScan> {
+    let exact = exact_duplicate_groups(conn)?;
+
+    // --- Visual: union-find over per-hash representatives. --------
+    let mut stmt = conn.prepare(
+        "SELECT id, dhash, hash_blake3 FROM assets
+         WHERE deleted_at IS NULL AND dhash IS NOT NULL
+         ORDER BY imported_at",
+    )?;
+    let fingerprints = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, i64>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    // One representative per content hash (earliest import wins).
+    let mut seen_hashes = std::collections::HashSet::new();
+    let reps: Vec<(String, u64)> = fingerprints
+        .into_iter()
+        .filter(|(_, _, hash)| seen_hashes.insert(hash.clone()))
+        .map(|(id, dhash, _)| (id, dhash as u64))
+        .collect();
+
+    let clusters = cluster_by_distance(&reps, dhash::SIMILAR_MAX_DISTANCE);
+
+    // Resolve summaries for every clustered id in chunked IN()s.
+    let all_ids: Vec<&String> = clusters.iter().flatten().collect();
+    let mut by_id = std::collections::HashMap::new();
+    for chunk in all_ids.chunks(500) {
+        let placeholders = vec!["?"; chunk.len()].join(",");
+        let sql = format!("SELECT {SUMMARY_COLS} FROM assets WHERE id IN ({placeholders})");
+        let mut stmt = conn.prepare(&sql)?;
+        let rows = stmt
+            .query_map(rusqlite::params_from_iter(chunk.iter()), summary_from_row)?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        for summary in rows {
+            by_id.insert(summary.id.clone(), summary);
+        }
+    }
+    let visual = clusters
+        .into_iter()
+        .map(|ids| {
+            ids.iter()
+                .filter_map(|id| by_id.remove(id))
+                .collect::<Vec<_>>()
+        })
+        .filter(|group| group.len() > 1)
+        .collect();
+
+    Ok(DuplicateScan { exact, visual })
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn scan_duplicates(state: tauri::State<'_, AppState>) -> AppResult<DuplicateScan> {
     let library = state.current_library()?;
-    library
-        .read(|conn| {
-            let exact = exact_duplicate_groups(conn)?;
-
-            // --- Visual: union-find over per-hash representatives. --------
-            let mut stmt = conn.prepare(
-                "SELECT id, dhash, hash_blake3 FROM assets
-                 WHERE deleted_at IS NULL AND dhash IS NOT NULL
-                 ORDER BY imported_at",
-            )?;
-            let fingerprints = stmt
-                .query_map([], |row| {
-                    Ok((
-                        row.get::<_, String>(0)?,
-                        row.get::<_, i64>(1)?,
-                        row.get::<_, String>(2)?,
-                    ))
-                })?
-                .collect::<rusqlite::Result<Vec<_>>>()?;
-            // One representative per content hash (earliest import wins).
-            let mut seen_hashes = std::collections::HashSet::new();
-            let reps: Vec<(String, u64)> = fingerprints
-                .into_iter()
-                .filter(|(_, _, hash)| seen_hashes.insert(hash.clone()))
-                .map(|(id, dhash, _)| (id, dhash as u64))
-                .collect();
-
-            let clusters = cluster_by_distance(&reps, dhash::SIMILAR_MAX_DISTANCE);
-
-            // Resolve summaries for every clustered id in chunked IN()s.
-            let all_ids: Vec<&String> = clusters.iter().flatten().collect();
-            let mut by_id = std::collections::HashMap::new();
-            for chunk in all_ids.chunks(500) {
-                let placeholders = vec!["?"; chunk.len()].join(",");
-                let sql = format!("SELECT {SUMMARY_COLS} FROM assets WHERE id IN ({placeholders})");
-                let mut stmt = conn.prepare(&sql)?;
-                let rows = stmt
-                    .query_map(rusqlite::params_from_iter(chunk.iter()), summary_from_row)?
-                    .collect::<rusqlite::Result<Vec<_>>>()?;
-                for summary in rows {
-                    by_id.insert(summary.id.clone(), summary);
-                }
-            }
-            let visual = clusters
-                .into_iter()
-                .map(|ids| {
-                    ids.iter()
-                        .filter_map(|id| by_id.remove(id))
-                        .collect::<Vec<_>>()
-                })
-                .filter(|group| group.len() > 1)
-                .collect();
-
-            Ok(DuplicateScan { exact, visual })
-        })
-        .await
+    library.read(scan_duplicates_in).await
 }
 
 /// Union-find clustering of (id, dhash) pairs by Hamming distance. O(n²)

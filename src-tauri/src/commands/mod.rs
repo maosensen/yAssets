@@ -11,6 +11,7 @@
 //!   generated TypeScript bindings.
 //! - One file per domain.
 
+pub mod agent;
 pub mod assets;
 pub mod clipboard;
 pub mod collect;

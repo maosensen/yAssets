@@ -20,6 +20,7 @@ areas:
     Discover,
     键盘与交互,
     外观与系统,
+    自动化,
   ]
 
 modules:
@@ -449,3 +450,16 @@ features:
     area: 外观与系统
     status: done
     note: macOS(Apple Silicon + Intel)、Windows、Linux(deb / rpm / AppImage)。
+
+  # —— 自动化 ——
+  - id: agent-mcp
+    title: Agent / MCP 接入(Claude Code、Codex)
+    area: 自动化
+    status: done
+    completedAt: 2026-08-04
+    note: >-
+      本地 loopback 只读 API + 应用内 MCP endpoint(POST /mcp),独立开关与
+      token(与 yClip 的 collect_token 分离)。10 个工具:搜索 / 详情 / 看图
+      (缩略图作为 MCP image content)/ 标签 / 文件夹 / 智能文件夹 / 统计 /
+      相似 / 重复。绝对路径不越界,破坏性命令永不暴露;附零依赖 stdio 桥供
+      只支持 stdio 的客户端。写操作(dry-run + 审计)留待后续。
