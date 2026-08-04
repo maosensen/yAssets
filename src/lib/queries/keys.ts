@@ -74,6 +74,8 @@ export const collectKeys = {
 export const agentKeys = {
 	/** Agent/MCP API status (enabled/running/port/token) — Preferences ▸ Agent. */
 	status: ["agent", "status"] as const,
+	/** Detected MCP clients and whether they register our server. */
+	connections: ["agent", "connections"] as const,
 };
 
 export const sourceKeys = {

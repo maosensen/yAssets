@@ -89,13 +89,63 @@ export const zh: Messages = {
 		regenerate: "重新生成",
 		regenerated: "已生成新 token——请重新连接你的 agent",
 		connectTitle: "接入 agent",
+		connectHint:
+			"一键把 yAssets 注册进客户端(经内置桥脚本)——桥会自己找到端口和 token,轮换 token 也不会断连。",
 		claudeCodeLabel: "Claude Code",
-		claudeCodeHint: "在终端里执行一次,之后就能直接询问你的素材库。",
+		codexLabel: "Codex",
+		connect: "连接",
+		reconnect: "重新连接",
+		connecting: "连接中…",
+		statusConnected: "已连接——直接向它询问你的素材库即可。",
+		statusNotConnected: "已检测到,尚未连接。",
+		statusNotDetected: "本机未找到——请用下方手动配置。",
+		nodeMissingHint:
+			"一键连接需要 Node.js ≥ 18(桥脚本靠它运行)。请安装 Node,或使用手动 HTTP 配置。",
+		connectedToast: (target: string) => `已连接 ${target}`,
+		manualTitle: "手动配置",
+		manualClaudeLabel: "Claude Code(HTTP)",
+		claudeCodeHint:
+			"在终端里执行一次。注意:token 内嵌其中,重新生成 token 后需要再执行一次。",
 		stdioLabel: "Codex(stdio)",
 		stdioHint:
 			"加进 ~/.codex/config.toml。桥脚本会自己读取端口和 token,所以轮换 token 后无需改动。",
 		bridgePathLabel: "桥脚本路径",
 		bridgePathHint: "供只支持 stdio(而非 HTTP)的 MCP 客户端使用。",
+		presetsTitle: "试试这些场景",
+		presetsHint:
+			"复制提示词,粘贴给已连接的 agent——每条都是完整且安全的工作流(先预演,写入前先确认)。",
+		presets: {
+			inventory: {
+				title: "素材库体检报告",
+				desc: "只读:库里有什么、哪里最乱。",
+				prompt:
+					"用 yassets 的 MCP 工具给我出一份素材库报告:先跑 library_stats、list_tags、list_folders,再用 search_assets + view_assets 抽样看几批图,然后告诉我库里都有哪些类型的素材、组织现状如何、最值得先整理什么。只读操作,不要改任何东西。",
+			},
+			tagUntagged: {
+				title: "把未打标签的都打上",
+				desc: "看图打标,复用你已有的标签词汇。",
+				prompt:
+					'用 yassets 的 MCP 工具给我未打标签的素材打标:先读 list_tags,优先复用我已有的标签而不是发明同义词;然后 search_assets(scope 用 "untagged"),每批 8 个用 view_assets 看图,按批提出打标方案。每批先给我 dryRun 预演,我确认后再执行。',
+			},
+			dedupe: {
+				title: "查重并清理",
+				desc: "字节级重复分组,保留最早导入的。",
+				prompt:
+					"用 yassets 的 MCP 工具跑 find_duplicates,汇报字节级完全重复的分组(带名称和大小)。每组建议保留最早导入的一份、其余移入回收站——先给我看 dryRun,我确认后再 trash_assets。回收站可恢复,不会真丢东西。",
+			},
+			organize: {
+				title: "归档未分类素材",
+				desc: "先提文件夹结构方案,确认后归位。",
+				prompt:
+					'用 yassets 的 MCP 工具看看我未分类的素材(search_assets 的 scope 用 "uncategorized",view_assets 看图了解内容),根据内容提出一个文件夹结构方案;我批准后用 create_folder 建好结构、add_to_folder 把素材归位——每批先 dryRun。',
+			},
+			rules: {
+				title: "沉淀智能文件夹",
+				desc: "把库里的规律变成保存下来的规则。",
+				prompt:
+					"用 yassets 的 MCP 工具研究我素材库的组织方式(list_tags、list_folders,再搜几把看看常见文件类型),提出 2-3 个长期有用的智能文件夹规则。每条先告诉我今天会匹配多少素材,我批准的才用 create_smart_folder 建。",
+			},
+		},
 	},
 	updates: {
 		available: (version: string) => `yAssets ${version} 可供更新`,

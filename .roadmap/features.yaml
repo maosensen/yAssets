@@ -465,3 +465,6 @@ features:
       建文件夹与智能文件夹。护栏:单次 500 项上限、dryRun 预演、schema v11
       agent_audit 审计表、AgentMutated 事件保证 UI 不变脏;绝对路径不越界,
       永久删除等破坏性操作永不暴露。附零依赖 stdio 桥供只支持 stdio 的客户端。
+      Preferences 内一键连接 Claude Code(经 claude CLI)与 Codex(幂等写
+      ~/.codex/config.toml),均走桥脚本故轮换 token 不断连;并附 5 个三语
+      场景预设提示词(体检 / 打标 / 查重 / 归档 / 智能文件夹)一键复制。

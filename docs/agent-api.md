@@ -89,7 +89,20 @@ memberships in place, and `restore_assets` undoes it.
 
 ## Connecting a client
 
-**Claude Code** (HTTP transport — no extra process):
+**One-click (Preferences ▸ Agent).** The Connect buttons register the server
+with Claude Code (`claude mcp add --scope user`, via its own CLI — we never
+hand-edit its config) and Codex (an idempotent `[mcp_servers.yassets]` block
+upserted into `~/.codex/config.toml`, every other byte preserved). Both point at
+the bundled stdio bridge, so a token rotation or a port drift never breaks the
+connection. Requires Node ≥ 18; the pane detects install/connection state and
+falls back to the manual snippets below.
+
+The same pane also offers **preset prompts** — complete, guarded workflows
+(inventory report, tag the untagged, dedupe, file the uncategorized, set up
+smart folders) the user copies to a connected agent. Each one tells the agent to
+dry-run and ask before writing.
+
+**Claude Code, manually** (HTTP transport — no extra process):
 
 ```bash
 claude mcp add --transport http yassets http://127.0.0.1:41420/mcp \

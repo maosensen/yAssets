@@ -95,14 +95,64 @@ export const ja: Messages = {
 		regenerated:
 			"新しいトークンを生成しました — エージェントを再接続してください",
 		connectTitle: "エージェントを接続",
+		connectHint:
+			"ワンクリックで yAssets をクライアントに登録します(同梱ブリッジ経由)。ブリッジがポートとトークンを自動で読むため、トークンを再生成しても接続は切れません。",
 		claudeCodeLabel: "Claude Code",
+		codexLabel: "Codex",
+		connect: "接続",
+		reconnect: "再接続",
+		connecting: "接続中…",
+		statusConnected: "接続済み — そのままライブラリについて質問できます。",
+		statusNotConnected: "検出済み、まだ未接続です。",
+		statusNotDetected:
+			"このマシンでは見つかりません — 下の手動設定をご利用ください。",
+		nodeMissingHint:
+			"ワンクリック接続には Node.js ≥ 18 が必要です(ブリッジの実行環境)。Node をインストールするか、手動の HTTP 設定を使ってください。",
+		connectedToast: (target: string) => `${target} を接続しました`,
+		manualTitle: "手動設定",
+		manualClaudeLabel: "Claude Code(HTTP)",
 		claudeCodeHint:
-			"ターミナルで一度実行すれば、そのままライブラリについて質問できます。",
+			"ターミナルで一度実行します。注意:トークンが埋め込まれるため、再生成した場合はもう一度実行が必要です。",
 		stdioLabel: "Codex(stdio)",
 		stdioHint:
 			"~/.codex/config.toml に追加します。ブリッジがポートとトークンを自動で読むため、トークンを再生成しても書き換え不要です。",
 		bridgePathLabel: "ブリッジスクリプト",
 		bridgePathHint: "HTTP ではなく stdio で MCP を話すクライアント向けです。",
+		presetsTitle: "こんな使い方",
+		presetsHint:
+			"プロンプトをコピーして接続済みのエージェントに貼り付けるだけ。どれも完結した安全なワークフローです(まずプレビュー、書き込み前に確認)。",
+		presets: {
+			inventory: {
+				title: "ライブラリ健診レポート",
+				desc: "読み取りのみ:何があり、どこが散らかっているか。",
+				prompt:
+					"yassets の MCP ツールでライブラリのレポートを作って:library_stats、list_tags、list_folders を実行し、search_assets + view_assets で数バッチ実際に画像を見たうえで、どんな種類の素材があるか、整理状況はどうか、まず何を片付けるべきかを教えて。読み取りのみで、何も変更しないこと。",
+			},
+			tagUntagged: {
+				title: "未タグをすべてタグ付け",
+				desc: "画像を見て、既存のタグ語彙を再利用します。",
+				prompt:
+					'yassets の MCP ツールで未タグの素材にタグを付けて:まず list_tags を読み、同義語を作らず既存の語彙を優先して再利用すること。search_assets(scope は "untagged")で取得し、view_assets で 8 件ずつ実際に見てからバッチごとにタグ案を出して。各バッチは dryRun で提示し、私の確認後に適用して。',
+			},
+			dedupe: {
+				title: "重複を見つけて掃除",
+				desc: "バイト一致のグループ。最初の取り込みを残します。",
+				prompt:
+					"yassets の MCP ツールで find_duplicates を実行し、バイト単位で一致するグループを名前とサイズ付きで報告して。各グループは最初に取り込んだ 1 件を残し、残りをゴミ箱へ——まず dryRun を見せ、私の確認後に trash_assets を実行して。ゴミ箱は復元できるので失われるものはありません。",
+			},
+			organize: {
+				title: "未分類をフォルダへ",
+				desc: "フォルダ構成を提案し、承認後に振り分けます。",
+				prompt:
+					'yassets の MCP ツールで未分類の素材を確認し(search_assets の scope は "uncategorized"、view_assets で内容を把握)、内容に合ったフォルダ構成を提案して。承認後に create_folder で構成を作り、add_to_folder で素材を振り分けて——各バッチはまず dryRun で。',
+			},
+			rules: {
+				title: "スマートフォルダを育てる",
+				desc: "ライブラリのパターンを保存されたルールに。",
+				prompt:
+					"yassets の MCP ツールでライブラリの整理状況(list_tags、list_folders、いくつか検索してよくあるファイル種別)を調べ、長く使えるスマートフォルダを 2〜3 個提案して。各ルールが今日時点で何件にマッチするかを先に示し、私が承認したものだけ create_smart_folder で作成して。",
+			},
+		},
 	},
 	updates: {
 		available: (version: string) => `yAssets ${version} が利用可能です`,

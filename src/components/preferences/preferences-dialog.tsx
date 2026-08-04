@@ -42,7 +42,9 @@ import { buildAgentConfigSnippets } from "@/lib/agent-config";
 import { pickDirectory } from "@/lib/dialogs";
 import { formatBytes } from "@/lib/format";
 import {
+	agentConnectionsQueryOptions,
 	agentStatusQueryOptions,
+	useConnectAgent,
 	useRegenerateAgentToken,
 	useSetAgentEnabled,
 } from "@/lib/queries/agent";
@@ -401,10 +403,21 @@ function CollectPane() {
 	);
 }
 
+/** Preset prompts shown in the Agent pane, in display order. */
+const AGENT_PRESET_KEYS = [
+	"inventory",
+	"tagUntagged",
+	"dedupe",
+	"organize",
+	"rules",
+] as const;
+
 function AgentPane() {
 	const { data: status } = useQuery(agentStatusQueryOptions());
+	const { data: connections } = useQuery(agentConnectionsQueryOptions());
 	const setEnabled = useSetAgentEnabled();
 	const regenerate = useRegenerateAgentToken();
+	const connect = useConnectAgent();
 	const snippets = buildAgentConfigSnippets(
 		status?.port ?? null,
 		status?.token ?? "",
@@ -490,31 +503,162 @@ function AgentPane() {
 				)}
 			</SettingsCard>
 
-			{status?.enabled && snippets && (
+			{status?.enabled && (
 				<SettingsCard title={T.agent.connectTitle}>
-					<SnippetBlock
+					<div className="px-4 py-3.5">
+						<p className="text-muted-foreground text-xs leading-relaxed">
+							{T.agent.connectHint}
+						</p>
+						{connections && !connections.node_ok && (
+							<p className="mt-2 text-destructive text-xs leading-relaxed">
+								{T.agent.nodeMissingHint}
+							</p>
+						)}
+					</div>
+					<ConnectRow
 						label={T.agent.claudeCodeLabel}
-						hint={T.agent.claudeCodeHint}
-						value={snippets.claudeCode}
-						onCopy={copy}
+						target="claudeCode"
+						status={connections?.claude_code}
+						usable={Boolean(connections?.node_ok && connections.bridge_ok)}
+						pending={connect.isPending}
+						onConnect={(target) => connect.mutate(target)}
 					/>
-					{snippets.codex && (
-						<SnippetBlock
-							label={T.agent.stdioLabel}
-							hint={T.agent.stdioHint}
-							value={snippets.codex}
-							onCopy={copy}
-						/>
-					)}
-					{status.bridge_path && (
-						<SnippetBlock
-							label={T.agent.bridgePathLabel}
-							hint={T.agent.bridgePathHint}
-							value={status.bridge_path}
-							onCopy={copy}
-						/>
+					<ConnectRow
+						label={T.agent.codexLabel}
+						target="codex"
+						status={connections?.codex}
+						usable={Boolean(connections?.node_ok && connections.bridge_ok)}
+						pending={connect.isPending}
+						onConnect={(target) => connect.mutate(target)}
+					/>
+					{snippets && (
+						<SettingBlock label={T.agent.manualTitle}>
+							<div className="flex flex-col gap-3">
+								<SnippetInline
+									label={T.agent.manualClaudeLabel}
+									hint={T.agent.claudeCodeHint}
+									value={snippets.claudeCode}
+									onCopy={copy}
+								/>
+								{snippets.codex && (
+									<SnippetInline
+										label={T.agent.stdioLabel}
+										hint={T.agent.stdioHint}
+										value={snippets.codex}
+										onCopy={copy}
+									/>
+								)}
+								{status.bridge_path && (
+									<SnippetInline
+										label={T.agent.bridgePathLabel}
+										hint={T.agent.bridgePathHint}
+										value={status.bridge_path}
+										onCopy={copy}
+									/>
+								)}
+							</div>
+						</SettingBlock>
 					)}
 				</SettingsCard>
+			)}
+
+			{status?.enabled && (
+				<SettingsCard title={T.agent.presetsTitle}>
+					<div className="px-4 py-3.5">
+						<p className="text-muted-foreground text-xs leading-relaxed">
+							{T.agent.presetsHint}
+						</p>
+					</div>
+					{AGENT_PRESET_KEYS.map((key) => {
+						const preset = T.agent.presets[key];
+						return (
+							<SnippetBlock
+								key={key}
+								label={preset.title}
+								hint={preset.desc}
+								value={preset.prompt}
+								onCopy={copy}
+							/>
+						);
+					})}
+				</SettingsCard>
+			)}
+		</div>
+	);
+}
+
+/** One MCP client row: name, detection/connection status, connect button. */
+function ConnectRow({
+	label,
+	target,
+	status,
+	usable,
+	pending,
+	onConnect,
+}: {
+	label: string;
+	target: "claudeCode" | "codex";
+	status: { detected: boolean; connected: boolean } | undefined;
+	usable: boolean;
+	pending: boolean;
+	onConnect: (target: "claudeCode" | "codex") => void;
+}) {
+	const description = !status
+		? undefined
+		: status.connected
+			? T.agent.statusConnected
+			: status.detected
+				? T.agent.statusNotConnected
+				: T.agent.statusNotDetected;
+	return (
+		<SettingRow label={label} description={description}>
+			<Button
+				variant={status?.connected ? "outline" : "default"}
+				size="sm"
+				disabled={!status?.detected || !usable || pending}
+				onClick={() => onConnect(target)}
+			>
+				{pending
+					? T.agent.connecting
+					: status?.connected
+						? T.agent.reconnect
+						: T.agent.connect}
+			</Button>
+		</SettingRow>
+	);
+}
+
+/** A compact labeled snippet inside a SettingBlock (manual-config fallback). */
+function SnippetInline({
+	label,
+	hint,
+	value,
+	onCopy,
+}: {
+	label: string;
+	hint?: string;
+	value: string;
+	onCopy: (value: string) => Promise<void>;
+}) {
+	return (
+		<div className="flex flex-col gap-1">
+			<span className="text-muted-foreground text-xs">{label}</span>
+			<div className="flex items-start gap-2">
+				<pre className="min-w-0 flex-1 overflow-x-auto rounded-lg border border-border/60 bg-muted/40 px-2.5 py-2 font-mono text-[11px] leading-relaxed">
+					{value}
+				</pre>
+				<Button
+					variant="outline"
+					size="sm"
+					className="shrink-0"
+					onClick={() => void onCopy(value)}
+				>
+					<IconCopy className="size-3.5" />
+					{T.agent.copy}
+				</Button>
+			</div>
+			{hint && (
+				<p className="text-muted-foreground text-xs leading-relaxed">{hint}</p>
 			)}
 		</div>
 	);

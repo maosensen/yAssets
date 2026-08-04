@@ -7,13 +7,9 @@
 
 use serde::Serialize;
 
-use crate::error::AppResult;
+use crate::error::{AppError, AppResult};
 use crate::state::AppState;
 use crate::{agent, collect};
-
-/// Where the bundled stdio bridge lives, for clients that cannot speak MCP over
-/// HTTP. Relative to the app's resource directory.
-const BRIDGE_RESOURCE: &str = "tools/yassets-mcp-bridge.mjs";
 
 #[derive(Debug, Serialize, specta::Type)]
 pub struct AgentStatus {
@@ -34,17 +30,6 @@ pub struct AgentStatus {
     pub bridge_path: Option<String>,
 }
 
-fn bridge_path(app: &tauri::AppHandle) -> Option<String> {
-    use tauri::path::BaseDirectory;
-    use tauri::Manager;
-    let path = app
-        .path()
-        .resolve(BRIDGE_RESOURCE, BaseDirectory::Resource)
-        .ok()?;
-    // Only advertise a path the user can actually point a client at.
-    path.exists().then(|| path.to_string_lossy().into_owned())
-}
-
 fn status(app: &tauri::AppHandle, state: &AppState) -> AgentStatus {
     let port = state.collect_port();
     AgentStatus {
@@ -53,7 +38,7 @@ fn status(app: &tauri::AppHandle, state: &AppState) -> AgentStatus {
         port,
         token: agent::stored_token(app).unwrap_or_default(),
         read_only: false,
-        bridge_path: bridge_path(app),
+        bridge_path: agent::connect::bridge_path(app),
     }
 }
 
@@ -96,4 +81,85 @@ pub async fn regenerate_agent_token(
     agent::regenerate_token(&app)?;
     collect::reapply(&app).await?;
     Ok(status(&app, &state))
+}
+
+// ------------------------------------------------------- one-click connect ---
+
+/// One MCP client's install/connection state, as far as we can see it.
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct AgentTargetStatus {
+    /// The client appears to exist on this machine (binary or config dir).
+    pub detected: bool,
+    /// Its config registers our server. Both connectors go through the stdio
+    /// bridge, so a token rotation does NOT unset this — the bridge re-reads
+    /// the endpoint descriptor per call.
+    pub connected: bool,
+}
+
+#[derive(Debug, Clone, Serialize, specta::Type)]
+pub struct AgentConnections {
+    pub claude_code: AgentTargetStatus,
+    pub codex: AgentTargetStatus,
+    /// Node.js was found — the bridge (and therefore one-click) needs it.
+    pub node_ok: bool,
+    /// This build ships the bridge script (false only in broken installs).
+    pub bridge_ok: bool,
+}
+
+fn connections(app: &tauri::AppHandle) -> AgentConnections {
+    AgentConnections {
+        claude_code: AgentTargetStatus {
+            detected: agent::connect::find_claude().is_some(),
+            connected: agent::connect::claude_connected(),
+        },
+        codex: AgentTargetStatus {
+            detected: agent::connect::codex_detected(),
+            connected: agent::connect::codex_connected(),
+        },
+        node_ok: agent::connect::find_node().is_some(),
+        bridge_ok: agent::connect::bridge_path(app).is_some(),
+    }
+}
+
+/// Filesystem scans + config reads — cheap, but off the main thread anyway.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_agent_connections(app: tauri::AppHandle) -> AppResult<AgentConnections> {
+    tauri::async_runtime::spawn_blocking(move || Ok(connections(&app)))
+        .await
+        .map_err(|_| AppError::Internal)?
+}
+
+fn required_bridge(app: &tauri::AppHandle) -> AppResult<String> {
+    agent::connect::bridge_path(app).ok_or_else(|| {
+        AppError::Conflict(
+            "this build is missing the bundled bridge script — reinstall yAssets".into(),
+        )
+    })
+}
+
+/// Register the server with Claude Code (spawns `claude mcp add`, user scope).
+#[tauri::command]
+#[specta::specta]
+pub async fn connect_claude_code(app: tauri::AppHandle) -> AppResult<AgentConnections> {
+    let bridge = required_bridge(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        agent::connect::connect_claude(&bridge)?;
+        Ok(connections(&app))
+    })
+    .await
+    .map_err(|_| AppError::Internal)?
+}
+
+/// Register the server with Codex (upserts `~/.codex/config.toml`).
+#[tauri::command]
+#[specta::specta]
+pub async fn connect_codex(app: tauri::AppHandle) -> AppResult<AgentConnections> {
+    let bridge = required_bridge(&app)?;
+    tauri::async_runtime::spawn_blocking(move || {
+        agent::connect::connect_codex(&bridge)?;
+        Ok(connections(&app))
+    })
+    .await
+    .map_err(|_| AppError::Internal)?
 }

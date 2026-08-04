@@ -95,7 +95,10 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::collect::install_video_tool,
             commands::agent::get_agent_status,
             commands::agent::set_agent_enabled,
-            commands::agent::regenerate_agent_token
+            commands::agent::regenerate_agent_token,
+            commands::agent::get_agent_connections,
+            commands::agent::connect_claude_code,
+            commands::agent::connect_codex
         ])
         .events(collect_events![
             events::ImportProgress,

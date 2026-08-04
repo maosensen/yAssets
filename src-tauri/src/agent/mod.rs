@@ -21,6 +21,7 @@
 //! everything here goes through `Library::read`.
 
 pub mod api;
+pub mod connect;
 pub mod dto;
 pub mod mcp;
 pub mod routes;

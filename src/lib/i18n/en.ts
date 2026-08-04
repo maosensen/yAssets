@@ -93,14 +93,65 @@ export const en = {
 		regenerate: "Regenerate",
 		regenerated: "New token generated — reconnect your agent",
 		connectTitle: "Connect an agent",
+		connectHint:
+			"One click registers yAssets with the client, via the bundled bridge — it finds the port and token by itself, so rotating the token never breaks the connection.",
 		claudeCodeLabel: "Claude Code",
-		claudeCodeHint: "Run this once in a terminal, then ask about your library.",
+		codexLabel: "Codex",
+		connect: "Connect",
+		reconnect: "Reconnect",
+		connecting: "Connecting…",
+		statusConnected: "Connected — just ask it about your library.",
+		statusNotConnected: "Detected on this machine, not connected yet.",
+		statusNotDetected:
+			"Not found on this machine — use the manual config below.",
+		nodeMissingHint:
+			"One-click connect needs Node.js ≥ 18 (the bridge runs on it). Install Node or use the manual HTTP config.",
+		connectedToast: (target: string) => `${target} connected`,
+		manualTitle: "Manual configuration",
+		manualClaudeLabel: "Claude Code (HTTP)",
+		claudeCodeHint:
+			"Run this once in a terminal. Note: the token is baked in, so regenerating it means running this again.",
 		stdioLabel: "Codex (stdio)",
 		stdioHint:
 			"Add to ~/.codex/config.toml. The bridge finds the port and token itself, so this stays valid after a token rotation.",
 		bridgePathLabel: "Bridge script",
 		bridgePathHint:
 			"For any client that speaks MCP over stdio instead of HTTP.",
+		presetsTitle: "Things to try",
+		presetsHint:
+			"Copy a prompt and paste it to your connected agent — each one is a complete, safe workflow (previews first, asks before writing).",
+		presets: {
+			inventory: {
+				title: "Library health report",
+				desc: "Read-only: what's in here, and where the mess is.",
+				prompt:
+					"Using the yassets MCP tools, give me a report on my library: run library_stats, list_tags and list_folders, sample a few batches with search_assets + view_assets to actually look at the material, then tell me what kinds of assets I have, how well they're organized, and what's worth cleaning up first. Read-only — don't change anything.",
+			},
+			tagUntagged: {
+				title: "Tag everything untagged",
+				desc: "Looks at the pictures and reuses your existing tag vocabulary.",
+				prompt:
+					'Using the yassets MCP tools, tag my untagged assets: read list_tags first and reuse my existing vocabulary instead of inventing synonyms, then search_assets with scope "untagged", view_assets in batches of 8 to actually look at them, and propose tags per batch. Show me a dryRun plan for each batch and only apply after I confirm.',
+			},
+			dedupe: {
+				title: "Find and clean duplicates",
+				desc: "Byte-identical groups; keeps the earliest import.",
+				prompt:
+					"Using the yassets MCP tools, run find_duplicates and report the exact (byte-identical) groups with names and sizes. For each group, suggest keeping the earliest import and trashing the rest — show the dryRun first and only trash_assets after I confirm. Trash is reversible, so nothing is lost either way.",
+			},
+			organize: {
+				title: "File the uncategorized",
+				desc: "Proposes a folder structure, then files things into it.",
+				prompt:
+					'Using the yassets MCP tools, look at my uncategorized assets (search_assets with scope "uncategorized", view_assets to see what they are), propose a folder structure that fits the content, and after I approve it, create_folder the structure and add_to_folder the assets — dryRun each batch first.',
+			},
+			rules: {
+				title: "Set up smart folders",
+				desc: "Turns the patterns in your library into saved rules.",
+				prompt:
+					"Using the yassets MCP tools, study how my library is organized (list_tags, list_folders, common file types from a few searches) and propose 2-3 smart folders that would stay useful over time. For each, tell me how many assets the rule would match today, then create_smart_folder only for the ones I approve.",
+			},
+		},
 	},
 	updates: {
 		available: (version: string) => `yAssets ${version} is available`,

@@ -46,3 +46,32 @@ export function useRegenerateAgentToken() {
 		onError: (error) => toast.error(describeError(error)),
 	});
 }
+
+export function agentConnectionsQueryOptions() {
+	return queryOptions({
+		queryKey: agentKeys.connections,
+		queryFn: async () => unwrap(await commands.getAgentConnections()),
+	});
+}
+
+/** One-click connect. `target` picks the client; both go through the bridge. */
+export function useConnectAgent() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async (target: "claudeCode" | "codex") =>
+			unwrap(
+				await (target === "claudeCode"
+					? commands.connectClaudeCode()
+					: commands.connectCodex()),
+			),
+		onSuccess: (connections, target) => {
+			queryClient.setQueryData(agentKeys.connections, connections);
+			toast.success(
+				T.agent.connectedToast(
+					target === "claudeCode" ? "Claude Code" : "Codex",
+				),
+			);
+		},
+		onError: (error) => toast.error(describeError(error)),
+	});
+}

@@ -234,6 +234,12 @@ export const commands = {
 	getAgentStatus: () => typedError<AgentStatus, AppError>(__TAURI_INVOKE("get_agent_status")),
 	setAgentEnabled: (enabled: boolean) => typedError<AgentStatus, AppError>(__TAURI_INVOKE("set_agent_enabled", { enabled })),
 	regenerateAgentToken: () => typedError<AgentStatus, AppError>(__TAURI_INVOKE("regenerate_agent_token")),
+	/**  Filesystem scans + config reads — cheap, but off the main thread anyway. */
+	getAgentConnections: () => typedError<AgentConnections, AppError>(__TAURI_INVOKE("get_agent_connections")),
+	/**  Register the server with Claude Code (spawns `claude mcp add`, user scope). */
+	connectClaudeCode: () => typedError<AgentConnections, AppError>(__TAURI_INVOKE("connect_claude_code")),
+	/**  Register the server with Codex (upserts `~/.codex/config.toml`). */
+	connectCodex: () => typedError<AgentConnections, AppError>(__TAURI_INVOKE("connect_codex")),
 };
 
 /** Events */
@@ -245,6 +251,15 @@ export const events = {
 };
 
 /* Types */
+export type AgentConnections = {
+	claude_code: AgentTargetStatus,
+	codex: AgentTargetStatus,
+	/**  Node.js was found — the bridge (and therefore one-click) needs it. */
+	node_ok: boolean,
+	/**  This build ships the bridge script (false only in broken installs). */
+	bridge_ok: boolean,
+};
+
 /**
  *  A write landed through the Agent API (`crate::agent`). Same reason
  *  `CollectImported` exists: server-side writes bypass the frontend's mutation
@@ -283,6 +298,18 @@ export type AgentStatus = {
 	 *  build. None means "use the HTTP transport".
 	 */
 	bridge_path: string | null,
+};
+
+/**  One MCP client's install/connection state, as far as we can see it. */
+export type AgentTargetStatus = {
+	/**  The client appears to exist on this machine (binary or config dir). */
+	detected: boolean,
+	/**
+	 *  Its config registers our server. Both connectors go through the stdio
+	 *  bridge, so a token rotation does NOT unset this — the bridge re-reads
+	 *  the endpoint descriptor per call.
+	 */
+	connected: boolean,
 };
 
 export type AppError = { code: "NotFound"; detail: string } | { code: "Io"; detail: string } | { code: "Db"; detail: string } | 
