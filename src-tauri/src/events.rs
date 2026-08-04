@@ -72,6 +72,21 @@ pub struct CollectImported {
     pub duplicate: bool,
 }
 
+/// A write landed through the Agent API (`crate::agent`). Same reason
+/// `CollectImported` exists: server-side writes bypass the frontend's mutation
+/// layer, so nothing else would invalidate the caches — without this event every
+/// open view keeps showing pre-write rows and the user's next edit is based on
+/// stale state. Emitted only when something actually changed.
+///
+/// Carries identifiers, not prose: the toast copy lives in the i18n catalogs.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+pub struct AgentMutated {
+    /// The tool that ran, e.g. `"tag_assets"`.
+    pub tool: String,
+    /// Rows changed.
+    pub affected: u32,
+}
+
 /// Terminal event for an import job — exactly one per `job_id`, even on cancel.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
 pub struct ImportFinished {

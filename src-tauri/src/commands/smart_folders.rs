@@ -158,6 +158,33 @@ pub async fn list_smart_folders(state: tauri::State<'_, AppState>) -> AppResult<
     library.read(all_smart_folders_in).await
 }
 
+/// Save a rule set as a live query. Shared by the command and the agent API —
+/// this is how an agent turns "these should be grouped" into something durable
+/// instead of a one-off pass.
+pub(crate) fn create_smart_folder_in(
+    conn: &rusqlite::Connection,
+    name: &str,
+    rules: SmartRules,
+) -> AppResult<SmartFolder> {
+    let trimmed = name.trim().to_string();
+    if trimmed.is_empty() {
+        return Err(AppError::Conflict("smart folder name is empty".into()));
+    }
+    let folder = SmartFolder {
+        id: new_id(),
+        name: trimmed,
+        rules,
+        position: 0,
+    };
+    let json = serde_json::to_string(&folder.rules)?;
+    conn.execute(
+        "INSERT INTO smart_folders (id, name, rules, position, created_at, updated_at)
+         VALUES (?1, ?2, ?3, 0, ?4, ?4)",
+        rusqlite::params![folder.id, folder.name, json, now_ms()],
+    )?;
+    Ok(folder)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn create_smart_folder(
@@ -165,31 +192,10 @@ pub async fn create_smart_folder(
     rules: SmartRules,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<SmartFolder> {
-    let trimmed = name.trim().to_string();
-    if trimmed.is_empty() {
-        return Err(AppError::Conflict("smart folder name is empty".into()));
-    }
     let library = state.current_library()?;
-    let id = new_id();
-    let folder = SmartFolder {
-        id: id.clone(),
-        name: trimmed,
-        rules,
-        position: 0,
-    };
-    let json = serde_json::to_string(&folder.rules)?;
-    let stored = folder.clone();
     library
-        .write(move |conn| {
-            conn.execute(
-                "INSERT INTO smart_folders (id, name, rules, position, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, 0, ?4, ?4)",
-                rusqlite::params![stored.id, stored.name, json, now_ms()],
-            )?;
-            Ok(())
-        })
-        .await?;
-    Ok(folder)
+        .write(move |conn| create_smart_folder_in(conn, &name, rules))
+        .await
 }
 
 #[tauri::command]

@@ -70,8 +70,13 @@ export const zh: Messages = {
 	agent: {
 		title: "Agent",
 		description:
-			"让 AI 编程助手(Claude Code、Codex)通过 MCP 访问这个素材库——搜索、看图,并给出打标签和归档建议。",
+			"让 AI 编程助手(Claude Code、Codex)通过 MCP 访问并整理这个素材库——搜索、看图,然后批量打标签、归档、评分。",
 		readOnlyBadge: "只读",
+		readWriteBadge: "可读写",
+		writeHint:
+			"写操作单次上限 500 项,支持预演,且全部记录在案。永久删除、从磁盘导入、导出到磁盘永不开放给 agent。",
+		toastMutated: (tool: string, affected: number) =>
+			`Agent 改动了 ${affected} 项(${tool})`,
 		enable: "启用 Agent API",
 		enableHint: "仅监听 127.0.0.1,使用独立 token。默认关闭。",
 		runningOn: (port: number) => `正在监听 127.0.0.1:${port}`,

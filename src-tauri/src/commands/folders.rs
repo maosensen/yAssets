@@ -230,6 +230,34 @@ fn validated_name(name: &str) -> AppResult<String> {
     Ok(trimmed.to_string())
 }
 
+/// Append a folder to the end of its parent's children. Shared by the command
+/// and the agent API.
+pub(crate) fn create_folder_in(
+    conn: &rusqlite::Connection,
+    name: &str,
+    parent_id: Option<&str>,
+) -> AppResult<Folder> {
+    let name = validated_name(name)?;
+    if let Some(parent) = parent_id {
+        // Nicer error than the FK violation.
+        one_folder(conn, parent)?;
+    }
+    let id = new_id();
+    let now = now_ms();
+    let position: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(position) + 1, 0) FROM folders
+         WHERE parent_id IS ?1",
+        [&parent_id],
+        |row| row.get(0),
+    )?;
+    conn.execute(
+        "INSERT INTO folders (id, parent_id, name, position, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
+        rusqlite::params![id, parent_id, name, position, now],
+    )?;
+    one_folder(conn, &id)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn create_folder(
@@ -237,29 +265,9 @@ pub async fn create_folder(
     parent_id: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Folder> {
-    let name = validated_name(&name)?;
     let library = state.current_library()?;
     library
-        .write(move |conn| {
-            if let Some(parent) = &parent_id {
-                // Nicer error than the FK violation.
-                one_folder(conn, parent)?;
-            }
-            let id = new_id();
-            let now = now_ms();
-            let position: i64 = conn.query_row(
-                "SELECT COALESCE(MAX(position) + 1, 0) FROM folders
-                 WHERE parent_id IS ?1",
-                [&parent_id],
-                |row| row.get(0),
-            )?;
-            conn.execute(
-                "INSERT INTO folders (id, parent_id, name, position, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?5)",
-                rusqlite::params![id, parent_id, name, position, now],
-            )?;
-            one_folder(conn, &id)
-        })
+        .write(move |conn| create_folder_in(conn, &name, parent_id.as_deref()))
         .await
 }
 
@@ -420,6 +428,28 @@ pub async fn delete_folder(id: String, state: tauri::State<'_, AppState>) -> App
         .await
 }
 
+pub(crate) fn add_assets_to_folder_in(
+    conn: &mut rusqlite::Connection,
+    asset_ids: &[String],
+    folder_id: &str,
+) -> AppResult<u32> {
+    one_folder(conn, folder_id)?;
+    let now = now_ms();
+    let tx = conn.transaction()?;
+    let mut inserted = 0u32;
+    {
+        let mut stmt = tx.prepare(
+            "INSERT OR IGNORE INTO asset_folders (asset_id, folder_id, added_at)
+             SELECT id, ?2, ?3 FROM assets WHERE id = ?1",
+        )?;
+        for asset_id in asset_ids {
+            inserted += stmt.execute(rusqlite::params![asset_id, folder_id, now])? as u32;
+        }
+    }
+    tx.commit()?;
+    Ok(inserted)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn add_assets_to_folder(
@@ -429,24 +459,26 @@ pub async fn add_assets_to_folder(
 ) -> AppResult<u32> {
     let library = state.current_library()?;
     library
-        .write(move |conn| {
-            one_folder(conn, &folder_id)?;
-            let now = now_ms();
-            let tx = conn.transaction()?;
-            let mut inserted = 0u32;
-            {
-                let mut stmt = tx.prepare(
-                    "INSERT OR IGNORE INTO asset_folders (asset_id, folder_id, added_at)
-                     SELECT id, ?2, ?3 FROM assets WHERE id = ?1",
-                )?;
-                for asset_id in &asset_ids {
-                    inserted += stmt.execute(rusqlite::params![asset_id, folder_id, now])? as u32;
-                }
-            }
-            tx.commit()?;
-            Ok(inserted)
-        })
+        .write(move |conn| add_assets_to_folder_in(conn, &asset_ids, &folder_id))
         .await
+}
+
+pub(crate) fn remove_assets_from_folder_in(
+    conn: &mut rusqlite::Connection,
+    asset_ids: &[String],
+    folder_id: &str,
+) -> AppResult<u32> {
+    let tx = conn.transaction()?;
+    let mut removed = 0u32;
+    {
+        let mut stmt =
+            tx.prepare("DELETE FROM asset_folders WHERE asset_id = ?1 AND folder_id = ?2")?;
+        for asset_id in asset_ids {
+            removed += stmt.execute(rusqlite::params![asset_id, folder_id])? as u32;
+        }
+    }
+    tx.commit()?;
+    Ok(removed)
 }
 
 #[tauri::command]
@@ -458,19 +490,7 @@ pub async fn remove_assets_from_folder(
 ) -> AppResult<u32> {
     let library = state.current_library()?;
     library
-        .write(move |conn| {
-            let tx = conn.transaction()?;
-            let mut removed = 0u32;
-            {
-                let mut stmt =
-                    tx.prepare("DELETE FROM asset_folders WHERE asset_id = ?1 AND folder_id = ?2")?;
-                for asset_id in &asset_ids {
-                    removed += stmt.execute(rusqlite::params![asset_id, folder_id])? as u32;
-                }
-            }
-            tx.commit()?;
-            Ok(removed)
-        })
+        .write(move |conn| remove_assets_from_folder_in(conn, &asset_ids, &folder_id))
         .await
 }
 

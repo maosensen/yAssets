@@ -10,8 +10,10 @@ use std::collections::HashMap;
 use tauri::Manager;
 
 use super::dto::{
-    AssetDetailRow, AssetRow, DuplicatesResponse, FolderRow, FolderStatsRow, Includes,
-    SearchRequest, SearchResponse, SmartFolderRow, StatsRow, TagRow, TagRowWithCount,
+    check_batch, AssetDetailRow, AssetIdsRequest, AssetRow, AuditRow, CreateFolderRequest,
+    CreateSmartFolderRequest, CreateTagRequest, DuplicatesResponse, FolderAssetsRequest, FolderRow,
+    FolderStatsRow, Includes, RateAssetsRequest, SearchRequest, SearchResponse, SmartFolderRow,
+    StatsRow, TagAssetsRequest, TagRow, TagRowWithCount, UpdateAssetRequest, WriteResult,
 };
 use crate::error::{AppError, AppResult};
 use crate::library::Library;
@@ -44,18 +46,26 @@ pub fn info<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> serde_json::Value {
         "app": "yAssets",
         "version": env!("CARGO_PKG_VERSION"),
         "apiVersion": super::AGENT_API_VERSION,
-        "readOnly": true,
+        "readOnly": false,
         "libraryOpen": open.is_some(),
         "libraryName": open.map(|lib| lib.info().name),
         "capabilities": [
             "search", "detail", "similar", "duplicates",
             "folders", "tags", "smartFolders", "stats",
             "thumb", "file", "mcp",
+            "write", "dryRun", "audit",
         ],
         "limits": {
             "maxSearchLimit": super::dto::MAX_LIMIT,
             "maxFileBytes": MAX_FILE_BYTES,
+            "maxBatch": super::dto::MAX_BATCH,
         },
+        // Deliberately absent, now and later — see docs/agent-api.md.
+        "notPermitted": [
+            "permanent deletion", "emptying the trash", "orphan cleanup",
+            "vacuum", "switching libraries", "importing from disk",
+            "exporting to disk",
+        ],
     })
 }
 
@@ -355,6 +365,445 @@ pub async fn file_bytes<R: tauri::Runtime>(
         bytes,
         mime.unwrap_or_else(|| "application/octet-stream".into()),
     ))
+}
+
+// ------------------------------------------------------------------ writes ---
+
+/// How many target names a `WriteResult` carries. Enough to recognize the set,
+/// few enough to stay out of the way.
+const SAMPLE_SIZE: usize = 5;
+
+/// Which side of the trash a batch is aiming at.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TargetState {
+    Alive,
+    Trashed,
+}
+
+/// Count and name the ids that actually resolve. Run before every write so a
+/// dry run and the real thing agree on what "the target set" means, and so a
+/// batch of stale ids reports 0 instead of silently doing nothing.
+fn resolve_targets(
+    conn: &rusqlite::Connection,
+    asset_ids: &[String],
+    state: TargetState,
+) -> AppResult<(u32, Vec<String>)> {
+    let deleted = match state {
+        TargetState::Alive => "deleted_at IS NULL",
+        TargetState::Trashed => "deleted_at IS NOT NULL",
+    };
+    let placeholders = vec!["?"; asset_ids.len()].join(",");
+    let sql = format!(
+        "SELECT name FROM assets
+          WHERE {deleted} AND id IN ({placeholders})
+          ORDER BY name COLLATE NOCASE"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let names = stmt
+        .query_map(rusqlite::params_from_iter(asset_ids.iter()), |row| {
+            row.get::<_, String>(0)
+        })?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    let total = names.len() as u32;
+    Ok((total, names.into_iter().take(SAMPLE_SIZE).collect()))
+}
+
+/// Append one audit row. Best-effort by design: a failure to record must never
+/// turn a successful write into an error, so callers ignore the result and the
+/// problem shows up in the log instead.
+fn audit_in(
+    conn: &rusqlite::Connection,
+    tool: &str,
+    params: &serde_json::Value,
+    affected: u32,
+    ok: bool,
+) {
+    let outcome = conn.execute(
+        "INSERT INTO agent_audit (id, at, tool, params_json, affected, ok)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        rusqlite::params![
+            crate::library::new_id(),
+            crate::library::now_ms(),
+            tool,
+            params.to_string(),
+            affected,
+            ok as i64,
+        ],
+    );
+    if let Err(err) = outcome {
+        log::warn!("could not record the agent audit row for {tool}: {err}");
+    }
+}
+
+/// Run a mutation under the writer lock, record it, and tell the UI.
+///
+/// The audit row is written inside the same lock hold as the mutation, so a
+/// successful write is always accompanied by its record. The event is what keeps
+/// open views honest — a server-side write bypasses the frontend's mutation
+/// layer entirely, so without it every grid would keep showing stale rows.
+async fn audited<R: tauri::Runtime, T: Send + 'static>(
+    app: &tauri::AppHandle<R>,
+    tool: &'static str,
+    params: serde_json::Value,
+    write: impl FnOnce(&mut rusqlite::Connection) -> AppResult<(T, u32)> + Send + 'static,
+) -> AppResult<T> {
+    let lib = library(app)?;
+    let outcome = lib
+        .write(move |conn| {
+            let result = write(conn);
+            match &result {
+                Ok((_, affected)) => audit_in(conn, tool, &params, *affected, true),
+                Err(_) => audit_in(conn, tool, &params, 0, false),
+            }
+            result
+        })
+        .await?;
+    let (value, affected) = outcome;
+    if affected > 0 {
+        use tauri_specta::Event;
+        let event = crate::events::AgentMutated {
+            tool: tool.to_string(),
+            affected,
+        };
+        if let Err(err) = event.emit(app) {
+            log::warn!("could not notify the UI of an agent write: {err}");
+        }
+    }
+    Ok(value)
+}
+
+/// Shared skeleton for the batch writes: validate, resolve the target set, stop
+/// there on a dry run, otherwise mutate under audit.
+async fn batch_write<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    tool: &'static str,
+    params: serde_json::Value,
+    asset_ids: Vec<String>,
+    dry_run: bool,
+    state: TargetState,
+    write: impl FnOnce(&mut rusqlite::Connection, &[String]) -> AppResult<u32> + Send + 'static,
+) -> AppResult<WriteResult> {
+    check_batch(&asset_ids)?;
+    let lib = library(app)?;
+    let (targets, sample) = {
+        let ids = asset_ids.clone();
+        lib.read(move |conn| resolve_targets(conn, &ids, state))
+            .await?
+    };
+    if dry_run {
+        return Ok(WriteResult {
+            dry_run: true,
+            targets,
+            affected: 0,
+            sample,
+        });
+    }
+    let affected = audited(app, tool, params, move |conn| {
+        let affected = write(conn, &asset_ids)?;
+        Ok((affected, affected))
+    })
+    .await?;
+    Ok(WriteResult {
+        dry_run: false,
+        targets,
+        affected,
+        sample,
+    })
+}
+
+pub async fn tag_assets<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: TagAssetsRequest,
+) -> AppResult<WriteResult> {
+    if !request.has_tags() {
+        return Err(AppError::Conflict(
+            "pass `tags` (names, created on demand) and/or `tagIds`".into(),
+        ));
+    }
+    let params = serde_json::json!({
+        "assetIds": request.asset_ids.len(),
+        "tags": request.tags,
+        "tagIds": request.tag_ids,
+    });
+    let names = request.tags.clone();
+    let mut tag_ids = request.tag_ids.clone();
+    batch_write(
+        app,
+        "tag_assets",
+        params,
+        request.asset_ids,
+        request.dry_run,
+        TargetState::Alive,
+        move |conn, asset_ids| {
+            // Names first: create-or-get resolves each to an id in the same
+            // writer hold, so a fresh vocabulary lands atomically with its use.
+            for name in names.iter().filter(|name| !name.trim().is_empty()) {
+                tag_ids.push(crate::commands::tags::create_or_get_tag_in(conn, name, None)?.id);
+            }
+            crate::commands::tags::add_tags_in(conn, asset_ids, &tag_ids)
+        },
+    )
+    .await
+}
+
+pub async fn untag_assets<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: TagAssetsRequest,
+) -> AppResult<WriteResult> {
+    if !request.has_tags() {
+        return Err(AppError::Conflict(
+            "pass `tags` (existing names) and/or `tagIds`".into(),
+        ));
+    }
+    let params = serde_json::json!({
+        "assetIds": request.asset_ids.len(),
+        "tags": request.tags,
+        "tagIds": request.tag_ids,
+    });
+    let names = request.tags.clone();
+    let mut tag_ids = request.tag_ids.clone();
+    batch_write(
+        app,
+        "untag_assets",
+        params,
+        request.asset_ids,
+        request.dry_run,
+        TargetState::Alive,
+        move |conn, asset_ids| {
+            // Removing must never create a tag: an unknown name is simply a
+            // no-op, not a new empty tag.
+            for name in names.iter().filter(|name| !name.trim().is_empty()) {
+                if let Ok(id) = conn.query_row(
+                    "SELECT id FROM tags WHERE name = ?1 COLLATE NOCASE",
+                    [name.trim()],
+                    |row| row.get::<_, String>(0),
+                ) {
+                    tag_ids.push(id);
+                }
+            }
+            if tag_ids.is_empty() {
+                return Ok(0);
+            }
+            crate::commands::tags::remove_tags_in(conn, asset_ids, &tag_ids)
+        },
+    )
+    .await
+}
+
+pub async fn add_to_folder<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: FolderAssetsRequest,
+) -> AppResult<WriteResult> {
+    let folder_id = request.folder_id.clone();
+    let params = serde_json::json!({
+        "assetIds": request.asset_ids.len(),
+        "folderId": folder_id,
+    });
+    batch_write(
+        app,
+        "add_to_folder",
+        params,
+        request.asset_ids,
+        request.dry_run,
+        TargetState::Alive,
+        move |conn, asset_ids| {
+            crate::commands::folders::add_assets_to_folder_in(conn, asset_ids, &folder_id)
+        },
+    )
+    .await
+}
+
+pub async fn remove_from_folder<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: FolderAssetsRequest,
+) -> AppResult<WriteResult> {
+    let folder_id = request.folder_id.clone();
+    let params = serde_json::json!({
+        "assetIds": request.asset_ids.len(),
+        "folderId": folder_id,
+    });
+    batch_write(
+        app,
+        "remove_from_folder",
+        params,
+        request.asset_ids,
+        request.dry_run,
+        TargetState::Alive,
+        move |conn, asset_ids| {
+            crate::commands::folders::remove_assets_from_folder_in(conn, asset_ids, &folder_id)
+        },
+    )
+    .await
+}
+
+pub async fn rate_assets<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: RateAssetsRequest,
+) -> AppResult<WriteResult> {
+    if request.rating > 5 {
+        return Err(AppError::Conflict("rating must be 0-5".into()));
+    }
+    let rating = request.rating;
+    let params = serde_json::json!({
+        "assetIds": request.asset_ids.len(),
+        "rating": rating,
+    });
+    batch_write(
+        app,
+        "rate_assets",
+        params,
+        request.asset_ids,
+        request.dry_run,
+        TargetState::Alive,
+        move |conn, asset_ids| crate::commands::assets::set_rating_in(conn, asset_ids, rating),
+    )
+    .await
+}
+
+pub async fn trash_assets<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: AssetIdsRequest,
+) -> AppResult<WriteResult> {
+    let params = serde_json::json!({ "assetIds": request.asset_ids.len() });
+    batch_write(
+        app,
+        "trash_assets",
+        params,
+        request.asset_ids,
+        request.dry_run,
+        TargetState::Alive,
+        move |conn, asset_ids| crate::commands::trash::trash_in(conn, asset_ids),
+    )
+    .await
+}
+
+pub async fn restore_assets<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: AssetIdsRequest,
+) -> AppResult<WriteResult> {
+    let params = serde_json::json!({ "assetIds": request.asset_ids.len() });
+    batch_write(
+        app,
+        "restore_assets",
+        params,
+        request.asset_ids,
+        request.dry_run,
+        // Restore targets rows that are IN the trash — resolving against alive
+        // assets would report 0 targets for a perfectly good request.
+        TargetState::Trashed,
+        move |conn, asset_ids| crate::commands::trash::restore_in(conn, asset_ids),
+    )
+    .await
+}
+
+pub async fn create_folder<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: CreateFolderRequest,
+) -> AppResult<FolderRow> {
+    let params = serde_json::json!({ "name": request.name, "parentId": request.parent_id });
+    audited(app, "create_folder", params, move |conn| {
+        let folder = crate::commands::folders::create_folder_in(
+            conn,
+            &request.name,
+            request.parent_id.as_deref(),
+        )?;
+        Ok((FolderRow::from(folder), 1))
+    })
+    .await
+}
+
+pub async fn create_tag<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: CreateTagRequest,
+) -> AppResult<TagRowWithCount> {
+    let params = serde_json::json!({ "name": request.name, "color": request.color });
+    audited(app, "create_tag", params, move |conn| {
+        let tag = crate::commands::tags::create_or_get_tag_in(
+            conn,
+            &request.name,
+            request.color.as_deref(),
+        )?;
+        Ok((TagRowWithCount::from(tag), 1))
+    })
+    .await
+}
+
+pub async fn update_asset<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: UpdateAssetRequest,
+) -> AppResult<AssetDetailRow> {
+    if !is_valid_id(&request.id) {
+        return Err(AppError::NotFound(format!("asset {}", request.id)));
+    }
+    if !request.touches_anything() {
+        return Err(AppError::Conflict(
+            "pass at least one of name, note, rating or url".into(),
+        ));
+    }
+    let patch = request.to_patch();
+    crate::commands::assets::validate_patch(&patch)?;
+    // Record which fields were touched, not their values — a note can be long
+    // and the audit log is for tracing intent, not for storing content twice.
+    let fields: Vec<&str> = [
+        request.name.is_some().then_some("name"),
+        request.note.is_some().then_some("note"),
+        request.rating.is_some().then_some("rating"),
+        request.url.is_some().then_some("url"),
+    ]
+    .into_iter()
+    .flatten()
+    .collect();
+    let params = serde_json::json!({ "id": request.id, "fields": fields });
+    audited(app, "update_asset", params, move |conn| {
+        let detail = crate::commands::assets::update_asset_in(conn, &request.id, &patch)?;
+        Ok((AssetDetailRow::from_detail(detail), 1))
+    })
+    .await
+}
+
+pub async fn create_smart_folder<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    request: CreateSmartFolderRequest,
+) -> AppResult<SmartFolderRow> {
+    let params = serde_json::json!({ "name": request.name });
+    audited(app, "create_smart_folder", params, move |conn| {
+        let folder = crate::commands::smart_folders::create_smart_folder_in(
+            conn,
+            &request.name,
+            request.rules,
+        )?;
+        Ok((SmartFolderRow::from(folder), 1))
+    })
+    .await
+}
+
+/// The write log, newest first — what the agent (or the user) actually changed.
+pub async fn audit<R: tauri::Runtime>(
+    app: &tauri::AppHandle<R>,
+    limit: u32,
+) -> AppResult<Vec<AuditRow>> {
+    let lib = library(app)?;
+    let limit = limit.clamp(1, 200);
+    lib.read(move |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT at, tool, params_json, affected, ok FROM agent_audit
+              ORDER BY at DESC LIMIT ?1",
+        )?;
+        let rows = stmt
+            .query_map([limit], |row| {
+                Ok(AuditRow {
+                    at: row.get::<_, i64>(0)?,
+                    tool: row.get(1)?,
+                    params: serde_json::from_str(&row.get::<_, String>(2)?)
+                        .unwrap_or(serde_json::Value::Null),
+                    affected: row.get::<_, i64>(3)? as u32,
+                    ok: row.get::<_, i64>(4)? != 0,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<_>>>()?;
+        Ok(rows)
+    })
+    .await
 }
 
 #[cfg(test)]

@@ -73,8 +73,13 @@ export const en = {
 	agent: {
 		title: "Agent",
 		description:
-			"Let an AI coding agent (Claude Code, Codex) browse this library over MCP — search it, look at the thumbnails, and suggest how to tag or file things.",
+			"Let an AI coding agent (Claude Code, Codex) browse and organize this library over MCP — search it, look at the thumbnails, then tag, file and rate in batches.",
 		readOnlyBadge: "Read-only",
+		readWriteBadge: "Read & write",
+		writeHint:
+			"Writes are capped at 500 items per call, support a preview pass, and are all recorded. Permanent deletion, importing from disk and exporting to disk are never available to an agent.",
+		toastMutated: (tool: string, affected: number) =>
+			`Agent changed ${affected} ${affected === 1 ? "item" : "items"} (${tool})`,
 		enable: "Enable Agent API",
 		enableHint:
 			"Listens on 127.0.0.1 only, with its own token. Off until you turn it on.",

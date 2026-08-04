@@ -427,10 +427,19 @@ function AgentPane() {
 					<p className="text-muted-foreground text-xs leading-relaxed">
 						{T.agent.description}
 					</p>
-					{status?.read_only && (
-						<span className="mt-2.5 inline-flex items-center rounded-md bg-accent px-1.5 py-0.5 font-medium text-[11px] text-accent-foreground">
-							{T.agent.readOnlyBadge}
-						</span>
+					{status && (
+						<>
+							<span className="mt-2.5 inline-flex items-center rounded-md bg-accent px-1.5 py-0.5 font-medium text-[11px] text-accent-foreground">
+								{status.read_only
+									? T.agent.readOnlyBadge
+									: T.agent.readWriteBadge}
+							</span>
+							{!status.read_only && (
+								<p className="mt-2 text-muted-foreground text-xs leading-relaxed">
+									{T.agent.writeHint}
+								</p>
+							)}
+						</>
 					)}
 				</div>
 				<SettingRow

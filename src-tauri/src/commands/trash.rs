@@ -17,6 +17,26 @@ fn placeholders(n: usize) -> String {
     vec!["?"; n].join(",")
 }
 
+/// Soft-delete: set `deleted_at`, leaving files and memberships alone. Shared by
+/// the command and the agent API — reversible, which is why an agent may call it.
+pub(crate) fn trash_in(conn: &rusqlite::Connection, ids: &[String]) -> AppResult<u32> {
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let sql = format!(
+        "UPDATE assets SET deleted_at = ?1, updated_at = ?1
+         WHERE deleted_at IS NULL AND id IN ({})",
+        placeholders(ids.len())
+    );
+    let mut params: Vec<rusqlite::types::Value> = vec![rusqlite::types::Value::Integer(now_ms())];
+    params.extend(
+        ids.iter()
+            .map(|id| rusqlite::types::Value::Text(id.clone())),
+    );
+    let changed = conn.execute(&sql, rusqlite::params_from_iter(params.iter()))?;
+    Ok(changed as u32)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn trash_assets(ids: Vec<String>, state: tauri::State<'_, AppState>) -> AppResult<u32> {
@@ -24,23 +44,25 @@ pub async fn trash_assets(ids: Vec<String>, state: tauri::State<'_, AppState>) -
         return Ok(0);
     }
     let library = state.current_library()?;
-    library
-        .write(move |conn| {
-            let sql = format!(
-                "UPDATE assets SET deleted_at = ?1, updated_at = ?1
-                 WHERE deleted_at IS NULL AND id IN ({})",
-                placeholders(ids.len())
-            );
-            let mut params: Vec<rusqlite::types::Value> =
-                vec![rusqlite::types::Value::Integer(now_ms())];
-            params.extend(
-                ids.iter()
-                    .map(|id| rusqlite::types::Value::Text(id.clone())),
-            );
-            let changed = conn.execute(&sql, rusqlite::params_from_iter(params.iter()))?;
-            Ok(changed as u32)
-        })
-        .await
+    library.write(move |conn| trash_in(conn, &ids)).await
+}
+
+pub(crate) fn restore_in(conn: &rusqlite::Connection, ids: &[String]) -> AppResult<u32> {
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let sql = format!(
+        "UPDATE assets SET deleted_at = NULL, updated_at = ?1
+         WHERE deleted_at IS NOT NULL AND id IN ({})",
+        placeholders(ids.len())
+    );
+    let mut params: Vec<rusqlite::types::Value> = vec![rusqlite::types::Value::Integer(now_ms())];
+    params.extend(
+        ids.iter()
+            .map(|id| rusqlite::types::Value::Text(id.clone())),
+    );
+    let changed = conn.execute(&sql, rusqlite::params_from_iter(params.iter()))?;
+    Ok(changed as u32)
 }
 
 #[tauri::command]
@@ -50,23 +72,7 @@ pub async fn restore_assets(ids: Vec<String>, state: tauri::State<'_, AppState>)
         return Ok(0);
     }
     let library = state.current_library()?;
-    library
-        .write(move |conn| {
-            let sql = format!(
-                "UPDATE assets SET deleted_at = NULL, updated_at = ?1
-                 WHERE deleted_at IS NOT NULL AND id IN ({})",
-                placeholders(ids.len())
-            );
-            let mut params: Vec<rusqlite::types::Value> =
-                vec![rusqlite::types::Value::Integer(now_ms())];
-            params.extend(
-                ids.iter()
-                    .map(|id| rusqlite::types::Value::Text(id.clone())),
-            );
-            let changed = conn.execute(&sql, rusqlite::params_from_iter(params.iter()))?;
-            Ok(changed as u32)
-        })
-        .await
+    library.write(move |conn| restore_in(conn, &ids)).await
 }
 
 /// Rows to physically remove: id + rel_path snapshot.

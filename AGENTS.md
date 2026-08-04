@@ -232,13 +232,18 @@ pnpm biome check --write   # Apply lint/format fixes
 
 ## Agent API (MCP)
 
-`src-tauri/src/agent/` is a loopback-only, read-only surface that lets an AI
-coding agent browse the library over MCP. It shares the Collect API's listener
-but keeps its own enable flag and bearer token. Two rules if you touch it:
-never widen it past reads without the dry-run + audit design, and never let an
-absolute path cross that boundary (`AssetDetail::src_path` is reduced to a
-basename; a test asserts no response body contains a host path). Contract,
-security model and the permanent deny-list: **`docs/agent-api.md`**.
+`src-tauri/src/agent/` is a loopback-only surface that lets an AI coding agent
+browse and organize the library over MCP. It shares the Collect API's listener
+but keeps its own enable flag and bearer token. Three rules if you touch it:
+
+- **No absolute path crosses that boundary.** `AssetDetail::src_path` is reduced
+  to a basename; a test asserts no response body contains a host path.
+- **Every write emits `AgentMutated`.** Server-side writes bypass the frontend
+  mutation layer, so without the event the UI silently shows pre-write rows.
+- **The deny-list is permanent.** Irreversible operations and anything needing a
+  host path stay out; a test asserts they cannot appear in `tools/list`.
+
+Contract, guardrails and the full deny-list: **`docs/agent-api.md`**.
 
 ## Feature ledger
 

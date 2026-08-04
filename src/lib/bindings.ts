@@ -80,7 +80,6 @@ export const commands = {
 	listAssetIds: (query: AssetListQuery) => typedError<string[], AppError>(__TAURI_INVOKE("list_asset_ids", { query })),
 	getAsset: (id: string) => typedError<AssetDetail, AppError>(__TAURI_INVOKE("get_asset", { id })),
 	updateAsset: (id: string, patch: AssetPatch) => typedError<AssetDetail, AppError>(__TAURI_INVOKE("update_asset", { id, patch })),
-	/**  Set the same rating on many assets at once (batch metadata editing). */
 	setAssetsRating: (assetIds: string[], rating: number) => typedError<number, AppError>(__TAURI_INVOKE("set_assets_rating", { assetIds, rating })),
 	/**
 	 *  Reveal the managed file in Finder / Explorer. The frontend never learns
@@ -172,10 +171,6 @@ export const commands = {
 	/**  Permanently delete everything in the trash. */
 	emptyTrash: () => typedError<number, AppError>(__TAURI_INVOKE("empty_trash")),
 	listTags: () => typedError<Tag[], AppError>(__TAURI_INVOKE("list_tags")),
-	/**
-	 *  Create-or-get by (case-insensitive) name. An existing tag is returned
-	 *  as-is; `color` only applies when the tag is newly created.
-	 */
 	createTag: (name: string, color: string | null) => typedError<Tag, AppError>(__TAURI_INVOKE("create_tag", { name, color })),
 	/**
 	 *  Rename and/or recolor. Renaming onto another existing tag is rejected
@@ -184,7 +179,6 @@ export const commands = {
 	updateTag: (id: string, name: string | null, color: string | null) => typedError<Tag, AppError>(__TAURI_INVOKE("update_tag", { id, name, color })),
 	/**  Delete a tag; memberships cascade away, assets are untouched. */
 	deleteTag: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("delete_tag", { id })),
-	/**  Attach every tag to every asset (cartesian, INSERT OR IGNORE). */
 	addTagsToAssets: (assetIds: string[], tagIds: string[]) => typedError<number, AppError>(__TAURI_INVOKE("add_tags_to_assets", { assetIds, tagIds })),
 	removeTagsFromAssets: (assetIds: string[], tagIds: string[]) => typedError<number, AppError>(__TAURI_INVOKE("remove_tags_from_assets", { assetIds, tagIds })),
 	listWatchedFolders: () => typedError<WatchedFolder[], AppError>(__TAURI_INVOKE("list_watched_folders")),
@@ -244,12 +238,29 @@ export const commands = {
 
 /** Events */
 export const events = {
+	agentMutated: makeEvent<AgentMutated>("agent-mutated"),
 	collectImported: makeEvent<CollectImported>("collect-imported"),
 	importFinished: makeEvent<ImportFinished>("import-finished"),
 	importProgress: makeEvent<ImportProgress>("import-progress"),
 };
 
 /* Types */
+/**
+ *  A write landed through the Agent API (`crate::agent`). Same reason
+ *  `CollectImported` exists: server-side writes bypass the frontend's mutation
+ *  layer, so nothing else would invalidate the caches — without this event every
+ *  open view keeps showing pre-write rows and the user's next edit is based on
+ *  stale state. Emitted only when something actually changed.
+ * 
+ *  Carries identifiers, not prose: the toast copy lives in the i18n catalogs.
+ */
+export type AgentMutated = {
+	/**  The tool that ran, e.g. `"tag_assets"`. */
+	tool: string,
+	/**  Rows changed. */
+	affected: number,
+};
+
 export type AgentStatus = {
 	/**  The persisted preference (survives restarts). */
 	enabled: boolean,
@@ -262,7 +273,10 @@ export type AgentStatus = {
 	port: number | null,
 	/**  Bearer token for MCP clients; empty until first enabled. */
 	token: string,
-	/**  Phase A exposes reads only. Flipped when write tools ship. */
+	/**
+	 *  False since writes shipped. Kept on the wire so the Preferences badge and
+	 *  any client can state the surface's reach without hardcoding a version.
+	 */
 	read_only: boolean,
 	/**
 	 *  Absolute path of the stdio bridge script, when it shipped with this

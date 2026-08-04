@@ -548,13 +548,9 @@ pub async fn get_asset(id: String, state: tauri::State<'_, AppState>) -> AppResu
     library.read(move |conn| detail_by_id(conn, &id)).await
 }
 
-#[tauri::command]
-#[specta::specta]
-pub async fn update_asset(
-    id: String,
-    patch: AssetPatch,
-    state: tauri::State<'_, AppState>,
-) -> AppResult<AssetDetail> {
+/// Validate a patch before any write touches the database. Split out so the
+/// agent API rejects bad input with the same messages the UI gets.
+pub(crate) fn validate_patch(patch: &AssetPatch) -> AppResult<()> {
     if let Some(rating) = patch.rating {
         if rating > 5 {
             return Err(AppError::Conflict("rating must be 0-5".into()));
@@ -565,51 +561,94 @@ pub async fn update_asset(
             return Err(AppError::Conflict("name must not be empty".into()));
         }
     }
+    Ok(())
+}
 
+/// Apply a validated patch and return the refreshed detail. Shared by the
+/// command and the agent API.
+pub(crate) fn update_asset_in(
+    conn: &mut rusqlite::Connection,
+    id: &str,
+    patch: &AssetPatch,
+) -> AppResult<AssetDetail> {
+    validate_patch(patch)?;
+    let tx = conn.transaction()?;
+    if let Some(name) = &patch.name {
+        tx.execute(
+            "UPDATE assets SET name = ?2 WHERE id = ?1",
+            rusqlite::params![id, name.trim()],
+        )?;
+    }
+    if let Some(note) = &patch.note {
+        tx.execute(
+            "UPDATE assets SET note = ?2 WHERE id = ?1",
+            rusqlite::params![id, note],
+        )?;
+    }
+    if let Some(rating) = patch.rating {
+        tx.execute(
+            "UPDATE assets SET rating = ?2 WHERE id = ?1",
+            rusqlite::params![id, rating],
+        )?;
+    }
+    if let Some(url) = &patch.url {
+        let trimmed = url.trim();
+        tx.execute(
+            "UPDATE assets SET url = ?2 WHERE id = ?1",
+            rusqlite::params![id, (!trimmed.is_empty()).then_some(trimmed)],
+        )?;
+    }
+    let changed = tx.execute(
+        "UPDATE assets SET updated_at = ?2 WHERE id = ?1",
+        rusqlite::params![id, now_ms()],
+    )?;
+    if changed == 0 {
+        return Err(AppError::NotFound(format!("asset {id}")));
+    }
+    let detail = detail_by_id(&tx, id)?;
+    tx.commit()?;
+    Ok(detail)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_asset(
+    id: String,
+    patch: AssetPatch,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<AssetDetail> {
+    validate_patch(&patch)?;
     let library = state.current_library()?;
     library
-        .write(move |conn| {
-            let tx = conn.transaction()?;
-            if let Some(name) = &patch.name {
-                tx.execute(
-                    "UPDATE assets SET name = ?2 WHERE id = ?1",
-                    rusqlite::params![id, name.trim()],
-                )?;
-            }
-            if let Some(note) = &patch.note {
-                tx.execute(
-                    "UPDATE assets SET note = ?2 WHERE id = ?1",
-                    rusqlite::params![id, note],
-                )?;
-            }
-            if let Some(rating) = patch.rating {
-                tx.execute(
-                    "UPDATE assets SET rating = ?2 WHERE id = ?1",
-                    rusqlite::params![id, rating],
-                )?;
-            }
-            if let Some(url) = &patch.url {
-                let trimmed = url.trim();
-                tx.execute(
-                    "UPDATE assets SET url = ?2 WHERE id = ?1",
-                    rusqlite::params![id, (!trimmed.is_empty()).then_some(trimmed)],
-                )?;
-            }
-            let changed = tx.execute(
-                "UPDATE assets SET updated_at = ?2 WHERE id = ?1",
-                rusqlite::params![id, now_ms()],
-            )?;
-            if changed == 0 {
-                return Err(AppError::NotFound(format!("asset {id}")));
-            }
-            let detail = detail_by_id(&tx, &id)?;
-            tx.commit()?;
-            Ok(detail)
-        })
+        .write(move |conn| update_asset_in(conn, &id, &patch))
         .await
 }
 
-/// Set the same rating on many assets at once (batch metadata editing).
+/// Set the same rating on many assets at once (batch metadata editing). Shared
+/// by the command and the agent API.
+pub(crate) fn set_rating_in(
+    conn: &rusqlite::Connection,
+    asset_ids: &[String],
+    rating: u8,
+) -> AppResult<u32> {
+    if rating > 5 {
+        return Err(AppError::Conflict("rating must be 0-5".into()));
+    }
+    if asset_ids.is_empty() {
+        return Ok(0);
+    }
+    let placeholders = vec!["?"; asset_ids.len()].join(",");
+    let sql = format!("UPDATE assets SET rating = ?, updated_at = ? WHERE id IN ({placeholders})");
+    let mut params: Vec<rusqlite::types::Value> = Vec::with_capacity(asset_ids.len() + 2);
+    params.push(rusqlite::types::Value::Integer(i64::from(rating)));
+    params.push(rusqlite::types::Value::Integer(now_ms()));
+    for id in asset_ids {
+        params.push(rusqlite::types::Value::Text(id.clone()));
+    }
+    let changed = conn.execute(&sql, rusqlite::params_from_iter(params.iter()))?;
+    Ok(changed as u32)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn set_assets_rating(
@@ -622,23 +661,7 @@ pub async fn set_assets_rating(
     }
     let library = state.current_library()?;
     library
-        .write(move |conn| {
-            if asset_ids.is_empty() {
-                return Ok(0);
-            }
-            let placeholders = vec!["?"; asset_ids.len()].join(",");
-            let sql = format!(
-                "UPDATE assets SET rating = ?, updated_at = ? WHERE id IN ({placeholders})"
-            );
-            let mut params: Vec<rusqlite::types::Value> = Vec::with_capacity(asset_ids.len() + 2);
-            params.push(rusqlite::types::Value::Integer(i64::from(rating)));
-            params.push(rusqlite::types::Value::Integer(now_ms()));
-            for id in &asset_ids {
-                params.push(rusqlite::types::Value::Text(id.clone()));
-            }
-            let changed = conn.execute(&sql, rusqlite::params_from_iter(params.iter()))?;
-            Ok(changed as u32)
-        })
+        .write(move |conn| set_rating_in(conn, &asset_ids, rating))
         .await
 }
 

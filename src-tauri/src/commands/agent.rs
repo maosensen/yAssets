@@ -26,7 +26,8 @@ pub struct AgentStatus {
     pub port: Option<u16>,
     /// Bearer token for MCP clients; empty until first enabled.
     pub token: String,
-    /// Phase A exposes reads only. Flipped when write tools ship.
+    /// False since writes shipped. Kept on the wire so the Preferences badge and
+    /// any client can state the surface's reach without hardcoding a version.
     pub read_only: bool,
     /// Absolute path of the stdio bridge script, when it shipped with this
     /// build. None means "use the HTTP transport".
@@ -51,7 +52,7 @@ fn status(app: &tauri::AppHandle, state: &AppState) -> AgentStatus {
         running: port.is_some(),
         port,
         token: agent::stored_token(app).unwrap_or_default(),
-        read_only: true,
+        read_only: false,
         bridge_path: bridge_path(app),
     }
 }

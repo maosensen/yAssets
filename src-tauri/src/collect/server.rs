@@ -603,11 +603,12 @@ pub(crate) mod testing {
     pub fn build(with_library: bool, collect_enabled: bool, agent_enabled: bool) -> Harness {
         let app = tauri::test::mock_app();
         app.manage(AppState::default());
-        // Handlers emit CollectImported via tauri-specta, which panics unless
-        // the event registry is mounted (lib.rs does this for the real app).
+        // Handlers emit typed events via tauri-specta, which panics unless the
+        // event registry is mounted (lib.rs does this for the real app).
         tauri_specta::Builder::<tauri::test::MockRuntime>::new()
             .events(tauri_specta::collect_events![
-                crate::events::CollectImported
+                crate::events::CollectImported,
+                crate::events::AgentMutated
             ])
             .mount_events(&app);
         let mut tmp = None;

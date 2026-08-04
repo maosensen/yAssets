@@ -29,6 +29,26 @@ use crate::error::{AppError, AppResult};
 pub const DEFAULT_LIMIT: u32 = 50;
 pub const MAX_LIMIT: u32 = 200;
 
+/// Most ids a single mutating call may touch. Not a performance limit — a blast
+/// radius limit. An agent that wants to retag 5 000 assets has to page, which
+/// gives the user 10 chances to notice instead of 1.
+pub const MAX_BATCH: usize = 500;
+
+/// Reject a batch before anything is written. Empty is a mistake worth naming
+/// (an agent that computed an empty id list usually meant to filter differently).
+pub fn check_batch(asset_ids: &[String]) -> AppResult<()> {
+    if asset_ids.is_empty() {
+        return Err(AppError::Conflict("assetIds must not be empty".into()));
+    }
+    if asset_ids.len() > MAX_BATCH {
+        return Err(AppError::Conflict(format!(
+            "{} ids in one call, the limit is {MAX_BATCH} — page through larger sets",
+            asset_ids.len()
+        )));
+    }
+    Ok(())
+}
+
 // ---------------------------------------------------------------- requests ---
 
 /// A scope either names itself (`"untagged"`) or carries an id/number
@@ -181,6 +201,129 @@ fn scope_of(spec: &ScopeSpec) -> AppResult<AssetScope> {
             KeyedScope::Hue(hue) => AssetScope::Color { hue: *hue },
         }),
     }
+}
+
+// ----------------------------------------------------------- write requests ---
+
+/// Batch shape shared by trash/restore. `dryRun` reports the target set without
+/// writing — the tool descriptions ask for a preview pass first.
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AssetIdsRequest {
+    pub asset_ids: Vec<String>,
+    pub dry_run: bool,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct TagAssetsRequest {
+    pub asset_ids: Vec<String>,
+    /// Tag *names*. Created on demand (create-or-get by case-insensitive name),
+    /// so an agent can propose vocabulary without a separate round trip.
+    pub tags: Vec<String>,
+    /// Existing tag ids, for when the agent already has them from `list_tags`.
+    /// Combined with `tags` if both are given.
+    pub tag_ids: Vec<String>,
+    pub dry_run: bool,
+}
+
+impl TagAssetsRequest {
+    pub fn has_tags(&self) -> bool {
+        self.tags.iter().any(|name| !name.trim().is_empty()) || !self.tag_ids.is_empty()
+    }
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct FolderAssetsRequest {
+    pub asset_ids: Vec<String>,
+    pub folder_id: String,
+    pub dry_run: bool,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct RateAssetsRequest {
+    pub asset_ids: Vec<String>,
+    pub rating: u8,
+    pub dry_run: bool,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct CreateFolderRequest {
+    pub name: String,
+    pub parent_id: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct CreateTagRequest {
+    pub name: String,
+    pub color: Option<String>,
+}
+
+/// Single-asset metadata edit. Absent fields stay untouched; `url: ""` clears
+/// the link (same semantics as the inspector).
+#[derive(Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct UpdateAssetRequest {
+    pub id: String,
+    pub name: Option<String>,
+    pub note: Option<String>,
+    pub rating: Option<u8>,
+    pub url: Option<String>,
+}
+
+impl UpdateAssetRequest {
+    pub fn to_patch(&self) -> crate::commands::assets::AssetPatch {
+        crate::commands::assets::AssetPatch {
+            name: self.name.clone(),
+            note: self.note.clone(),
+            rating: self.rating,
+            url: self.url.clone(),
+        }
+    }
+
+    pub fn touches_anything(&self) -> bool {
+        self.name.is_some() || self.note.is_some() || self.rating.is_some() || self.url.is_some()
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateSmartFolderRequest {
+    pub name: String,
+    pub rules: crate::commands::smart_folders::SmartRules,
+}
+
+/// The answer to every batch write.
+///
+/// `targets` and `affected` differ on purpose: re-tagging an already-tagged
+/// asset resolves as a target but changes no row. Reporting only one number
+/// would make a correct no-op look like a failure.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WriteResult {
+    /// True when nothing was written.
+    pub dry_run: bool,
+    /// Ids that resolved to a real asset in the relevant state.
+    pub targets: u32,
+    /// Rows actually changed. Always 0 on a dry run.
+    pub affected: u32,
+    /// A few target names so the caller can eyeball the set before committing.
+    pub sample: Vec<String>,
+}
+
+/// One recorded agent write (schema v11 `agent_audit`).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AuditRow {
+    pub at: i64,
+    pub tool: String,
+    pub params: serde_json::Value,
+    pub affected: u32,
+    pub ok: bool,
 }
 
 // --------------------------------------------------------------- responses ---

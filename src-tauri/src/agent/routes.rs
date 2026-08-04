@@ -17,9 +17,8 @@ use axum::routing::{get, post};
 use axum::{Json, Router};
 use serde::Serialize;
 
-use super::api;
-use super::dto::SearchRequest;
-use super::AgentCtx;
+use super::dto::{self, SearchRequest};
+use super::{api, AgentCtx};
 use crate::collect::auth;
 use crate::collect::server::err_response;
 use crate::error::AppError;
@@ -42,6 +41,22 @@ pub fn router<R: tauri::Runtime>(ctx: AgentCtx<R>) -> Router {
         .route("/api/agent/smart-folders", get(smart_folders::<R>))
         .route("/api/agent/stats", get(stats::<R>))
         .route("/api/agent/duplicates", get(duplicates::<R>))
+        .route("/api/agent/audit", get(audit::<R>))
+        // Writes. All batch routes honour `dryRun`.
+        .route("/api/agent/tag", post(tag::<R>))
+        .route("/api/agent/untag", post(untag::<R>))
+        .route("/api/agent/rate", post(rate::<R>))
+        .route("/api/agent/trash", post(trash::<R>))
+        .route("/api/agent/restore", post(restore::<R>))
+        .route("/api/agent/assets/update", post(update::<R>))
+        .route("/api/agent/folders/add", post(folder_add::<R>))
+        .route("/api/agent/folders/remove", post(folder_remove::<R>))
+        .route("/api/agent/folders/create", post(folder_create::<R>))
+        .route("/api/agent/tags/create", post(tag_create::<R>))
+        .route(
+            "/api/agent/smart-folders/create",
+            post(smart_folder_create::<R>),
+        )
         // MCP Streamable HTTP. GET would be the server→client SSE stream; we
         // never push, so it is honestly declined rather than left hanging.
         .route("/mcp", post(mcp_rpc::<R>).get(mcp_no_stream))
@@ -113,21 +128,26 @@ async fn info<R: tauri::Runtime>(State(ctx): State<AgentCtx<R>>) -> Response {
     (StatusCode::OK, Json(api::info(&ctx.app))).into_response()
 }
 
+/// Parse a JSON body into `T`. `Err` carries the serde message so an agent can
+/// fix its own call instead of guessing — a message, not a whole `Response`, so
+/// the error variant stays small.
+fn parse_body<T: serde::de::DeserializeOwned>(body: &Bytes) -> Result<T, String> {
+    serde_json::from_slice(body).map_err(|err| format!("could not parse the request body: {err}"))
+}
+
+fn invalid_body(message: String) -> Response {
+    err_response(StatusCode::UNPROCESSABLE_ENTITY, "invalid", message)
+}
+
 async fn search<R: tauri::Runtime>(State(ctx): State<AgentCtx<R>>, body: Bytes) -> Response {
     // An empty body is the common "just give me the newest" case, so treat it
     // as `{}` rather than a parse error.
     let request: SearchRequest = if body.is_empty() {
         SearchRequest::default()
     } else {
-        match serde_json::from_slice(&body) {
+        match parse_body(&body) {
             Ok(request) => request,
-            Err(err) => {
-                return err_response(
-                    StatusCode::UNPROCESSABLE_ENTITY,
-                    "invalid",
-                    format!("could not parse the search body: {err}"),
-                )
-            }
+            Err(message) => return invalid_body(message),
         }
     };
     ok_json(api::search(&ctx.app, request).await)
@@ -221,6 +241,47 @@ async fn file<R: tauri::Runtime>(
         Err(err) => fail(err),
     }
 }
+
+async fn audit<R: tauri::Runtime>(State(ctx): State<AgentCtx<R>>, uri: Uri) -> Response {
+    let limit = query_u32(&uri, "limit").unwrap_or(50);
+    ok_json(api::audit(&ctx.app, limit).await)
+}
+
+// ---------------------------------------------------------------- write routes ---
+
+/// Every write handler is the same three lines: parse, delegate to `api`, map
+/// the error. The interesting parts — batch caps, dry runs, the audit row, the
+/// UI-refresh event — all live in `api`, shared with the MCP tools.
+macro_rules! write_route {
+    ($name:ident, $request:ty, $call:path) => {
+        async fn $name<R: tauri::Runtime>(State(ctx): State<AgentCtx<R>>, body: Bytes) -> Response {
+            match parse_body::<$request>(&body) {
+                Ok(request) => ok_json($call(&ctx.app, request).await),
+                Err(message) => invalid_body(message),
+            }
+        }
+    };
+}
+
+write_route!(tag, dto::TagAssetsRequest, api::tag_assets);
+write_route!(untag, dto::TagAssetsRequest, api::untag_assets);
+write_route!(rate, dto::RateAssetsRequest, api::rate_assets);
+write_route!(trash, dto::AssetIdsRequest, api::trash_assets);
+write_route!(restore, dto::AssetIdsRequest, api::restore_assets);
+write_route!(update, dto::UpdateAssetRequest, api::update_asset);
+write_route!(folder_add, dto::FolderAssetsRequest, api::add_to_folder);
+write_route!(
+    folder_remove,
+    dto::FolderAssetsRequest,
+    api::remove_from_folder
+);
+write_route!(folder_create, dto::CreateFolderRequest, api::create_folder);
+write_route!(tag_create, dto::CreateTagRequest, api::create_tag);
+write_route!(
+    smart_folder_create,
+    dto::CreateSmartFolderRequest,
+    api::create_smart_folder
+);
 
 // ----------------------------------------------------------------------- MCP ---
 
@@ -379,18 +440,26 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn info_reports_capabilities_and_read_only() {
+    async fn info_reports_capabilities_and_limits() {
         let h = seeded();
         let body = body_json(get(&h, "/api/agent/info").await).await;
         assert_eq!(body["app"], "yAssets");
         assert_eq!(body["libraryOpen"], true);
-        assert_eq!(body["readOnly"], true);
+        assert_eq!(body["readOnly"], false, "writes shipped");
         assert_eq!(body["limits"]["maxSearchLimit"], 200);
-        assert!(body["capabilities"]
-            .as_array()
-            .expect("capabilities")
-            .iter()
-            .any(|c| c == "mcp"));
+        assert_eq!(body["limits"]["maxBatch"], dto::MAX_BATCH);
+        let capabilities = body["capabilities"].as_array().expect("capabilities");
+        for expected in ["mcp", "write", "dryRun", "audit"] {
+            assert!(
+                capabilities.iter().any(|c| c == expected),
+                "{expected} must be advertised"
+            );
+        }
+        // The permanent refusals are part of the contract, not just prose.
+        let refused = body["notPermitted"].as_array().expect("notPermitted");
+        assert!(refused.iter().any(|r| r
+            .as_str()
+            .is_some_and(|r| r.contains("Permanent") || r.contains("permanent"))));
     }
 
     #[tokio::test]
@@ -712,6 +781,298 @@ mod tests {
         let h = seeded();
         let resp = get(&h, "/mcp").await;
         assert_eq!(resp.status(), StatusCode::METHOD_NOT_ALLOWED);
+    }
+
+    // ---- writes ----
+
+    fn count(h: &Harness, sql: &str) -> i64 {
+        h.library
+            .clone()
+            .expect("library")
+            .with_reader(|conn| Ok(conn.query_row(sql, [], |row| row.get::<_, i64>(0))?))
+            .expect("count")
+    }
+
+    #[tokio::test]
+    async fn a_dry_run_reports_the_target_set_and_writes_nothing() {
+        let h = seeded();
+        let body = serde_json::json!({
+            "assetIds": ["asset000000000000001", "asset000000000000002", "asset000000000000999"],
+            "tags": ["needs-review"],
+            "dryRun": true,
+        });
+        let result = body_json(post(&h, "/api/agent/tag", body).await).await;
+        assert_eq!(result["dryRun"], true);
+        assert_eq!(result["targets"], 2, "the unknown id must not count");
+        assert_eq!(result["affected"], 0);
+        assert_eq!(result["sample"].as_array().expect("sample").len(), 2);
+
+        // Nothing landed: no tag created, no membership, no audit row.
+        assert_eq!(
+            count(&h, "SELECT COUNT(*) FROM tags WHERE name = 'needs-review'"),
+            0
+        );
+        assert_eq!(count(&h, "SELECT COUNT(*) FROM agent_audit"), 0);
+    }
+
+    #[tokio::test]
+    async fn tagging_creates_names_on_demand_and_is_idempotent() {
+        let h = seeded();
+        let body = || {
+            serde_json::json!({
+                "assetIds": ["asset000000000000001", "asset000000000000002"],
+                "tags": ["needs-review"],
+            })
+        };
+        let first = body_json(post(&h, "/api/agent/tag", body()).await).await;
+        assert_eq!(first["dryRun"], false);
+        assert_eq!(first["targets"], 2);
+        assert_eq!(first["affected"], 2);
+        assert_eq!(
+            count(&h, "SELECT COUNT(*) FROM tags WHERE name = 'needs-review'"),
+            1,
+            "the name is created once"
+        );
+
+        // Same call again: the assets are still targets, but nothing changes.
+        let second = body_json(post(&h, "/api/agent/tag", body()).await).await;
+        assert_eq!(second["targets"], 2);
+        assert_eq!(second["affected"], 0, "a no-op must report 0, not fail");
+        assert_eq!(
+            count(&h, "SELECT COUNT(*) FROM tags WHERE name = 'needs-review'"),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn untagging_never_creates_a_tag() {
+        let h = seeded();
+        let body = serde_json::json!({
+            "assetIds": ["asset000000000000001"],
+            "tags": ["screenshot", "never-existed"],
+        });
+        let result = body_json(post(&h, "/api/agent/untag", body).await).await;
+        assert_eq!(result["affected"], 1, "only the real tag comes off");
+        assert_eq!(
+            count(&h, "SELECT COUNT(*) FROM tags WHERE name = 'never-existed'"),
+            0
+        );
+    }
+
+    #[tokio::test]
+    async fn every_write_lands_in_the_audit_log() {
+        let h = seeded();
+        let _ = post(
+            &h,
+            "/api/agent/rate",
+            serde_json::json!({ "assetIds": ["asset000000000000001"], "rating": 4 }),
+        )
+        .await;
+        let rows = body_json(get(&h, "/api/agent/audit").await).await;
+        let rows = rows.as_array().expect("audit rows");
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["tool"], "rate_assets");
+        assert_eq!(rows[0]["affected"], 1);
+        assert_eq!(rows[0]["ok"], true);
+        // The arguments are recorded, but as shape rather than payload.
+        assert_eq!(rows[0]["params"]["rating"], 4);
+        assert_eq!(rows[0]["params"]["assetIds"], 1);
+    }
+
+    #[tokio::test]
+    async fn a_failed_write_is_recorded_too() {
+        let h = seeded();
+        let resp = post(
+            &h,
+            "/api/agent/folders/add",
+            serde_json::json!({
+                "assetIds": ["asset000000000000001"],
+                "folderId": "folder0000000000000z",
+            }),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+        let rows = body_json(get(&h, "/api/agent/audit").await).await;
+        let row = &rows.as_array().expect("audit rows")[0];
+        assert_eq!(row["tool"], "add_to_folder");
+        assert_eq!(row["ok"], false);
+        assert_eq!(row["affected"], 0);
+    }
+
+    #[tokio::test]
+    async fn batches_are_capped_and_empty_batches_are_refused() {
+        let h = seeded();
+        let too_many: Vec<String> = (0..(dto::MAX_BATCH + 1))
+            .map(|i| format!("asset{i:015}"))
+            .collect();
+        let resp = post(
+            &h,
+            "/api/agent/trash",
+            serde_json::json!({ "assetIds": too_many }),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert!(body_json(resp).await["message"]
+            .as_str()
+            .expect("message")
+            .contains(&dto::MAX_BATCH.to_string()));
+
+        let resp = post(
+            &h,
+            "/api/agent/trash",
+            serde_json::json!({ "assetIds": [] }),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(count(&h, "SELECT COUNT(*) FROM agent_audit"), 0);
+    }
+
+    #[tokio::test]
+    async fn trash_and_restore_resolve_against_the_right_side() {
+        let h = seeded();
+        let ids = serde_json::json!({ "assetIds": ["asset000000000000001"] });
+        let trashed = body_json(post(&h, "/api/agent/trash", ids.clone()).await).await;
+        assert_eq!(trashed["targets"], 1);
+        assert_eq!(trashed["affected"], 1);
+        assert_eq!(
+            count(
+                &h,
+                "SELECT COUNT(*) FROM assets WHERE deleted_at IS NOT NULL"
+            ),
+            1
+        );
+
+        // Restore counts targets among *trashed* rows — resolving against alive
+        // assets would report 0 for a perfectly good request.
+        let restored = body_json(post(&h, "/api/agent/restore", ids).await).await;
+        assert_eq!(restored["targets"], 1);
+        assert_eq!(restored["affected"], 1);
+        assert_eq!(
+            count(
+                &h,
+                "SELECT COUNT(*) FROM assets WHERE deleted_at IS NOT NULL"
+            ),
+            0
+        );
+    }
+
+    #[tokio::test]
+    async fn write_input_is_validated_before_anything_is_touched() {
+        let h = seeded();
+        // A rating outside 0-5.
+        let resp = post(
+            &h,
+            "/api/agent/rate",
+            serde_json::json!({ "assetIds": ["asset000000000000001"], "rating": 9 }),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+        // Tagging with neither names nor ids.
+        let resp = post(
+            &h,
+            "/api/agent/tag",
+            serde_json::json!({ "assetIds": ["asset000000000000001"] }),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+        // An update that changes nothing.
+        let resp = post(
+            &h,
+            "/api/agent/assets/update",
+            serde_json::json!({ "id": "asset000000000000001" }),
+        )
+        .await;
+        assert_eq!(resp.status(), StatusCode::UNPROCESSABLE_ENTITY);
+
+        assert_eq!(count(&h, "SELECT COUNT(*) FROM agent_audit"), 0);
+    }
+
+    #[tokio::test]
+    async fn updating_an_asset_returns_the_redacted_detail() {
+        let h = seeded();
+        let body = body_json(
+            post(
+                &h,
+                "/api/agent/assets/update",
+                serde_json::json!({
+                    "id": "asset000000000000001",
+                    "note": "candidate for the brand deck",
+                    "rating": 5,
+                }),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(body["note"], "candidate for the brand deck");
+        assert_eq!(body["rating"], 5);
+        assert_eq!(body["srcFilename"], "Alpha.png");
+        assert!(body.get("srcPath").is_none());
+    }
+
+    #[tokio::test]
+    async fn creating_a_folder_and_a_smart_folder_returns_their_ids() {
+        let h = seeded();
+        let folder = body_json(
+            post(
+                &h,
+                "/api/agent/folders/create",
+                serde_json::json!({ "name": "Brand" }),
+            )
+            .await,
+        )
+        .await;
+        assert!(folder["id"].as_str().is_some_and(|id| !id.is_empty()));
+        assert_eq!(folder["name"], "Brand");
+
+        let smart = body_json(
+            post(
+                &h,
+                "/api/agent/smart-folders/create",
+                serde_json::json!({
+                    "name": "Unrated PNGs",
+                    "rules": {
+                        "match_any": false,
+                        "conditions": [{ "field": "ext", "values": ["png"] }],
+                    },
+                }),
+            )
+            .await,
+        )
+        .await;
+        assert_eq!(smart["name"], "Unrated PNGs");
+        assert_eq!(smart["rules"]["conditions"][0]["field"], "ext");
+    }
+
+    #[tokio::test]
+    async fn write_tools_work_through_mcp_too() {
+        let h = seeded();
+        let body = rpc(
+            &h,
+            serde_json::json!({
+                "jsonrpc": "2.0", "id": 8, "method": "tools/call",
+                "params": {
+                    "name": "tag_assets",
+                    "arguments": {
+                        "assetIds": ["asset000000000000002"],
+                        "tags": ["from-mcp"],
+                        "dryRun": true,
+                    },
+                },
+            }),
+        )
+        .await;
+        let text = body["result"]["content"][0]["text"]
+            .as_str()
+            .expect("text content");
+        let payload: serde_json::Value = serde_json::from_str(text).expect("json in text");
+        assert_eq!(payload["dryRun"], true);
+        assert_eq!(payload["targets"], 1);
+        assert_eq!(
+            count(&h, "SELECT COUNT(*) FROM tags WHERE name = 'from-mcp'"),
+            0
+        );
     }
 
     /// The scan is throttled process-wide, so this test owns that window — do

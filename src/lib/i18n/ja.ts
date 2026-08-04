@@ -74,8 +74,13 @@ export const ja: Messages = {
 	agent: {
 		title: "Agent",
 		description:
-			"AI コーディングエージェント(Claude Code、Codex)が MCP 経由でこのライブラリを閲覧できるようにします。検索・サムネイル確認のうえ、タグ付けや整理の提案が可能です。",
+			"AI コーディングエージェント(Claude Code、Codex)が MCP 経由でこのライブラリを閲覧・整理できるようにします。検索・サムネイル確認のうえ、タグ付け・分類・評価を一括で行えます。",
 		readOnlyBadge: "読み取り専用",
+		readWriteBadge: "読み書き可",
+		writeHint:
+			"書き込みは 1 回あたり 500 件までで、事前プレビューに対応し、すべて記録されます。完全削除・ディスクからの取り込み・ディスクへの書き出しはエージェントには開放されません。",
+		toastMutated: (tool: string, affected: number) =>
+			`エージェントが ${affected} 件を変更しました(${tool})`,
 		enable: "Agent API を有効にする",
 		enableHint:
 			"127.0.0.1 のみで待ち受け、専用トークンを使用します。既定はオフです。",

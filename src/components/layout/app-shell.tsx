@@ -32,6 +32,7 @@ import {
 	ResizablePanel,
 	ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import { useAgentEvents } from "@/hooks/use-agent-events";
 import { useCollectEvents } from "@/hooks/use-collect-events";
 import { useCoverWorker } from "@/hooks/use-cover-worker";
 import { useDragImport } from "@/hooks/use-drag-import";
@@ -42,6 +43,7 @@ import { T } from "@/lib/text";
 export function AppShell() {
 	useImportEvents();
 	useCollectEvents();
+	useAgentEvents();
 	useCoverWorker();
 	const search = useSearch({ from: "/_library/", shouldThrow: false });
 	const { importPaths } = useImport();

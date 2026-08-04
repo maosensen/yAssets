@@ -20,7 +20,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use super::api;
-use super::dto::SearchRequest;
+use super::dto::{SearchRequest, MAX_BATCH};
 use crate::error::AppError;
 
 /// The protocol revision this server speaks.
@@ -93,8 +93,14 @@ const INSTRUCTIONS: &str = "\
 yAssets is a local asset library. Start with library_stats to see how much is \
 uncategorized or untagged, list_tags and list_folders to learn the vocabulary \
 that already exists, then search_assets to pull a small batch and view_asset(s) \
-to actually look at the pictures before proposing tags or folders. This surface \
-is read-only: report what you would change, do not expect to write.";
+to actually look at the pictures before proposing tags or folders — reuse the \
+user's existing tag names instead of inventing synonyms.\n\
+Writes are allowed but bounded: 500 ids per call, and every batch tool takes \
+dryRun. Preview first, check that `targets` matches what you meant, then run it \
+for real. Deletion is soft only (trash_assets is reversible with \
+restore_assets); permanent deletion, emptying the trash, importing from disk and \
+exporting to disk are not available here and never will be. Every write is \
+recorded — recent_changes shows what you did.";
 
 fn rpc_result(id: Value, result: Value) -> Response {
     (
@@ -146,6 +152,22 @@ struct CallParams {
     name: String,
     #[serde(default)]
     arguments: Value,
+}
+
+/// Dispatch one write tool: deserialize its request type, call the shared `api`
+/// function, serialize the result. A macro rather than a generic helper because
+/// the `api` functions borrow the app handle across an await — expressing that
+/// as a higher-order function needs lifetime gymnastics that buy nothing here.
+macro_rules! write_tool {
+    ($app:expr, $id:expr, $args:expr, $call:path) => {
+        match serde_json::from_value($args) {
+            Ok(request) => match $call($app, request).await {
+                Ok(value) => json_result($id, &to_value(&value)),
+                Err(err) => tool_failure($id, &err),
+            },
+            Err(err) => rpc_error($id, INVALID_PARAMS, format!("bad arguments: {err}")),
+        }
+    };
 }
 
 async fn call_tool<R: tauri::Runtime>(
@@ -224,6 +246,25 @@ async fn call_tool<R: tauri::Runtime>(
             Ok(scan) => json_result(id, &to_value(&scan)),
             Err(err) => tool_failure(id, &err),
         },
+        "recent_changes" => {
+            let limit = args.get("limit").and_then(Value::as_u64).unwrap_or(20) as u32;
+            match api::audit(app, limit).await {
+                Ok(rows) => json_result(id, &to_value(&rows)),
+                Err(err) => tool_failure(id, &err),
+            }
+        }
+        // --- writes ---
+        "tag_assets" => write_tool!(app, id, args, api::tag_assets),
+        "untag_assets" => write_tool!(app, id, args, api::untag_assets),
+        "rate_assets" => write_tool!(app, id, args, api::rate_assets),
+        "trash_assets" => write_tool!(app, id, args, api::trash_assets),
+        "restore_assets" => write_tool!(app, id, args, api::restore_assets),
+        "add_to_folder" => write_tool!(app, id, args, api::add_to_folder),
+        "remove_from_folder" => write_tool!(app, id, args, api::remove_from_folder),
+        "create_folder" => write_tool!(app, id, args, api::create_folder),
+        "create_tag" => write_tool!(app, id, args, api::create_tag),
+        "update_asset" => write_tool!(app, id, args, api::update_asset),
+        "create_smart_folder" => write_tool!(app, id, args, api::create_smart_folder),
         other => rpc_error(
             id,
             INVALID_PARAMS,
@@ -307,6 +348,16 @@ async fn view<R: tauri::Runtime>(
 /// itself in results.
 pub(crate) fn tool_specs() -> Vec<Value> {
     let asset_id = json!({ "type": "string", "description": "Asset id from search_assets." });
+    let batch_ids = json!({
+        "type": "array",
+        "items": { "type": "string" },
+        "maxItems": super::dto::MAX_BATCH,
+        "description": "Asset ids from search_assets.",
+    });
+    let dry_run = json!({
+        "type": "boolean",
+        "description": "Preview only: report the target set without writing.",
+    });
     vec![
         json!({
             "name": "search_assets",
@@ -421,6 +472,180 @@ pub(crate) fn tool_specs() -> Vec<Value> {
         Expensive — at most once every 30 seconds.",
             "inputSchema": { "type": "object", "properties": {} },
         }),
+        json!({
+            "name": "recent_changes",
+            "description": "The audit log of writes made through this API, newest first. Use it to \
+        confirm what landed, or to see what an earlier session already did.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "limit": { "type": "integer", "minimum": 1, "maximum": 200 } },
+            },
+        }),
+        // ---- writes ----
+        json!({
+            "name": "tag_assets",
+            "description": format!(
+                "Attach tags to assets. `tags` are names — created on demand, so you can introduce \
+        vocabulary in one call; `tagIds` are existing ids from list_tags. At most {MAX_BATCH} ids. \
+        Run with dryRun:true first and check `targets`; `affected` counts only rows that actually \
+        changed, so re-tagging an already-tagged asset correctly reports 0."
+            ),
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "assetIds": batch_ids,
+                    "tags": { "type": "array", "items": { "type": "string" } },
+                    "tagIds": { "type": "array", "items": { "type": "string" } },
+                    "dryRun": dry_run,
+                },
+                "required": ["assetIds"],
+            },
+        }),
+        json!({
+            "name": "untag_assets",
+            "description": "Detach tags from assets. Unknown tag names are ignored rather than \
+        created. Same batch limit and dryRun as tag_assets.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "assetIds": batch_ids,
+                    "tags": { "type": "array", "items": { "type": "string" } },
+                    "tagIds": { "type": "array", "items": { "type": "string" } },
+                    "dryRun": dry_run,
+                },
+                "required": ["assetIds"],
+            },
+        }),
+        json!({
+            "name": "create_tag",
+            "description": "Create a tag, or return the existing one with that name. Only needed \
+        when you want to set a color — tag_assets creates names by itself.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string" },
+                    "color": { "type": "string", "description": "Hex like #3b82f6." },
+                },
+                "required": ["name"],
+            },
+        }),
+        json!({
+            "name": "add_to_folder",
+            "description": "Put assets in a folder. An asset can belong to several folders — this \
+        adds, it does not move.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "assetIds": batch_ids,
+                    "folderId": { "type": "string" },
+                    "dryRun": dry_run,
+                },
+                "required": ["assetIds", "folderId"],
+            },
+        }),
+        json!({
+            "name": "remove_from_folder",
+            "description": "Take assets out of a folder. The assets survive; one that ends up in no \
+        folder becomes 'uncategorized'.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "assetIds": batch_ids,
+                    "folderId": { "type": "string" },
+                    "dryRun": dry_run,
+                },
+                "required": ["assetIds", "folderId"],
+            },
+        }),
+        json!({
+            "name": "create_folder",
+            "description": "Create a folder, optionally nested under parentId. Returns the new \
+        folder including its id.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string" },
+                    "parentId": { "type": "string" },
+                },
+                "required": ["name"],
+            },
+        }),
+        json!({
+            "name": "rate_assets",
+            "description": "Set the same 0-5 star rating across a batch.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "assetIds": batch_ids,
+                    "rating": { "type": "integer", "minimum": 0, "maximum": 5 },
+                    "dryRun": dry_run,
+                },
+                "required": ["assetIds", "rating"],
+            },
+        }),
+        json!({
+            "name": "update_asset",
+            "description": "Edit one asset's name, note, rating or source url. Absent fields stay as \
+        they are; url:\"\" clears the link.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "id": asset_id,
+                    "name": { "type": "string" },
+                    "note": { "type": "string" },
+                    "rating": { "type": "integer", "minimum": 0, "maximum": 5 },
+                    "url": { "type": "string" },
+                },
+                "required": ["id"],
+            },
+        }),
+        json!({
+            "name": "trash_assets",
+            "description": "Move assets to the trash. Reversible — files and folder memberships stay \
+        put and restore_assets brings them back. This is the only deletion available; permanent \
+        deletion is not exposed and will not be.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "assetIds": batch_ids, "dryRun": dry_run },
+                "required": ["assetIds"],
+            },
+        }),
+        json!({
+            "name": "restore_assets",
+            "description": "Bring trashed assets back. Only rows currently in the trash count as \
+        targets.",
+            "inputSchema": {
+                "type": "object",
+                "properties": { "assetIds": batch_ids, "dryRun": dry_run },
+                "required": ["assetIds"],
+            },
+        }),
+        json!({
+            "name": "create_smart_folder",
+            "description": "Save a rule set as a live query — how an organizing decision becomes \
+        durable instead of a pass you re-run. Conditions: {\"field\":\"ext\",\"values\":[…]}, \
+        {\"field\":\"name_contains\",\"value\":\"…\"}, {\"field\":\"rating_at_least\",\"min\":3}, \
+        {\"field\":\"hue\",\"value\":0-12}, {\"field\":\"has_tag\",\"tag_id\":\"…\"}, \
+        {\"field\":\"added_within_days\",\"days\":7}.",
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string" },
+                    "rules": {
+                        "type": "object",
+                        "properties": {
+                            "match_any": {
+                                "type": "boolean",
+                                "description": "false = every condition must hold, true = any may.",
+                            },
+                            "conditions": { "type": "array", "items": { "type": "object" } },
+                        },
+                        "required": ["match_any", "conditions"],
+                    },
+                },
+                "required": ["name", "rules"],
+            },
+        }),
     ]
 }
 
@@ -436,10 +661,11 @@ mod tests {
     }
 
     #[test]
-    fn the_tool_list_is_exactly_the_read_only_surface() {
+    fn the_tool_list_is_exactly_the_declared_surface() {
         let mut actual = names();
         actual.sort();
         let mut expected = vec![
+            // reads
             "find_duplicates",
             "find_similar",
             "get_asset",
@@ -447,17 +673,30 @@ mod tests {
             "list_folders",
             "list_smart_folders",
             "list_tags",
+            "recent_changes",
             "search_assets",
             "view_asset",
             "view_assets",
+            // writes
+            "add_to_folder",
+            "create_folder",
+            "create_smart_folder",
+            "create_tag",
+            "rate_assets",
+            "remove_from_folder",
+            "restore_assets",
+            "tag_assets",
+            "trash_assets",
+            "untag_assets",
+            "update_asset",
         ];
         expected.sort();
         assert_eq!(actual, expected);
     }
 
-    /// Phase A is read-only, and some capabilities stay off-limits even later:
-    /// irreversible deletes and anything that needs a host path. Adding one of
-    /// these back must be a deliberate act, not a copy-paste.
+    /// Some capabilities are permanently off-limits: irreversible deletes, and
+    /// anything that needs a host path. Adding one back must be a deliberate act,
+    /// not a copy-paste — this test is the tripwire.
     #[test]
     fn no_destructive_or_path_taking_tool_can_sneak_in() {
         let forbidden = [
@@ -465,14 +704,19 @@ mod tests {
             "empty_trash",
             "clean_orphans",
             "vacuum_database",
+            "verify_integrity",
             "open_library",
             "create_library",
             "close_library",
             "import_paths",
+            "import_clipboard",
             "export_assets",
             "reveal_asset",
             "start_asset_drag",
             "copy_assets_to_clipboard",
+            "delete_folder",
+            "delete_tag",
+            "delete_smart_folder",
         ];
         let names = names();
         for name in forbidden {
@@ -481,17 +725,40 @@ mod tests {
                 "{name} must not be exposed"
             );
         }
-        // Phase A additionally exposes no writes at all.
-        for name in &names {
-            for verb in [
-                "tag_", "rate_", "trash_", "update_", "create_", "delete_", "move_",
-            ] {
-                assert!(
-                    !name.starts_with(verb),
-                    "{name} looks like a mutation, but this surface is read-only"
-                );
+    }
+
+    /// Every batch write must accept `dryRun` and advertise the cap — the
+    /// preview pass the descriptions promise has to actually exist.
+    #[test]
+    fn batch_writes_all_offer_a_dry_run_and_a_cap() {
+        let batch_tools = [
+            "tag_assets",
+            "untag_assets",
+            "rate_assets",
+            "trash_assets",
+            "restore_assets",
+            "add_to_folder",
+            "remove_from_folder",
+        ];
+        let mut seen = 0;
+        for spec in tool_specs() {
+            let name = spec["name"].as_str().expect("name");
+            if !batch_tools.contains(&name) {
+                continue;
             }
+            seen += 1;
+            let properties = &spec["inputSchema"]["properties"];
+            assert!(
+                properties["dryRun"].is_object(),
+                "{name} must accept dryRun"
+            );
+            assert_eq!(
+                properties["assetIds"]["maxItems"].as_u64(),
+                Some(MAX_BATCH as u64),
+                "{name} must advertise the batch cap"
+            );
         }
+        assert_eq!(seen, batch_tools.len(), "a batch tool went missing");
     }
 
     #[test]

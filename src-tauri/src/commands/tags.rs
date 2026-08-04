@@ -74,8 +74,30 @@ pub async fn list_tags(state: tauri::State<'_, AppState>) -> AppResult<Vec<Tag>>
     library.read(all_tags_in).await
 }
 
-/// Create-or-get by (case-insensitive) name. An existing tag is returned
-/// as-is; `color` only applies when the tag is newly created.
+/// Create-or-get by (case-insensitive) name. An existing tag is returned as-is;
+/// `color` only applies when the tag is newly created. Shared by the command and
+/// the agent API — the idempotence is what lets an agent name tags freely.
+pub(crate) fn create_or_get_tag_in(
+    conn: &rusqlite::Connection,
+    name: &str,
+    color: Option<&str>,
+) -> AppResult<Tag> {
+    let name = validated_name(name)?;
+    if let Ok(id) = conn.query_row(
+        "SELECT id FROM tags WHERE name = ?1 COLLATE NOCASE",
+        [&name],
+        |row| row.get::<_, String>(0),
+    ) {
+        return one_tag(conn, &id);
+    }
+    let id = new_id();
+    conn.execute(
+        "INSERT INTO tags (id, name, color, created_at) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![id, name, color, now_ms()],
+    )?;
+    one_tag(conn, &id)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn create_tag(
@@ -83,24 +105,9 @@ pub async fn create_tag(
     color: Option<String>,
     state: tauri::State<'_, AppState>,
 ) -> AppResult<Tag> {
-    let name = validated_name(&name)?;
     let library = state.current_library()?;
     library
-        .write(move |conn| {
-            if let Ok(id) = conn.query_row(
-                "SELECT id FROM tags WHERE name = ?1 COLLATE NOCASE",
-                [&name],
-                |row| row.get::<_, String>(0),
-            ) {
-                return one_tag(conn, &id);
-            }
-            let id = new_id();
-            conn.execute(
-                "INSERT INTO tags (id, name, color, created_at) VALUES (?1, ?2, ?3, ?4)",
-                rusqlite::params![id, name, color, now_ms()],
-            )?;
-            one_tag(conn, &id)
-        })
+        .write(move |conn| create_or_get_tag_in(conn, &name, color.as_deref()))
         .await
 }
 
@@ -165,7 +172,30 @@ pub async fn delete_tag(id: String, state: tauri::State<'_, AppState>) -> AppRes
         .await
 }
 
-/// Attach every tag to every asset (cartesian, INSERT OR IGNORE).
+/// Attach every tag to every asset (cartesian, INSERT OR IGNORE). Returns the
+/// rows actually inserted, so re-tagging an already-tagged asset counts as 0.
+pub(crate) fn add_tags_in(
+    conn: &mut rusqlite::Connection,
+    asset_ids: &[String],
+    tag_ids: &[String],
+) -> AppResult<u32> {
+    let tx = conn.transaction()?;
+    let mut inserted = 0u32;
+    {
+        let mut stmt = tx.prepare(
+            "INSERT OR IGNORE INTO asset_tags (asset_id, tag_id)
+             SELECT id, ?2 FROM assets WHERE id = ?1",
+        )?;
+        for asset_id in asset_ids {
+            for tag_id in tag_ids {
+                inserted += stmt.execute(rusqlite::params![asset_id, tag_id])? as u32;
+            }
+        }
+    }
+    tx.commit()?;
+    Ok(inserted)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn add_tags_to_assets(
@@ -175,24 +205,27 @@ pub async fn add_tags_to_assets(
 ) -> AppResult<u32> {
     let library = state.current_library()?;
     library
-        .write(move |conn| {
-            let tx = conn.transaction()?;
-            let mut inserted = 0u32;
-            {
-                let mut stmt = tx.prepare(
-                    "INSERT OR IGNORE INTO asset_tags (asset_id, tag_id)
-                     SELECT id, ?2 FROM assets WHERE id = ?1",
-                )?;
-                for asset_id in &asset_ids {
-                    for tag_id in &tag_ids {
-                        inserted += stmt.execute(rusqlite::params![asset_id, tag_id])? as u32;
-                    }
-                }
-            }
-            tx.commit()?;
-            Ok(inserted)
-        })
+        .write(move |conn| add_tags_in(conn, &asset_ids, &tag_ids))
         .await
+}
+
+pub(crate) fn remove_tags_in(
+    conn: &mut rusqlite::Connection,
+    asset_ids: &[String],
+    tag_ids: &[String],
+) -> AppResult<u32> {
+    let tx = conn.transaction()?;
+    let mut removed = 0u32;
+    {
+        let mut stmt = tx.prepare("DELETE FROM asset_tags WHERE asset_id = ?1 AND tag_id = ?2")?;
+        for asset_id in asset_ids {
+            for tag_id in tag_ids {
+                removed += stmt.execute(rusqlite::params![asset_id, tag_id])? as u32;
+            }
+        }
+    }
+    tx.commit()?;
+    Ok(removed)
 }
 
 #[tauri::command]
@@ -204,21 +237,7 @@ pub async fn remove_tags_from_assets(
 ) -> AppResult<u32> {
     let library = state.current_library()?;
     library
-        .write(move |conn| {
-            let tx = conn.transaction()?;
-            let mut removed = 0u32;
-            {
-                let mut stmt =
-                    tx.prepare("DELETE FROM asset_tags WHERE asset_id = ?1 AND tag_id = ?2")?;
-                for asset_id in &asset_ids {
-                    for tag_id in &tag_ids {
-                        removed += stmt.execute(rusqlite::params![asset_id, tag_id])? as u32;
-                    }
-                }
-            }
-            tx.commit()?;
-            Ok(removed)
-        })
+        .write(move |conn| remove_tags_in(conn, &asset_ids, &tag_ids))
         .await
 }
 

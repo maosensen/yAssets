@@ -170,6 +170,21 @@ ALTER TABLE assets ADD COLUMN kind TEXT NOT NULL DEFAULT 'file';
 ALTER TABLE folders ADD COLUMN color TEXT;
 ALTER TABLE folders ADD COLUMN icon TEXT;
 "#,
+    // v11 — audit trail for writes made through the Agent API (`crate::agent`).
+    // Append-only: one row per mutating tool call, with the request arguments as
+    // JSON so a surprising change can be traced back to what asked for it.
+    // Lives in the library so it travels with the data it describes.
+    r#"
+CREATE TABLE agent_audit (
+  id          TEXT PRIMARY KEY,
+  at          INTEGER NOT NULL,
+  tool        TEXT NOT NULL,
+  params_json TEXT NOT NULL,
+  affected    INTEGER NOT NULL,
+  ok          INTEGER NOT NULL
+) WITHOUT ROWID;
+CREATE INDEX idx_agent_audit_at ON agent_audit(at DESC);
+"#,
 ];
 
 /// Current schema version an up-to-date library sits at.

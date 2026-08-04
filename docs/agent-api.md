@@ -1,8 +1,9 @@
 # Agent API
 
-A loopback-only, read-only surface that lets an AI coding agent (Claude Code,
-Codex, anything that speaks MCP) browse a yAssets library: search it, read
-metadata, and *look at* the thumbnails.
+A loopback-only surface that lets an AI coding agent (Claude Code, Codex,
+anything that speaks MCP) browse **and organize** a yAssets library: search it,
+read metadata, *look at* the thumbnails, then tag, file, rate and trash in
+batches.
 
 Off by default. Enable it in **Preferences ▸ Agent**, which provisions a bearer
 token and prints ready-to-paste client config.
@@ -47,14 +48,44 @@ bridge zero-config. The token never appears in logs.
 
 ## What is *not* exposed
 
-Not now, and — for the first four — not when write support lands either:
+Permanently, by design:
 
 `delete_assets_forever`, `empty_trash`, `clean_orphans`, `vacuum_database`,
-`create/open/close_library`, `import_paths`, `export_assets`, `reveal_asset`,
-`start_asset_drag`, `copy_assets_to_clipboard`.
+`verify_integrity`, `create/open/close_library`, `import_paths`,
+`import_clipboard`, `export_assets`, `reveal_asset`, `start_asset_drag`,
+`copy_assets_to_clipboard`, `delete_folder`, `delete_tag`,
+`delete_smart_folder`.
 
 Two reasons, one per group: irreversible, or requires a host path. A unit test
-asserts none of these names can appear in `tools/list`.
+asserts none of these names can appear in `tools/list` — adding one back has to
+be a deliberate act.
+
+`trash_assets` **is** available: it is a soft delete that leaves files and folder
+memberships in place, and `restore_assets` undoes it.
+
+## Write guardrails
+
+1. **Batch cap** — 500 ids per call (`MAX_BATCH`), enforced before anything is
+   written. Not a performance limit, a blast-radius limit: an agent that wants to
+   retag 5 000 assets has to page, which gives the user ten chances to notice
+   instead of one.
+2. **`dryRun`** — every batch tool accepts it and reports the target set without
+   writing. The tool descriptions ask for a preview pass first.
+3. **`targets` vs `affected`** — `targets` counts ids that resolved to a real
+   asset in the relevant state; `affected` counts rows that actually changed.
+   Re-tagging an already-tagged asset is `targets: 1, affected: 0`. Reporting one
+   number would make a correct no-op look like a failure.
+4. **Audit trail** — schema v11 `agent_audit` records one row per mutating call
+   (tool, arguments, affected, ok) inside the same writer-lock hold as the
+   mutation. Failures are recorded too. Readable via `GET /api/agent/audit` and
+   the `recent_changes` tool. Arguments are stored as *shape*, not payload: a
+   note's text is not duplicated into the log.
+5. **The UI never goes stale** — a successful write emits the typed
+   `AgentMutated` event; `src/hooks/use-agent-events.ts` toasts it and
+   invalidates the asset, folder, tag, smart-folder and stats caches. Without
+   this, a server-side write would leave every open view showing pre-write rows
+   and the user's next edit would build on stale state. This is the single most
+   important line of the write path.
 
 ## Connecting a client
 
@@ -93,6 +124,15 @@ never pushes, so there is no SSE stream). Implemented methods: `initialize`,
 | `library_stats` | Totals, including how much is uncategorized/untagged. |
 | `find_similar` | Perceptually similar assets (dHash). |
 | `find_duplicates` | Whole-library scan; at most once every 30 s. |
+| `recent_changes` | The audit log — what this or an earlier session changed. |
+| `tag_assets` / `untag_assets` | Tags by name (created on demand) and/or id. |
+| `create_tag` | Only needed to set a color; tagging creates names by itself. |
+| `add_to_folder` / `remove_from_folder` | Membership, not a move — assets can sit in several folders. |
+| `create_folder` | Returns the new folder with its id. |
+| `rate_assets` | One 0-5 rating across a batch. |
+| `update_asset` | One asset's name / note / rating / source url. |
+| `trash_assets` / `restore_assets` | Soft delete and undo. |
+| `create_smart_folder` | Save a rule set — how an organizing decision becomes durable. |
 
 Tool-execution failures come back as `isError: true` results (the model can read
 and recover); only protocol mistakes become JSON-RPC errors (`-32700` parse,
@@ -114,6 +154,18 @@ Same data, for curl and for clients that would rather not speak MCP. All under
 | GET | `folders`, `folders/{id}/stats` | Flat list (build the tree client-side). |
 | GET | `tags`, `smart-folders`, `stats` | |
 | GET | `duplicates` | Throttled to one scan per 30 s. |
+| GET | `audit?limit=` | Write log, newest first (default 50, max 200). |
+| POST | `tag`, `untag` | `{assetIds, tags?, tagIds?, dryRun?}` → `WriteResult`. |
+| POST | `rate` | `{assetIds, rating, dryRun?}`. |
+| POST | `trash`, `restore` | `{assetIds, dryRun?}`. |
+| POST | `folders/add`, `folders/remove` | `{assetIds, folderId, dryRun?}`. |
+| POST | `folders/create` | `{name, parentId?}` → the new folder. |
+| POST | `tags/create` | `{name, color?}` → the tag (create-or-get). |
+| POST | `assets/update` | `{id, name?, note?, rating?, url?}` → the detail. |
+| POST | `smart-folders/create` | `{name, rules}` → the smart folder. |
+
+`WriteResult` is `{dryRun, targets, affected, sample}` — see **Write guardrails**
+for why `targets` and `affected` are separate.
 
 ### Search body
 
@@ -148,7 +200,7 @@ Every field is optional. Unknown `include` values are ignored; an unknown
 | `unauthorized` | 401 | Missing/wrong token. |
 | `no_library` | 409 | No library open in the app. |
 | `not_found` | 404 | Unknown or malformed asset/folder id. |
-| `invalid` | 422 | Bad body, bad scope, oversized file. |
+| `invalid` | 422 | Bad body, bad scope, oversized file, batch over the cap. |
 | `rate_limited` | 429 | Duplicate scan inside the window. |
 | `internal` | 500 | |
 

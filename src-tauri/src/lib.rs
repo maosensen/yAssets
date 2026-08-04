@@ -100,7 +100,8 @@ fn specta_builder() -> Builder<tauri::Wry> {
         .events(collect_events![
             events::ImportProgress,
             events::ImportFinished,
-            events::CollectImported
+            events::CollectImported,
+            events::AgentMutated
         ])
 }
 
