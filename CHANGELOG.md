@@ -9,6 +9,33 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.28] - 2026-08-04
+
+### Added
+
+- **Your AI coding agent can now work on your library.** Turn on Preferences ▸
+  Agent and yAssets exposes an MCP server on 127.0.0.1 that Claude Code or Codex
+  can talk to: it searches the library, reads metadata, and — importantly —
+  actually *looks* at the thumbnails, so it reasons about what an asset is
+  instead of guessing from the filename. Ask it to tag everything untagged, sort
+  out the uncategorized, or report what's worth cleaning up first.
+- **One-click connect.** Buttons for Claude Code and Codex register yAssets with
+  the client for you, no config files to edit. The pane shows what it found on
+  your machine and what's already connected, and keeps copy-paste snippets as a
+  fallback.
+- **Five preset prompts** you can copy straight to a connected agent: library
+  health report, tag the untagged, find and clean duplicates, file the
+  uncategorized, and set up smart folders. Each one is a complete workflow that
+  previews before it writes.
+- **Guardrails on everything an agent changes.** Batches are capped at 500
+  items, every batch operation can be dry-run first, and each write is recorded
+  in an audit log you can read back. Deletion is soft only — the trash stays
+  reversible, and permanent deletion, importing from disk and exporting to disk
+  are never available to an agent. Its own token, separate from the yClip one,
+  so revoking one leaves the other working.
+- **The window keeps up on its own.** When an agent changes something, the grid,
+  sidebar and counters refresh immediately and a toast says what happened.
+
 ## [0.1.27] - 2026-08-03
 
 ### Added
@@ -379,6 +406,7 @@ with Tauri 2.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
 [Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.26...HEAD
+[0.1.28]: https://github.com/maosensen/yAssets/releases/tag/v0.1.28
 [0.1.27]: https://github.com/maosensen/yAssets/releases/tag/v0.1.27
 [0.1.26]: https://github.com/maosensen/yAssets/releases/tag/v0.1.26
 [0.1.25]: https://github.com/maosensen/yAssets/releases/tag/v0.1.25

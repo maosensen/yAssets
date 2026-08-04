@@ -2,6 +2,40 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.28",
+		date: "2026-08-04",
+		title: "Hand your library to an AI agent",
+		summary:
+			"Claude Code and Codex can now browse and organize this library over MCP — looking at the actual thumbnails — with one-click setup, ready-made prompts, and guardrails on everything they change.",
+		changes: [
+			{
+				kind: "new",
+				title: "Agent API over MCP",
+				text: "Turn on Preferences ▸ Agent and an AI coding agent can search the library, read metadata, and look at the thumbnails — so it reasons about what an asset is instead of guessing from its filename. Then it can tag, file, rate and trash in batches.",
+			},
+			{
+				kind: "new",
+				title: "One-click connect",
+				text: "Buttons for Claude Code and Codex register yAssets with the client for you — no config files to edit. The pane shows what it found on your machine and what is already connected, with copy-paste snippets as a fallback.",
+			},
+			{
+				kind: "new",
+				title: "Preset prompts",
+				text: "Five complete workflows to copy straight to a connected agent: library health report, tag everything untagged, find and clean duplicates, file the uncategorized, and set up smart folders.",
+			},
+			{
+				kind: "new",
+				title: "Guardrails and an audit log",
+				text: "Batches cap at 500 items, every batch operation can be previewed first, and each write is recorded so you can read back what changed. Deletion is soft only — permanent deletion, importing from disk and exporting to disk are never available to an agent.",
+			},
+			{
+				kind: "improved",
+				title: "The window keeps up on its own",
+				text: "When an agent changes something, the grid, sidebar and counters refresh immediately and a toast says what happened.",
+			},
+		],
+	},
+	{
 		version: "0.1.27",
 		date: "2026-08-03",
 		title: "Press play — or don't, it already did",

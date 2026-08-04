@@ -457,6 +457,7 @@ features:
     area: 自动化
     status: done
     completedAt: 2026-08-04
+    shippedIn: v0.1.28
     note: >-
       本地 loopback API + 应用内 MCP endpoint(POST /mcp),独立开关与 token
       (与 yClip 的 collect_token 分离)。22 个工具:读侧搜索 / 详情 / 看图
