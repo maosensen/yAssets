@@ -23,8 +23,8 @@ import { useDropTarget } from "@/hooks/use-drop-target";
 import type { LibraryView } from "@/lib/library-view";
 import { libraryStatsQueryOptions } from "@/lib/queries/library";
 import { T } from "@/lib/text";
-import { cn } from "@/lib/utils";
 import { NavIcon } from "./nav-icon";
+import { RowCount, sidebarRowClass } from "./row";
 
 type SmartView = LibraryView["view"];
 
@@ -78,7 +78,7 @@ export function SmartViews() {
 	] as const;
 
 	return (
-		<nav className="flex flex-col gap-0.5">
+		<nav className="flex flex-col">
 			{items.map(({ view, label, icon: Icon, iconBold: IconBold, count }) => (
 				<SmartViewRow
 					key={view}
@@ -124,11 +124,8 @@ function SmartViewRow({
 		<Link
 			to="/"
 			search={{ view }}
-			className={cn(
-				"flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-sidebar-accent",
-				active
-					? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-					: "text-sidebar-foreground/80",
+			className={sidebarRowClass(
+				active,
 				view === "trash" && drop.isOver && "ring-2 ring-primary ring-inset",
 			)}
 			{...dropProps}
@@ -140,11 +137,7 @@ function SmartViewRow({
 				className="size-4 shrink-0"
 			/>
 			<span className="min-w-0 flex-1 truncate">{label}</span>
-			{count !== undefined && count > 0 && (
-				<span className="text-muted-foreground text-xs tabular-nums">
-					{count}
-				</span>
-			)}
+			<RowCount value={count} />
 		</Link>
 	);
 }

@@ -6,8 +6,8 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { IconDiscover, IconDiscoverBold } from "@/components/icons";
 import { T } from "@/lib/text";
-import { cn } from "@/lib/utils";
 import { NavIcon } from "./nav-icon";
+import { sidebarRowClass } from "./row";
 
 export function DiscoverNav() {
 	const active = useRouterState({
@@ -15,15 +15,7 @@ export function DiscoverNav() {
 	});
 
 	return (
-		<Link
-			to="/discover"
-			className={cn(
-				"flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-sidebar-accent",
-				active
-					? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-					: "text-sidebar-foreground/80",
-			)}
-		>
+		<Link to="/discover" className={sidebarRowClass(active)}>
 			<NavIcon
 				line={IconDiscover}
 				bold={IconDiscoverBold}

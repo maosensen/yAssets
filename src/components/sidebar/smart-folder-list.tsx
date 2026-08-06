@@ -38,7 +38,7 @@ import {
 	useDeleteSmartFolder,
 } from "@/lib/queries/smart-folders";
 import { T } from "@/lib/text";
-import { cn } from "@/lib/utils";
+import { sidebarRowClass } from "./row";
 
 export function SmartFolderList() {
 	const search = useSearch({ from: "/_library/", shouldThrow: false });
@@ -70,12 +70,7 @@ export function SmartFolderList() {
 						<Link
 							to="/"
 							search={{ view: "smart", smartId: folder.id }}
-							className={cn(
-								"flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-sidebar-accent",
-								activeId === folder.id
-									? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-									: "text-sidebar-foreground/80",
-							)}
+							className={sidebarRowClass(activeId === folder.id)}
 						>
 							<NavIcon
 								line={IconMagic}

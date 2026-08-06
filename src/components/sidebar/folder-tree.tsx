@@ -70,8 +70,10 @@ export function FolderTree({ filter }: { filter: string }) {
 		search?.view === "folder" ? (search.folderId ?? null) : null;
 
 	return (
-		<div className="flex min-h-0 flex-1 flex-col">
-			<div className="flex items-center justify-between py-1 pr-1 pl-2">
+		// See the note in tag-list.tsx: both scrolling sections are `flex-auto` so
+		// they divide the leftover height in proportion to their content.
+		<div className="flex min-h-0 flex-auto flex-col">
+			<div className="flex shrink-0 items-center justify-between py-1 pr-1 pl-2">
 				<SectionLabel>{T.sidebar.foldersTitle}</SectionLabel>
 				<Button
 					variant="ghost"

@@ -27,7 +27,7 @@ import {
 import type { Tag } from "@/lib/bindings";
 import { tagsQueryOptions, useDeleteTag } from "@/lib/queries/tags";
 import { T } from "@/lib/text";
-import { cn } from "@/lib/utils";
+import { RowCount, sidebarRowClass } from "./row";
 import { TagEditDialog } from "./tag-edit-dialog";
 
 export function TagList() {
@@ -42,31 +42,25 @@ export function TagList() {
 	const activeTagId = search?.view === "tag" ? (search.tagId ?? null) : null;
 
 	return (
-		<div className="flex min-h-0 shrink-0 flex-col">
-			<div className="px-2 py-1">
+		// `flex-auto`, not a fixed cap: the tag list and the folder tree share
+		// whatever height is left in proportion to how much each has to show,
+		// instead of the tags being stuck in 192px while space sits unused below.
+		<div className="flex min-h-0 flex-auto flex-col">
+			<div className="shrink-0 px-2 py-1">
 				<SectionLabel>{T.sidebar.tagsTitle}</SectionLabel>
 			</div>
-			<div className="max-h-48 overflow-y-auto">
+			<div className="min-h-0 flex-1 overflow-y-auto">
 				{tags.map((tag) => (
 					<ContextMenu key={tag.id}>
 						<ContextMenuTrigger className="block">
 							<Link
 								to="/"
 								search={{ view: "tag", tagId: tag.id }}
-								className={cn(
-									"flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-sidebar-accent",
-									activeTagId === tag.id
-										? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
-										: "text-sidebar-foreground/80",
-								)}
+								className={sidebarRowClass(activeTagId === tag.id)}
 							>
 								<TagDot color={tag.color} />
 								<span className="min-w-0 flex-1 truncate">{tag.name}</span>
-								{tag.asset_count > 0 && (
-									<span className="text-muted-foreground text-xs tabular-nums">
-										{tag.asset_count}
-									</span>
-								)}
+								<RowCount value={tag.asset_count} />
 							</Link>
 						</ContextMenuTrigger>
 						<ContextMenuContent>
