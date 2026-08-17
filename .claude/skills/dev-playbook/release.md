@@ -7,7 +7,7 @@
 - GitHub secrets（repo Settings ▸ Secrets and variables ▸ Actions）：
   - `TAURI_SIGNING_PRIVATE_KEY` = 密钥**文件全文**
   - `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` = 密码
-- **macOS 签名/公证（2026-08 起）**：`APPLE_CERTIFICATE`（Developer ID Application .p12 的 base64）、`APPLE_CERTIFICATE_PASSWORD`（.p12 导出密码）、`APPLE_SIGNING_IDENTITY`（`Developer ID Application: YANG JIAKAI (D567A6PTG2)`）、`APPLE_ID`、`APPLE_PASSWORD`（**应用专用密码**，非登录密码，appleid 可吊销重发）、`APPLE_TEAM_ID`（`D567A6PTG2`）。证书 .p12 与私钥在用户离线备份里，同样永不入库。Developer ID Application 证书同时最多 2 张、私钥丢失只能作废重发。
+- **macOS 签名/公证（2026-08 起）**：`APPLE_CERTIFICATE`（Developer ID Application .p12 的 base64）、`APPLE_CERTIFICATE_PASSWORD`（.p12 导出密码）、`APPLE_SIGNING_IDENTITY`（`Developer ID Application: YANG JIAKAI (D567A6PTG2)`）、`APPLE_ID`（**Apple ID 邮箱** `yjkbako.lyre@gmail.com`——0.1.29 首跑实测：误填成 Team ID 会在公证阶段报 `401 Invalid credentials`，而签名阶段照常通过，别被"证书没问题"误导）、`APPLE_PASSWORD`（**应用专用密码**，非登录密码，appleid 可吊销重发）、`APPLE_TEAM_ID`（`D567A6PTG2`）。公证凭据错误的修复姿势：改 secret 后 `gh run rerun <id> --failed` 只重跑 macOS job，draft 与其他平台产物原地保留，无需重打 tag。证书 .p12 与私钥在用户离线备份里，同样永不入库。Developer ID Application 证书同时最多 2 张、私钥丢失只能作废重发。
 - **Apple 签名与 minisign 是两套独立信任链**：Gatekeeper 看 Apple 签名，updater 的 `latest.json` 看 minisign（`pubkey`）。两个都必须在，谁也不替代谁。
 - **丢失密钥或密码 = 已发行版本永久收不到更新**（只能让用户手动重装）。不要轮换密钥，除非用户明确要求且知晓后果；轮换 = 重新生成 + 更新 conf 的 `plugins.updater.pubkey` + 更新两个 secrets，旧版本用户从此断链。
 
