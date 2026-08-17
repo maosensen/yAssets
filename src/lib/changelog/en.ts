@@ -2,6 +2,25 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.29",
+		date: "2026-08-17",
+		title: "Notarized installs and a tidier sidebar",
+		summary:
+			"macOS downloads now open without the “damaged app” dance, and the sidebar wastes less space on chrome.",
+		changes: [
+			{
+				kind: "improved",
+				title: "Notarized macOS builds",
+				text: "Downloads are Developer ID-signed and notarized, so Gatekeeper lets fresh installs through — no more “yAssets is damaged” dialog or Terminal workaround.",
+			},
+			{
+				kind: "improved",
+				title: "Tidier sidebar",
+				text: "A narrower expand-arrow gutter in the folder tree, folder and tag rows that line up, counts that stay clear of the scrollbar, and a tag list that shares leftover height with the folder tree.",
+			},
+		],
+	},
+	{
 		version: "0.1.28",
 		date: "2026-08-04",
 		title: "Hand your library to an AI agent",

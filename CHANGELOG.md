@@ -9,11 +9,19 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.29] - 2026-08-17
+
 ### Changed
 
 - **macOS downloads now pass Gatekeeper directly.** Builds are Developer
   ID-signed and notarized in CI, so fresh installs no longer hit the misleading
   *"yAssets is damaged"* dialog or need `xattr -cr`.
+- **Tighter sidebar layout.** The folder tree's expand-arrow gutter is narrower
+  (with a taller hit area), folder and tag rows share one geometry so their
+  icons and counts line up across sections, and counts get a fixed column with
+  enough right-hand clearance that the overlay scrollbar no longer covers the
+  digits. The tag list also shares leftover height with the folder tree instead
+  of being capped at a fixed height.
 
 ## [0.1.28] - 2026-08-04
 
@@ -412,6 +420,7 @@ with Tauri 2.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
 [Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.26...HEAD
+[0.1.29]: https://github.com/maosensen/yAssets/releases/tag/v0.1.29
 [0.1.28]: https://github.com/maosensen/yAssets/releases/tag/v0.1.28
 [0.1.27]: https://github.com/maosensen/yAssets/releases/tag/v0.1.27
 [0.1.26]: https://github.com/maosensen/yAssets/releases/tag/v0.1.26

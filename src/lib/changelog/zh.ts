@@ -2,6 +2,25 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.29",
+		date: "2026-08-17",
+		title: "公证过的安装包与更整洁的侧边栏",
+		summary:
+			"macOS 下载的安装包不再弹「已损坏」提示，侧边栏也把空间还给了内容本身。",
+		changes: [
+			{
+				kind: "improved",
+				title: "macOS 构建已签名公证",
+				text: "安装包经 Developer ID 签名并通过 Apple 公证，Gatekeeper 直接放行——不再出现「yAssets 已损坏」对话框，也无需终端命令绕过。",
+			},
+			{
+				kind: "improved",
+				title: "侧边栏更整洁",
+				text: "文件夹树的展开箭头槽更窄，文件夹与标签行对齐一致，计数不再被滚动条遮挡，标签列表与文件夹树按内容比例分享剩余高度。",
+			},
+		],
+	},
+	{
 		version: "0.1.28",
 		date: "2026-08-04",
 		title: "把素材库交给 AI 助手",

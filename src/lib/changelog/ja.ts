@@ -2,6 +2,25 @@ import type { ChangelogRelease } from "./index";
 
 export const ja: ChangelogRelease[] = [
 	{
+		version: "0.1.29",
+		date: "2026-08-17",
+		title: "公証済みインストーラーとすっきりしたサイドバー",
+		summary:
+			"macOS のダウンロード版が「壊れている」警告なしで開けるようになり、サイドバーの余白も整理しました。",
+		changes: [
+			{
+				kind: "improved",
+				title: "macOS ビルドの署名・公証",
+				text: "Developer ID 署名と Apple 公証を通したため、Gatekeeper がそのまま許可します。「yAssets は壊れている」ダイアログもターミナルでの回避策も不要になりました。",
+			},
+			{
+				kind: "improved",
+				title: "サイドバーの整理",
+				text: "フォルダツリーの展開矢印の溝を狭め、フォルダ行とタグ行の配置を統一。件数がスクロールバーに隠れなくなり、タグ一覧はフォルダツリーと残り高さを分け合うようになりました。",
+			},
+		],
+	},
+	{
 		version: "0.1.28",
 		date: "2026-08-04",
 		title: "ライブラリを AI エージェントに任せる",
