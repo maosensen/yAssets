@@ -9,6 +9,12 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+### Changed
+
+- **macOS downloads now pass Gatekeeper directly.** Builds are Developer
+  ID-signed and notarized in CI, so fresh installs no longer hit the misleading
+  *"yAssets is damaged"* dialog or need `xattr -cr`.
+
 ## [0.1.28] - 2026-08-04
 
 ### Added

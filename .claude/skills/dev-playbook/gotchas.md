@@ -17,7 +17,7 @@
 
 | 症状 | 根因 | 处置 |
 |---|---|---|
-| 安装后提示「已损坏，无法打开」 | 未公证 + quarantine 属性（Gatekeeper） | `xattr -cr /Applications/yAssets.app`（README 已记载）；应用内更新下载不带 quarantine，不受影响 |
+| 安装后提示「已损坏，无法打开」 | 未公证 + quarantine 属性（Gatekeeper）。**仅影响 ≤ v0.1.28 的下载包**——之后 CI 已配 Developer ID 签名 + 公证（`APPLE_*` secrets），Gatekeeper 直接放行 | 老版本包：`xattr -cr /Applications/yAssets.app`（README 已记载）；应用内更新下载不带 quarantine，不受影响。新发版后用 `spctl -a -vvv -t install` 应看到 `source=Notarized Developer ID` |
 | 双击启动「闪退」 | 大概率不是 crash：single-instance 插件——dev 实例与 release 版同 identifier（`com.maosensen.yassets`），后启动者直接退出 | 先查 `~/Library/Logs/DiagnosticReports` 有无记录；没有 → 关掉 `pnpm tauri dev` 再启动。dev 与正式版互斥属预期 |
 | （潜在）不同大小写文件名撞车 | APFS 大小写不敏感 | 文件 id 只用 `[0-9a-z]` 字母表（`library::new_id`），别引入混合大小写 id |
 
