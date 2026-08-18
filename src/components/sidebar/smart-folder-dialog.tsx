@@ -8,11 +8,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import {
 	IconClose,
-	IconFileText,
-	IconImageFile,
-	IconMusic,
+	IconKindAudio,
+	IconKindDocument,
+	IconKindImage,
+	IconKindVideo,
 	IconPlus,
-	IconVideo,
 } from "@/components/icons";
 import { HUE_SWATCHES, NEUTRAL_HUE } from "@/components/layout/color-filter";
 import { Button } from "@/components/ui/button";
@@ -61,10 +61,10 @@ const MEDIA_KINDS: {
 	kind: MediaKindValue;
 	icon: React.ComponentType<{ className?: string }>;
 }[] = [
-	{ kind: "image", icon: IconImageFile },
-	{ kind: "video", icon: IconVideo },
-	{ kind: "audio", icon: IconMusic },
-	{ kind: "document", icon: IconFileText },
+	{ kind: "image", icon: IconKindImage },
+	{ kind: "video", icon: IconKindVideo },
+	{ kind: "audio", icon: IconKindAudio },
+	{ kind: "document", icon: IconKindDocument },
 ];
 
 function defaultCondition(field: FieldKind): SmartCondition {

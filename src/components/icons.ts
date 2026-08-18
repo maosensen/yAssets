@@ -24,17 +24,31 @@ import type { ComponentType, SVGProps } from "react";
 /** Shape of a compiled icon — for components that take icons as props. */
 export type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
 
-// Toolbar/chrome cluster — lucide (see the header note). Keep these together:
-// a control strip only looks coherent when every glyph shares one family.
+// The lucide half of the registry (see the header note). Two clusters, one
+// export block because they share a module:
+//
+//   * Toolbar/chrome — IconSort, IconChevron*, IconFilter, IconZoom*,
+//     IconPalette, IconSearch. A control strip only looks coherent when every
+//     glyph shares one family.
+//   * Media kinds — IconKind{Image,Video,Audio,Document}, one glyph per broad
+//     asset type, always rendered as a group in menus and pickers. Measured at
+//     14px, Solar's ink spanned 8.2–11.7px across these four (its bare music
+//     note the outlier), so the narrow one read as indented beside its siblings
+//     even though every icon box and label sat on the same x. Lucide's span
+//     9.3–11.7px and match the check/chevron the menu itself draws.
 export {
 	ArrowUpDown as IconSort,
 	ChevronLeft as IconChevronLeft,
 	ChevronRight as IconChevronRight,
+	FileText as IconKindDocument,
+	Image as IconKindImage,
 	ListFilter as IconFilter,
 	Minus as IconZoomOut,
+	Music as IconKindAudio,
 	Palette as IconPalette,
 	Plus as IconZoomIn,
 	Search as IconSearch,
+	Video as IconKindVideo,
 } from "lucide-react";
 
 // Actions
