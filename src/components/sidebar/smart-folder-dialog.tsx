@@ -291,23 +291,28 @@ function ConditionValue({
 				/>
 			);
 		case "media_kind":
-			// Chips, not a <select>: native options can't carry the kind icons.
+			// Icon chips, not a <select> (native options can't carry icons).
+			// A fixed 2×2 grid: equal-width cells stay aligned in every locale,
+			// where free wrapping degraded into a ragged 2-1-1 pile in Japanese.
 			return (
-				<div className="flex flex-wrap items-center gap-1">
+				<div className="grid grid-cols-2 gap-1.5">
 					{MEDIA_KINDS.map(({ kind, icon: Icon }) => (
 						<button
 							key={kind}
 							type="button"
+							aria-pressed={condition.value === kind}
 							className={cn(
-								"flex h-8 items-center gap-1.5 rounded-md border border-input px-2 text-sm",
+								"flex h-8 items-center justify-center gap-1.5 rounded-md border px-2 text-sm transition-colors",
 								condition.value === kind
-									? "border-primary bg-primary/10"
-									: "text-muted-foreground hover:bg-accent",
+									? "border-primary bg-primary/10 text-foreground"
+									: "border-input text-muted-foreground hover:bg-accent hover:text-foreground",
 							)}
 							onClick={() => onChange({ field: "media_kind", value: kind })}
 						>
 							<Icon className="size-3.5 shrink-0" />
-							{T.smartFolders.mediaKinds[kind]}
+							<span className="truncate">
+								{T.smartFolders.mediaKinds[kind]}
+							</span>
 						</button>
 					))}
 				</div>
