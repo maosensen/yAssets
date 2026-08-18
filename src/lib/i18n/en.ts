@@ -361,13 +361,6 @@ export const en = {
 			audio: "Audio",
 			document: "Document",
 		},
-		presets: {
-			image: "Images",
-			video: "Videos",
-			audio: "Audio",
-			document: "Documents",
-		},
-		presetCustom: "Custom…",
 		extPlaceholder: "png, jpg, mp4…",
 		keywordPlaceholder: "keyword",
 		daysSuffix: "days",

@@ -364,13 +364,6 @@ export const ja: Messages = {
 			audio: "オーディオ",
 			document: "ドキュメント",
 		},
-		presets: {
-			image: "画像",
-			video: "動画",
-			audio: "オーディオ",
-			document: "ドキュメント",
-		},
-		presetCustom: "カスタム…",
 		extPlaceholder: "png, jpg, mp4…",
 		keywordPlaceholder: "キーワード",
 		daysSuffix: "日",

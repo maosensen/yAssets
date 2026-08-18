@@ -353,13 +353,6 @@ export const zh: Messages = {
 			audio: "音频",
 			document: "文档",
 		},
-		presets: {
-			image: "图片",
-			video: "视频",
-			audio: "音频",
-			document: "文档",
-		},
-		presetCustom: "自定义…",
 		extPlaceholder: "png, jpg, mp4…",
 		keywordPlaceholder: "关键词",
 		daysSuffix: "天内",

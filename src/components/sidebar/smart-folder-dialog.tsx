@@ -6,7 +6,14 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { IconClose, IconPlus } from "@/components/icons";
+import {
+	IconClose,
+	IconFileText,
+	IconImageFile,
+	IconMusic,
+	IconPlus,
+	IconVideo,
+} from "@/components/icons";
 import { HUE_SWATCHES, NEUTRAL_HUE } from "@/components/layout/color-filter";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,12 +37,7 @@ import { tagsQueryOptions } from "@/lib/queries/tags";
 import { T } from "@/lib/text";
 import { cn } from "@/lib/utils";
 
-/** `{ preset }` opens the create dialog pre-filled with one media-kind rule. */
-export type SmartFolderDialogState =
-	| SmartFolder
-	| "new"
-	| { preset: MediaKindValue }
-	| null;
+export type SmartFolderDialogState = SmartFolder | "new" | null;
 
 type FieldKind = SmartCondition["field"];
 
@@ -49,11 +51,14 @@ const FIELD_ORDER: FieldKind[] = [
 	"added_within_days",
 ];
 
-export const MEDIA_KIND_ORDER: MediaKindValue[] = [
-	"image",
-	"video",
-	"audio",
-	"document",
+const MEDIA_KINDS: {
+	kind: MediaKindValue;
+	icon: React.ComponentType<{ className?: string }>;
+}[] = [
+	{ kind: "image", icon: IconImageFile },
+	{ kind: "video", icon: IconVideo },
+	{ kind: "audio", icon: IconMusic },
+	{ kind: "document", icon: IconFileText },
 ];
 
 function defaultCondition(field: FieldKind): SmartCondition {
@@ -82,12 +87,7 @@ export function SmartFolderDialog({
 	state: SmartFolderDialogState;
 	onClose: () => void;
 }) {
-	const editing =
-		state !== null && state !== "new" && !("preset" in state) ? state : null;
-	const preset =
-		state !== null && state !== "new" && "preset" in state
-			? state.preset
-			: null;
+	const editing = state !== null && state !== "new" ? state : null;
 	const [name, setName] = useState("");
 	const [matchAny, setMatchAny] = useState(false);
 	const [conditions, setConditions] = useState<SmartCondition[]>([]);
@@ -96,16 +96,14 @@ export function SmartFolderDialog({
 	const busy = createMutation.isPending || updateMutation.isPending;
 
 	useEffect(() => {
-		if (preset) {
-			setName(T.smartFolders.presets[preset]);
-			setMatchAny(false);
-			setConditions([{ field: "media_kind", value: preset }]);
-			return;
-		}
 		setName(editing?.name ?? "");
 		setMatchAny(editing?.rules.match_any ?? false);
-		setConditions(editing?.rules.conditions ?? []);
-	}, [editing, preset]);
+		// A fresh folder starts from the most common ask — "assets of this
+		// type" — with one media-kind row already in place.
+		setConditions(
+			editing?.rules.conditions ?? [defaultCondition("media_kind")],
+		);
+	}, [editing]);
 
 	const submit = () => {
 		const trimmed = name.trim();
@@ -202,7 +200,7 @@ export function SmartFolderDialog({
 							onClick={() =>
 								setConditions((current) => [
 									...current,
-									defaultCondition("ext"),
+									defaultCondition("media_kind"),
 								])
 							}
 						>
@@ -293,23 +291,26 @@ function ConditionValue({
 				/>
 			);
 		case "media_kind":
+			// Chips, not a <select>: native options can't carry the kind icons.
 			return (
-				<select
-					className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-sm"
-					value={condition.value}
-					onChange={(event) =>
-						onChange({
-							field: "media_kind",
-							value: event.target.value as MediaKindValue,
-						})
-					}
-				>
-					{MEDIA_KIND_ORDER.map((kind) => (
-						<option key={kind} value={kind}>
+				<div className="flex flex-wrap items-center gap-1">
+					{MEDIA_KINDS.map(({ kind, icon: Icon }) => (
+						<button
+							key={kind}
+							type="button"
+							className={cn(
+								"flex h-8 items-center gap-1.5 rounded-md border border-input px-2 text-sm",
+								condition.value === kind
+									? "border-primary bg-primary/10"
+									: "text-muted-foreground hover:bg-accent",
+							)}
+							onClick={() => onChange({ field: "media_kind", value: kind })}
+						>
+							<Icon className="size-3.5 shrink-0" />
 							{T.smartFolders.mediaKinds[kind]}
-						</option>
+						</button>
 					))}
-				</select>
+				</div>
 			);
 		case "name_contains":
 			return (

@@ -282,14 +282,14 @@ features:
     shippedIn: v0.1.0
     note: 规则引擎(规则 → SQL 实时查询,无成员表)+ 规则编辑器。
   - id: smart-folder-media-kind
-    title: 智能文件夹类型条件与预设(图片/视频/音频/文档)
+    title: 智能文件夹类型条件(图片/视频/音频/文档)
     area: 组织
     status: done
     completedAt: 2026-08-18
     note: >-
       规则引擎新增 MediaKind 条件(ext 分类映射活在代码里,新格式自动纳入
-      已建文件夹,区别于创建时快照的 Ext 列表);侧栏 “+” 变预设菜单,
-      一键预填单条类型规则再确认。
+      已建文件夹,区别于创建时快照的 Ext 列表);新建对话框默认预填一条
+      类型条件,四类选项为带图标 chip。
   - id: asset-drag-organize
     title: 拖拽素材归档
     area: 组织
