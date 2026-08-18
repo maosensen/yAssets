@@ -26,6 +26,12 @@ pub enum SmartCondition {
     Ext {
         values: Vec<String>,
     },
+    /// Asset's broad media kind. Unlike `Ext`, the extension list lives in
+    /// code (`exts_for_kind`), so folders built on this condition follow the
+    /// app as new formats gain support — an `Ext` list is frozen at creation.
+    MediaKind {
+        value: MediaKindValue,
+    },
     /// Filename contains `value` (case-insensitive via NOCASE-ish LIKE).
     NameContains {
         value: String,
@@ -43,6 +49,41 @@ pub enum SmartCondition {
     AddedWithinDays {
         days: u32,
     },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "snake_case")]
+pub enum MediaKindValue {
+    Image,
+    Video,
+    Audio,
+    Document,
+}
+
+/// Classification, not playability: `mkv` IS a video even though no WebView
+/// plays it. The rendering-support sets in `src/lib/viewer-registry.ts` are a
+/// different concern — don't merge the two. Extending a list here retroactively
+/// widens every smart folder built on that kind.
+pub(crate) fn exts_for_kind(kind: MediaKindValue) -> &'static [&'static str] {
+    match kind {
+        MediaKindValue::Image => &[
+            "png", "jpg", "jpeg", "gif", "webp", "bmp", "svg", "ico", "avif", "tiff", "tif",
+            "heic", "heif", "jxl", "psd", "psb", "sketch", "ora", "kra",
+        ],
+        MediaKindValue::Video => &[
+            "mp4", "mov", "m4v", "webm", "mkv", "avi", "wmv", "flv", "mpg", "mpeg", "ts", "m2ts",
+            "3gp",
+        ],
+        MediaKindValue::Audio => &[
+            "mp3", "m4a", "aac", "wav", "flac", "aiff", "ogg", "opus", "wma", "mid", "midi",
+        ],
+        // Prose and office files; source code stays out — a "Documents" folder
+        // full of stray .ts files would read as a bug to most users.
+        MediaKindValue::Document => &[
+            "pdf", "md", "markdown", "mdx", "txt", "rtf", "doc", "docx", "xls", "xlsx", "ppt",
+            "pptx", "key", "pages", "numbers", "odt", "ods", "odp", "csv", "epub",
+        ],
+    }
 }
 
 #[derive(Debug, Clone, Serialize, specta::Type)]
@@ -73,6 +114,12 @@ pub(crate) fn rules_to_predicate(rules: &SmartRules) -> (String, Vec<rusqlite::t
                 let placeholders = vec!["?"; values.len()].join(",");
                 clauses.push(format!("LOWER(ext) IN ({placeholders})"));
                 params.extend(values.iter().map(|v| Value::Text(v.trim().to_lowercase())));
+            }
+            SmartCondition::MediaKind { value } => {
+                let exts = exts_for_kind(*value);
+                let placeholders = vec!["?"; exts.len()].join(",");
+                clauses.push(format!("LOWER(ext) IN ({placeholders})"));
+                params.extend(exts.iter().map(|e| Value::Text((*e).to_string())));
             }
             SmartCondition::NameContains { value } => {
                 clauses.push("name LIKE ? ESCAPE '\\'".into());
@@ -342,5 +389,54 @@ mod tests {
             conditions: vec![SmartCondition::Ext { values: vec![] }],
         };
         assert_eq!(count(&conn, &rules), 0);
+    }
+
+    #[test]
+    fn media_kind_matches_by_classification() {
+        let conn = test_conn();
+        let by_kind = |value| SmartRules {
+            match_any: false,
+            conditions: vec![SmartCondition::MediaKind { value }],
+        };
+        // jpg + svg rows are images; the txt row is a document but trashed.
+        assert_eq!(count(&conn, &by_kind(MediaKindValue::Image)), 2);
+        assert_eq!(count(&conn, &by_kind(MediaKindValue::Video)), 0);
+        assert_eq!(count(&conn, &by_kind(MediaKindValue::Document)), 0);
+    }
+
+    #[test]
+    fn media_kind_lists_are_lowercase_and_disjoint() {
+        // The SQL compares LOWER(ext) against these literals, so a stray
+        // uppercase entry would silently never match.
+        let kinds = [
+            MediaKindValue::Image,
+            MediaKindValue::Video,
+            MediaKindValue::Audio,
+            MediaKindValue::Document,
+        ];
+        let mut seen = std::collections::HashSet::new();
+        for kind in kinds {
+            for ext in exts_for_kind(kind) {
+                assert_eq!(*ext, ext.to_lowercase(), "{ext} must be lowercase");
+                assert!(seen.insert(*ext), "{ext} appears in two kinds");
+            }
+        }
+    }
+
+    #[test]
+    fn media_kind_round_trips_through_rules_json() {
+        // Rules persist as JSON; the wire tag is what old rows will hold
+        // forever, so pin it.
+        let rules = SmartRules {
+            match_any: false,
+            conditions: vec![SmartCondition::MediaKind {
+                value: MediaKindValue::Image,
+            }],
+        };
+        let json = serde_json::to_string(&rules).expect("serialize");
+        assert!(json.contains(r#""field":"media_kind""#), "{json}");
+        assert!(json.contains(r#""value":"image""#), "{json}");
+        let parsed = parse_rules(&json).expect("parse");
+        assert_eq!(parsed.conditions.len(), 1);
     }
 }

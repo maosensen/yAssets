@@ -9,6 +9,15 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+### Added
+
+- **Smart folder presets and a "Type is" condition.** The sidebar's new-smart-folder
+  button now offers Images / Videos / Audio / Documents presets that pre-fill a
+  single media-type rule, and the rule editor gains a "Type is" condition so a
+  "video folder" no longer means typing extension lists. The type→extension
+  mapping lives in the app, so folders built on it automatically include new
+  formats as support grows.
+
 ## [0.1.29] - 2026-08-17
 
 ### Changed

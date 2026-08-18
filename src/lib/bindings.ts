@@ -637,6 +637,8 @@ export type MaintenanceReport = {
 	orphan_thumbnails: number,
 };
 
+export type MediaKindValue = "image" | "video" | "audio" | "document";
+
 export type OrphanCleanup = {
 	asset_files: number,
 	thumbnails: number,
@@ -658,6 +660,12 @@ export type RecentLibrary = {
 export type SmartCondition = 
 /**  Extension is one of `values` (compared lowercased). */
 { field: "ext"; values: string[] } | 
+/**
+ *  Asset's broad media kind. Unlike `Ext`, the extension list lives in
+ *  code (`exts_for_kind`), so folders built on this condition follow the
+ *  app as new formats gain support — an `Ext` list is frozen at creation.
+ */
+{ field: "media_kind"; value: MediaKindValue } | 
 /**  Filename contains `value` (case-insensitive via NOCASE-ish LIKE). */
 { field: "name_contains"; value: string } | { field: "rating_at_least"; min: number } | 
 /**  Dominant-hue bucket equals `value` (0-11 chromatic, 12 neutral). */

@@ -11,6 +11,7 @@ import { IconAdd, IconMagic, IconSmartFolderBold } from "@/components/icons";
 import { SectionLabel } from "@/components/inspector/section";
 import { NavIcon } from "@/components/sidebar/nav-icon";
 import {
+	MEDIA_KIND_ORDER,
 	SmartFolderDialog,
 	type SmartFolderDialogState,
 } from "@/components/sidebar/smart-folder-dialog";
@@ -32,6 +33,13 @@ import {
 	ContextMenuSeparator,
 	ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type { SmartFolder } from "@/lib/bindings";
 import {
 	smartFoldersQueryOptions,
@@ -53,15 +61,36 @@ export function SmartFolderList() {
 		<div className="flex shrink-0 flex-col">
 			<div className="flex items-center justify-between py-1 pr-1 pl-2">
 				<SectionLabel>{T.smartFolders.title}</SectionLabel>
-				<Button
-					variant="ghost"
-					size="icon"
-					className="size-6 text-muted-foreground"
-					aria-label={T.smartFolders.create}
-					onClick={() => setDialog("new")}
-				>
-					<IconAdd className="size-4" />
-				</Button>
+				{/* Presets first: one media-kind rule pre-filled, still editable
+				    before saving. "Custom…" is the old blank dialog. */}
+				<DropdownMenu>
+					<DropdownMenuTrigger
+						render={
+							<Button
+								variant="ghost"
+								size="icon"
+								className="size-6 text-muted-foreground"
+								aria-label={T.smartFolders.create}
+							>
+								<IconAdd className="size-4" />
+							</Button>
+						}
+					/>
+					<DropdownMenuContent align="end">
+						{MEDIA_KIND_ORDER.map((kind) => (
+							<DropdownMenuItem
+								key={kind}
+								onClick={() => setDialog({ preset: kind })}
+							>
+								{T.smartFolders.presets[kind]}
+							</DropdownMenuItem>
+						))}
+						<DropdownMenuSeparator />
+						<DropdownMenuItem onClick={() => setDialog("new")}>
+							{T.smartFolders.presetCustom}
+						</DropdownMenuItem>
+					</DropdownMenuContent>
+				</DropdownMenu>
 			</div>
 
 			{(folders ?? []).map((folder) => (

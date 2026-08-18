@@ -17,7 +17,11 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import type { SmartCondition, SmartFolder } from "@/lib/bindings";
+import type {
+	MediaKindValue,
+	SmartCondition,
+	SmartFolder,
+} from "@/lib/bindings";
 import {
 	useCreateSmartFolder,
 	useUpdateSmartFolder,
@@ -26,11 +30,17 @@ import { tagsQueryOptions } from "@/lib/queries/tags";
 import { T } from "@/lib/text";
 import { cn } from "@/lib/utils";
 
-export type SmartFolderDialogState = SmartFolder | "new" | null;
+/** `{ preset }` opens the create dialog pre-filled with one media-kind rule. */
+export type SmartFolderDialogState =
+	| SmartFolder
+	| "new"
+	| { preset: MediaKindValue }
+	| null;
 
 type FieldKind = SmartCondition["field"];
 
 const FIELD_ORDER: FieldKind[] = [
+	"media_kind",
 	"ext",
 	"name_contains",
 	"rating_at_least",
@@ -39,10 +49,19 @@ const FIELD_ORDER: FieldKind[] = [
 	"added_within_days",
 ];
 
+export const MEDIA_KIND_ORDER: MediaKindValue[] = [
+	"image",
+	"video",
+	"audio",
+	"document",
+];
+
 function defaultCondition(field: FieldKind): SmartCondition {
 	switch (field) {
 		case "ext":
 			return { field, values: [] };
+		case "media_kind":
+			return { field, value: "image" };
 		case "name_contains":
 			return { field, value: "" };
 		case "rating_at_least":
@@ -63,7 +82,12 @@ export function SmartFolderDialog({
 	state: SmartFolderDialogState;
 	onClose: () => void;
 }) {
-	const editing = state !== null && state !== "new" ? state : null;
+	const editing =
+		state !== null && state !== "new" && !("preset" in state) ? state : null;
+	const preset =
+		state !== null && state !== "new" && "preset" in state
+			? state.preset
+			: null;
 	const [name, setName] = useState("");
 	const [matchAny, setMatchAny] = useState(false);
 	const [conditions, setConditions] = useState<SmartCondition[]>([]);
@@ -72,10 +96,16 @@ export function SmartFolderDialog({
 	const busy = createMutation.isPending || updateMutation.isPending;
 
 	useEffect(() => {
+		if (preset) {
+			setName(T.smartFolders.presets[preset]);
+			setMatchAny(false);
+			setConditions([{ field: "media_kind", value: preset }]);
+			return;
+		}
 		setName(editing?.name ?? "");
 		setMatchAny(editing?.rules.match_any ?? false);
 		setConditions(editing?.rules.conditions ?? []);
-	}, [editing]);
+	}, [editing, preset]);
 
 	const submit = () => {
 		const trimmed = name.trim();
@@ -261,6 +291,25 @@ function ConditionValue({
 						})
 					}
 				/>
+			);
+		case "media_kind":
+			return (
+				<select
+					className="h-8 w-full rounded-md border border-input bg-transparent px-2 text-sm"
+					value={condition.value}
+					onChange={(event) =>
+						onChange({
+							field: "media_kind",
+							value: event.target.value as MediaKindValue,
+						})
+					}
+				>
+					{MEDIA_KIND_ORDER.map((kind) => (
+						<option key={kind} value={kind}>
+							{T.smartFolders.mediaKinds[kind]}
+						</option>
+					))}
+				</select>
 			);
 		case "name_contains":
 			return (
