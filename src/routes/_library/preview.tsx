@@ -19,9 +19,9 @@ import { z } from "zod";
 import {
 	IconChevronLeft,
 	IconChevronRight,
-	IconMinus,
 	IconPlay,
-	IconPlus,
+	IconZoomIn,
+	IconZoomOut,
 } from "@/components/icons";
 import { AudioViewer } from "@/components/preview/audio-viewer";
 import {
@@ -307,7 +307,7 @@ function PreviewTopbar({
 							aria-label={T.preview.zoomOut}
 							onClick={() => viewerRef.current?.zoomOut()}
 						>
-							<IconMinus className="size-3.5" />
+							<IconZoomOut className="size-4" />
 						</Button>
 						<button
 							type="button"
@@ -324,7 +324,7 @@ function PreviewTopbar({
 							aria-label={T.preview.zoomIn}
 							onClick={() => viewerRef.current?.zoomIn()}
 						>
-							<IconPlus className="size-3.5" />
+							<IconZoomIn className="size-4" />
 						</Button>
 						<Button
 							variant="ghost"

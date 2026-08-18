@@ -11,12 +11,31 @@
  * Components import icons from HERE by semantic name, never from `~icons/*`
  * directly — so the whole icon language stays swappable in one file, and an
  * action (e.g. "restore") always renders the same glyph everywhere.
+ *
+ * Exception: the toolbar/chrome cluster below re-exports from lucide-react.
+ * Solar's control glyphs (alt-arrows, circled plus/minus, funnel) mix bare and
+ * enclosed shapes at different optical densities, which read as mismatched
+ * weights side by side in the toolbar. Lucide's uniform 2px stroke fixes that,
+ * and the ui/ primitives (select, command, menus) already render lucide.
  */
 
 import type { ComponentType, SVGProps } from "react";
 
 /** Shape of a compiled icon — for components that take icons as props. */
 export type IconComponent = ComponentType<SVGProps<SVGSVGElement>>;
+
+// Toolbar/chrome cluster — lucide (see the header note). Keep these together:
+// a control strip only looks coherent when every glyph shares one family.
+export {
+	ArrowUpDown as IconSort,
+	ChevronLeft as IconChevronLeft,
+	ChevronRight as IconChevronRight,
+	ListFilter as IconFilter,
+	Minus as IconZoomOut,
+	Palette as IconPalette,
+	Plus as IconZoomIn,
+	Search as IconSearch,
+} from "lucide-react";
 
 // Actions
 export {
@@ -25,8 +44,6 @@ export {
 } from "~icons/solar/add-circle-linear";
 export { default as IconFolderAdd } from "~icons/solar/add-folder-linear";
 // Navigation / chrome
-export { default as IconChevronLeft } from "~icons/solar/alt-arrow-left-linear";
-export { default as IconChevronRight } from "~icons/solar/alt-arrow-right-linear";
 export { default as IconArchive } from "~icons/solar/archive-linear";
 // Status (toasts, error page, menu indicators)
 export {
@@ -49,7 +66,6 @@ export { default as IconExport } from "~icons/solar/export-linear";
 // File-type placeholders (grid cards for assets without a thumbnail)
 export { default as IconFile } from "~icons/solar/file-linear";
 export { default as IconPdf } from "~icons/solar/file-text-linear";
-export { default as IconFilter } from "~icons/solar/filter-linear";
 export { default as IconFolderBold } from "~icons/solar/folder-bold";
 // Folders
 export { default as IconFolder } from "~icons/solar/folder-linear";
@@ -76,22 +92,18 @@ export { default as IconLibrary } from "~icons/solar/library-linear";
 export { default as IconLink } from "~icons/solar/link-linear";
 export { default as IconSmartFolderBold } from "~icons/solar/magic-stick-3-bold";
 export { default as IconMagic } from "~icons/solar/magic-stick-3-linear";
-export { default as IconSearch } from "~icons/solar/magnifer-linear";
 export { default as IconExitFullscreen } from "~icons/solar/minimize-linear";
-export { default as IconMinus } from "~icons/solar/minus-circle-linear";
 // Theme chips
 export { default as IconMonitor } from "~icons/solar/monitor-linear";
 export { default as IconMoon } from "~icons/solar/moon-linear";
 export { default as IconFolderImport } from "~icons/solar/move-to-folder-linear";
 export { default as IconMusic } from "~icons/solar/music-note-2-linear";
-export { default as IconPalette } from "~icons/solar/palette-linear";
 export { default as IconPause } from "~icons/solar/pause-circle-linear";
 // Preview / present-mode controls (C 组 — viewing experience).
 export { default as IconPlay } from "~icons/solar/play-circle-linear";
 export { default as IconRadio } from "~icons/solar/record-circle-linear";
 export { default as IconReload } from "~icons/solar/restart-linear";
 export { default as IconSettings } from "~icons/solar/settings-linear";
-export { default as IconSort } from "~icons/solar/sort-vertical-linear";
 export { default as IconReveal } from "~icons/solar/square-top-up-linear";
 // Rating uses the filled (bold) star for earned stars, outline for the rest.
 export { default as IconStarBold } from "~icons/solar/star-bold";

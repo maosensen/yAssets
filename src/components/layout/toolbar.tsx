@@ -15,9 +15,9 @@ import { useEffect, useState } from "react";
 import {
 	IconChevronLeft,
 	IconChevronRight,
-	IconMinus,
-	IconPlus,
 	IconSearch,
+	IconZoomIn,
+	IconZoomOut,
 } from "@/components/icons";
 import { ColorFilter } from "@/components/layout/color-filter";
 import { FilterControl } from "@/components/layout/filter-control";
@@ -158,7 +158,7 @@ export function Toolbar() {
 					aria-label={T.toolbar.zoomOut}
 					onClick={() => stepZoom(-ZOOM_STEP)}
 				>
-					<IconMinus className="size-3.5" />
+					<IconZoomOut className="size-4" />
 				</Button>
 				<Slider
 					className="w-36"
@@ -177,7 +177,7 @@ export function Toolbar() {
 					aria-label={T.toolbar.zoomIn}
 					onClick={() => stepZoom(ZOOM_STEP)}
 				>
-					<IconPlus className="size-3.5" />
+					<IconZoomIn className="size-4" />
 				</Button>
 			</div>
 
