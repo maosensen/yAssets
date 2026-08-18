@@ -80,8 +80,11 @@ modules:
   - id: code-signing
     title: 代码签名 + 公证
     tier: required
-    status: todo
-    note: 未签名的桌面包会弹一个没人敢点「继续」的警告。
+    status: done
+    completedAt: 2026-08-17
+    note: >-
+      macOS: Developer ID Application 签名 + Apple 公证,CI 内完成(APPLE_* secrets),
+      v0.1.30 起下载包直接通过 Gatekeeper。Windows 仍缺 OV/EV 证书。
   - id: platform-installers
     title: 各目标平台的安装包
     tier: required
@@ -90,7 +93,9 @@ modules:
   - id: apple-dev-account
     title: 苹果开发者账号
     tier: required
-    status: todo
+    status: done
+    completedAt: 2026-08-17
+    note: Apple Developer Program 已加入;Developer ID 证书与公证凭据已配入 CI。
   - id: i18n
     title: 多语言
     tier: enhancement
@@ -286,10 +291,11 @@ features:
     area: 组织
     status: done
     completedAt: 2026-08-18
+    shippedIn: v0.1.30
     note: >-
       规则引擎新增 MediaKind 条件(ext 分类映射活在代码里,新格式自动纳入
       已建文件夹,区别于创建时快照的 Ext 列表);新建对话框默认预填一条
-      类型条件,四类选项为带图标 chip。
+      类型条件,四类选项为带图标下拉。
   - id: asset-drag-organize
     title: 拖拽素材归档
     area: 组织

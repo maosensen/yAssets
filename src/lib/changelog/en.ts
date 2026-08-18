@@ -2,6 +2,25 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.30",
+		date: "2026-08-18",
+		title: "Smart folders by type, in one click",
+		summary:
+			"A new Type condition means “all my videos” is a dropdown pick instead of a list of file extensions.",
+		changes: [
+			{
+				kind: "new",
+				title: "“Type is” condition",
+				text: "New smart folders open with a Type condition already in place — choose Image, Video, Audio or Document and name it. The type→extension mapping lives in the app, so a folder built on it picks up new formats as support grows, unlike a hand-typed extension list.",
+			},
+			{
+				kind: "improved",
+				title: "A consistent toolbar",
+				text: "The chrome icons — back/forward, zoom, sort, filter, palette, search — were a mix of shapes and stroke weights at compensating sizes. They now share one family at one size and weight.",
+			},
+		],
+	},
+	{
 		version: "0.1.29",
 		date: "2026-08-17",
 		title: "Notarized installs and a tidier sidebar",
@@ -74,7 +93,7 @@ export const en: ChangelogRelease[] = [
 			{
 				kind: "fixed",
 				title: "No more stuck import toast",
-				text: "A \u201cPreparing import\u2026\u201d toast whose job went quiet used to stay on screen forever. It now has a Cancel button, and a silent job's toast clears itself.",
+				text: "A “Preparing import…” toast whose job went quiet used to stay on screen forever. It now has a Cancel button, and a silent job's toast clears itself.",
 			},
 		],
 	},

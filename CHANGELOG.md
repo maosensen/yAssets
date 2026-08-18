@@ -9,13 +9,22 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.30] - 2026-08-18
+
 ### Added
 
 - **A "Type is" condition makes smart folders one-click simple.** New smart
   folders open with a Type condition already in place — pick Image, Video,
-  Audio or Document from icon chips, name it, done. No more typing extension
+  Audio or Document from a dropdown, name it, done. No more typing extension
   lists; the type→extension mapping lives in the app, so folders built on it
   automatically include new formats as support grows.
+
+### Changed
+
+- **A consistent toolbar.** The chrome icons (back/forward, zoom, sort, filter,
+  palette, search) came from glyphs with mismatched shapes and stroke weights —
+  bare arrows beside circled +/− beside a funnel — and were sized differently
+  to compensate. They now share one family at one size and weight.
 
 ## [0.1.29] - 2026-08-17
 
@@ -428,6 +437,7 @@ with Tauri 2.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
 [Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.26...HEAD
+[0.1.30]: https://github.com/maosensen/yAssets/releases/tag/v0.1.30
 [0.1.29]: https://github.com/maosensen/yAssets/releases/tag/v0.1.29
 [0.1.28]: https://github.com/maosensen/yAssets/releases/tag/v0.1.28
 [0.1.27]: https://github.com/maosensen/yAssets/releases/tag/v0.1.27
