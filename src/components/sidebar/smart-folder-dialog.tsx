@@ -24,6 +24,12 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+} from "@/components/ui/select";
 import type {
 	MediaKindValue,
 	SmartCondition,
@@ -290,33 +296,41 @@ function ConditionValue({
 					}
 				/>
 			);
-		case "media_kind":
-			// Icon chips, not a <select> (native options can't carry icons).
-			// A fixed 2×2 grid: equal-width cells stay aligned in every locale,
-			// where free wrapping degraded into a ragged 2-1-1 pile in Japanese.
+		case "media_kind": {
+			// The Base UI Select, not a native <select>: options carry the kind
+			// icons, which <option> cannot. The trigger renders from our own
+			// state rather than SelectValue's internal label lookup.
+			const active =
+				MEDIA_KINDS.find((entry) => entry.kind === condition.value) ??
+				MEDIA_KINDS[0];
+			const ActiveIcon = active.icon;
 			return (
-				<div className="grid grid-cols-2 gap-1.5">
-					{MEDIA_KINDS.map(({ kind, icon: Icon }) => (
-						<button
-							key={kind}
-							type="button"
-							aria-pressed={condition.value === kind}
-							className={cn(
-								"flex h-8 items-center justify-center gap-1.5 rounded-md border px-2 text-sm transition-colors",
-								condition.value === kind
-									? "border-primary bg-primary/10 text-foreground"
-									: "border-input text-muted-foreground hover:bg-accent hover:text-foreground",
-							)}
-							onClick={() => onChange({ field: "media_kind", value: kind })}
-						>
-							<Icon className="size-3.5 shrink-0" />
-							<span className="truncate">
+				<Select
+					value={condition.value}
+					onValueChange={(value) =>
+						onChange({ field: "media_kind", value: value as MediaKindValue })
+					}
+				>
+					<SelectTrigger
+						size="sm"
+						className="w-full rounded-md bg-transparent px-2"
+					>
+						<span className="flex flex-1 items-center gap-1.5 text-left">
+							<ActiveIcon className="size-3.5 shrink-0 text-muted-foreground" />
+							{T.smartFolders.mediaKinds[active.kind]}
+						</span>
+					</SelectTrigger>
+					<SelectContent>
+						{MEDIA_KINDS.map(({ kind, icon: Icon }) => (
+							<SelectItem key={kind} value={kind}>
+								<Icon className="size-3.5 text-muted-foreground" />
 								{T.smartFolders.mediaKinds[kind]}
-							</span>
-						</button>
-					))}
-				</div>
+							</SelectItem>
+						))}
+					</SelectContent>
+				</Select>
 			);
+		}
 		case "name_contains":
 			return (
 				<Input
