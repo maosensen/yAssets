@@ -14,6 +14,8 @@
 //! - **Main thread.** macOS `beginDraggingSession` must run on the main thread,
 //!   so the `start_drag` call is dispatched via `run_on_main_thread`. Paths are
 //!   resolved here in Rust and never cross the IPC boundary (see `reveal_asset`).
+//! - **The drag ghost must be a real image.** See `FALLBACK_DRAG_GHOST`: handing
+//!   AppKit library content it cannot decode takes the whole process down.
 
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -28,6 +30,21 @@ use crate::state::AppState;
 /// Staged drag files older than this are swept at the next drag — a drag
 /// session that outlives it has long since been read by the drop target.
 const STALE_SECS: u64 = 60;
+
+/// The ghost AppKit draws under the cursor when an asset has no thumbnail.
+///
+/// It has to be a decodable image, and the failure mode if it isn't is brutal:
+/// `NSImage(byReferencingFile:)` loads lazily, so pointing it at, say, an mp3
+/// returns a **non-nil** image with zero size and no representations — nothing
+/// errors, nothing panics. AppKit only objects later, raising an ObjC exception
+/// from inside `beginDraggingSession`. That runs in our `run_on_main_thread`
+/// closure, which tao invokes from a CFRunLoop observer wrapped in
+/// `catch_unwind`; Rust cannot catch a foreign exception, so it aborts the
+/// process. Dragging any audio file out used to kill the app this way.
+///
+/// So the ghost is only ever a thumbnail we generated ourselves or this
+/// embedded PNG — never raw library content.
+const FALLBACK_DRAG_GHOST: &[u8] = include_bytes!("../../icons/128x128.png");
 
 /// Begin an OS drag of `ids` out of the window. Returns once the drag session
 /// has started (the OS then owns the gesture); the drop target is external.
@@ -87,13 +104,14 @@ pub async fn start_asset_drag(
             let Some(target) = handoff::stage_one(&src, &dir, name, ext, &mut used) else {
                 continue;
             };
+            // First real thumbnail in the selection wins. Assets without one
+            // (audio, formats we can't thumbnail) contribute nothing here and
+            // fall through to FALLBACK_DRAG_GHOST — never their own bytes.
             if image.is_none() {
                 let thumb = lib.thumb_path(id);
-                image = Some(if thumb.is_file() {
-                    thumb
-                } else {
-                    target.clone()
-                });
+                if thumb.is_file() {
+                    image = Some(thumb);
+                }
             }
             paths.push(target);
         }
@@ -104,7 +122,10 @@ pub async fn start_asset_drag(
     if staged.paths.is_empty() {
         return Err(AppError::NotFound("no draggable files".into()));
     }
-    let image = drag::Image::File(staged.image.unwrap_or_else(|| staged.paths[0].clone()));
+    let image = match staged.image {
+        Some(thumb) => drag::Image::File(thumb),
+        None => drag::Image::Raw(FALLBACK_DRAG_GHOST.to_vec()),
+    };
 
     // macOS requires the drag session to start on the main thread. Bridge the
     // start result back so a failure surfaces to the caller. `start_drag` takes
@@ -150,7 +171,22 @@ pub async fn start_asset_drag(
 }
 
 /// Staged drag payload: the temp files to drag + the drag image to show.
+/// `image` is `None` when nothing in the selection had a thumbnail.
 struct Staged {
     paths: Vec<PathBuf>,
     image: Option<PathBuf>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_fallback_drag_ghost_decodes_as_an_image() {
+        // Decode it here so a wrong `include_bytes!` path fails this test
+        // rather than aborting the app mid-drag (see FALLBACK_DRAG_GHOST).
+        let decoded = image::load_from_memory(FALLBACK_DRAG_GHOST)
+            .expect("the fallback drag ghost must be a decodable image");
+        assert!(decoded.width() > 0 && decoded.height() > 0);
+    }
 }
