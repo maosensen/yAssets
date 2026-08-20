@@ -674,7 +674,19 @@ export type SmartCondition =
 export type SmartFolder = {
 	id: string,
 	name: string,
-	rules: SmartRules,
+	/**
+	 *  `None` when this build cannot read the saved rules — almost always a
+	 *  folder created by a NEWER version, since adding a `SmartCondition`
+	 *  variant is forward-incompatible: the older build has no idea what
+	 *  `{"field":"media_kind"}` means.
+	 * 
+	 *  Such a folder is still listed (see `all_smart_folders_in`). It used to be
+	 *  dropped from the list, which read to the user as "my folder was deleted"
+	 *  with only a WARN in the log to say otherwise. The rules are never
+	 *  re-serialized in this state — writing back what we failed to read would
+	 *  silently destroy the conditions the user actually saved.
+	 */
+	rules: SmartRules | null,
 	position: number,
 };
 

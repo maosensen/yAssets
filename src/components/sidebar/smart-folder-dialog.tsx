@@ -103,17 +103,21 @@ export function SmartFolderDialog({
 
 	useEffect(() => {
 		setName(editing?.name ?? "");
-		setMatchAny(editing?.rules.match_any ?? false);
+		setMatchAny(editing?.rules?.match_any ?? false);
 		// A fresh folder starts from the most common ask — "assets of this
 		// type" — with one media-kind row already in place.
 		setConditions(
-			editing?.rules.conditions ?? [defaultCondition("media_kind")],
+			editing?.rules?.conditions ?? [defaultCondition("media_kind")],
 		);
 	}, [editing]);
 
 	const submit = () => {
 		const trimmed = name.trim();
 		if (!trimmed || busy) return;
+		// Unreachable from the sidebar, which offers no Edit entry for a folder
+		// whose rules this build cannot read — but refuse anyway rather than
+		// write back conditions we never managed to parse.
+		if (editing && editing.rules === null) return;
 		const rules = { match_any: matchAny, conditions };
 		const done = { onSuccess: onClose };
 		if (editing) {

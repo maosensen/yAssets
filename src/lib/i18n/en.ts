@@ -368,6 +368,9 @@ export const en = {
 		saveAction: "Save",
 		createAction: "Create",
 		menuEdit: "Edit",
+		unreadableLabel: "Needs a newer version",
+		unreadableHint:
+			"This smart folder was saved by a newer version of yAssets, so its rules can't be read here. Update the app to use it.",
 		menuDelete: "Delete",
 		deleteTitle: (name: string) => `Delete smart folder “${name}”?`,
 		deleteDesc: "Assets are not affected — only the saved rules are removed.",

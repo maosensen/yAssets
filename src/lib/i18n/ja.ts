@@ -371,6 +371,9 @@ export const ja: Messages = {
 		saveAction: "保存",
 		createAction: "作成",
 		menuEdit: "編集",
+		unreadableLabel: "新しいバージョンが必要",
+		unreadableHint:
+			"このスマートフォルダは新しいバージョンの yAssets で保存されており、このバージョンではルールを読み取れません。アプリを更新すると使用できます。",
 		menuDelete: "削除",
 		deleteTitle: (name: string) =>
 			`スマートフォルダ「${name}」を削除しますか？`,

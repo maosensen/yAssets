@@ -560,7 +560,10 @@ pub struct SmartFolderRow {
     pub id: String,
     pub name: String,
     /// The saved rule set, verbatim — the internal shape is already agent-legible.
-    pub rules: crate::commands::smart_folders::SmartRules,
+    /// `null` when this build cannot read them (a folder written by a newer
+    /// version); the folder is still listed so an agent can see it exists and
+    /// report it, but it must not try to reason about or rewrite the rules.
+    pub rules: Option<crate::commands::smart_folders::SmartRules>,
 }
 
 impl From<SmartFolder> for SmartFolderRow {

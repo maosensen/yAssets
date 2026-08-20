@@ -90,7 +90,17 @@ pub(crate) fn exts_for_kind(kind: MediaKindValue) -> &'static [&'static str] {
 pub struct SmartFolder {
     pub id: String,
     pub name: String,
-    pub rules: SmartRules,
+    /// `None` when this build cannot read the saved rules — almost always a
+    /// folder created by a NEWER version, since adding a `SmartCondition`
+    /// variant is forward-incompatible: the older build has no idea what
+    /// `{"field":"media_kind"}` means.
+    ///
+    /// Such a folder is still listed (see `all_smart_folders_in`). It used to be
+    /// dropped from the list, which read to the user as "my folder was deleted"
+    /// with only a WARN in the log to say otherwise. The rules are never
+    /// re-serialized in this state — writing back what we failed to read would
+    /// silently destroy the conditions the user actually saved.
+    pub rules: Option<SmartRules>,
     pub position: u32,
 }
 
@@ -178,23 +188,26 @@ pub(crate) fn all_smart_folders_in(conn: &rusqlite::Connection) -> AppResult<Vec
             ))
         })?
         .collect::<rusqlite::Result<Vec<_>>>()?;
-    // Unparseable rules (edited by hand / newer app) are skipped, not fatal.
+    // Unreadable rules (hand-edited, or written by a newer build) yield
+    // `rules: None` rather than dropping the row — the UI shows the folder as
+    // unavailable so it doesn't look deleted.
     Ok(rows
         .into_iter()
-        .filter_map(
-            |(id, name, rules_json, position)| match parse_rules(&rules_json) {
-                Ok(rules) => Some(SmartFolder {
-                    id,
-                    name,
-                    rules,
-                    position,
-                }),
+        .map(|(id, name, rules_json, position)| {
+            let rules = match parse_rules(&rules_json) {
+                Ok(rules) => Some(rules),
                 Err(_) => {
-                    log::warn!("skipping smart folder {id}: unparseable rules");
+                    log::warn!("smart folder {id}: unreadable rules, listing as unavailable");
                     None
                 }
-            },
-        )
+            };
+            SmartFolder {
+                id,
+                name,
+                rules,
+                position,
+            }
+        })
         .collect())
 }
 
@@ -217,13 +230,13 @@ pub(crate) fn create_smart_folder_in(
     if trimmed.is_empty() {
         return Err(AppError::Conflict("smart folder name is empty".into()));
     }
+    let json = serde_json::to_string(&rules)?;
     let folder = SmartFolder {
         id: new_id(),
         name: trimmed,
-        rules,
+        rules: Some(rules),
         position: 0,
     };
-    let json = serde_json::to_string(&folder.rules)?;
     conn.execute(
         "INSERT INTO smart_folders (id, name, rules, position, created_at, updated_at)
          VALUES (?1, ?2, ?3, 0, ?4, ?4)",
@@ -421,6 +434,38 @@ mod tests {
                 assert!(seen.insert(*ext), "{ext} appears in two kinds");
             }
         }
+    }
+
+    #[test]
+    fn an_unreadable_rule_set_is_listed_as_unavailable_not_dropped() {
+        // The regression this guards: a folder written by a newer build used to
+        // vanish from the sidebar, which reads as "it was deleted".
+        let conn = test_conn();
+        conn.execute_batch(
+            r#"INSERT INTO smart_folders (id, name, rules, position, created_at, updated_at)
+               VALUES
+                 ('sf0000000000000001', 'readable',
+                  '{"match_any":false,"conditions":[{"field":"rating_at_least","min":3}]}',
+                  0, 1000, 1000),
+                 ('sf0000000000000002', 'from a newer build',
+                  '{"match_any":false,"conditions":[{"field":"not_a_field_we_know","value":1}]}',
+                  1, 2000, 2000);"#,
+        )
+        .expect("seed smart folders");
+
+        let folders = all_smart_folders_in(&conn).expect("list");
+        assert_eq!(
+            folders.len(),
+            2,
+            "the unreadable folder must still be listed"
+        );
+        assert!(folders[0].rules.is_some());
+        assert!(
+            folders[1].rules.is_none(),
+            "unreadable rules surface as None, not as a dropped row"
+        );
+        // Name survives, so the sidebar can still identify it for the user.
+        assert_eq!(folders[1].name, "from a newer build");
     }
 
     #[test]

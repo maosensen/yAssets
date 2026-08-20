@@ -7,7 +7,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
-import { IconAdd, IconMagic, IconSmartFolderBold } from "@/components/icons";
+import {
+	IconAdd,
+	IconMagic,
+	IconSmartFolderBold,
+	IconWarning,
+} from "@/components/icons";
 import { SectionLabel } from "@/components/inspector/section";
 import { NavIcon } from "@/components/sidebar/nav-icon";
 import {
@@ -64,36 +69,65 @@ export function SmartFolderList() {
 				</Button>
 			</div>
 
-			{(folders ?? []).map((folder) => (
-				<ContextMenu key={folder.id}>
-					<ContextMenuTrigger className="block">
-						<Link
-							to="/"
-							search={{ view: "smart", smartId: folder.id }}
-							className={sidebarRowClass(activeId === folder.id)}
-						>
-							<NavIcon
-								line={IconMagic}
-								bold={IconSmartFolderBold}
-								active={activeId === folder.id}
-								className="size-4 shrink-0"
-							/>
-							<span className="min-w-0 flex-1 truncate">{folder.name}</span>
-						</Link>
-					</ContextMenuTrigger>
-					<ContextMenuContent>
-						<ContextMenuItem onClick={() => setDialog(folder)}>
-							{T.smartFolders.menuEdit}
-						</ContextMenuItem>
-						<ContextMenuSeparator />
-						<ContextMenuItem onClick={() => setDeleting(folder)}>
-							<span className="text-destructive">
-								{T.smartFolders.menuDelete}
-							</span>
-						</ContextMenuItem>
-					</ContextMenuContent>
-				</ContextMenu>
-			))}
+			{(folders ?? []).map((folder) =>
+				// `rules: null` = saved by a newer build than this one. Shown, but
+				// not navigable (there is no rule set to run) and not editable
+				// (saving would overwrite conditions we could not read). Delete
+				// stays available so the row isn't a dead end.
+				folder.rules === null ? (
+					<ContextMenu key={folder.id}>
+						<ContextMenuTrigger className="block">
+							<div
+								className={sidebarRowClass(false, "cursor-default opacity-60")}
+								title={T.smartFolders.unreadableHint}
+							>
+								<IconWarning className="size-4 shrink-0 text-muted-foreground" />
+								<span className="min-w-0 flex-1 truncate">{folder.name}</span>
+							</div>
+						</ContextMenuTrigger>
+						<ContextMenuContent>
+							<ContextMenuItem disabled>
+								{T.smartFolders.unreadableLabel}
+							</ContextMenuItem>
+							<ContextMenuSeparator />
+							<ContextMenuItem onClick={() => setDeleting(folder)}>
+								<span className="text-destructive">
+									{T.smartFolders.menuDelete}
+								</span>
+							</ContextMenuItem>
+						</ContextMenuContent>
+					</ContextMenu>
+				) : (
+					<ContextMenu key={folder.id}>
+						<ContextMenuTrigger className="block">
+							<Link
+								to="/"
+								search={{ view: "smart", smartId: folder.id }}
+								className={sidebarRowClass(activeId === folder.id)}
+							>
+								<NavIcon
+									line={IconMagic}
+									bold={IconSmartFolderBold}
+									active={activeId === folder.id}
+									className="size-4 shrink-0"
+								/>
+								<span className="min-w-0 flex-1 truncate">{folder.name}</span>
+							</Link>
+						</ContextMenuTrigger>
+						<ContextMenuContent>
+							<ContextMenuItem onClick={() => setDialog(folder)}>
+								{T.smartFolders.menuEdit}
+							</ContextMenuItem>
+							<ContextMenuSeparator />
+							<ContextMenuItem onClick={() => setDeleting(folder)}>
+								<span className="text-destructive">
+									{T.smartFolders.menuDelete}
+								</span>
+							</ContextMenuItem>
+						</ContextMenuContent>
+					</ContextMenu>
+				),
+			)}
 
 			<SmartFolderDialog state={dialog} onClose={() => setDialog(null)} />
 

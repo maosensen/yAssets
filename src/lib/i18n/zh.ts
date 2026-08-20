@@ -360,6 +360,9 @@ export const zh: Messages = {
 		saveAction: "保存",
 		createAction: "创建",
 		menuEdit: "编辑",
+		unreadableLabel: "需要更新版本",
+		unreadableHint:
+			"这个智能文件夹由更新版本的 yAssets 保存，当前版本读不出它的规则。升级应用后即可使用。",
 		menuDelete: "删除",
 		deleteTitle: (name: string) => `删除智能文件夹「${name}」？`,
 		deleteDesc: "素材不受影响 — 仅移除已保存的规则。",
