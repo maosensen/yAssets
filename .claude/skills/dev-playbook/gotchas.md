@@ -18,6 +18,8 @@
 | 症状 | 根因 | 处置 |
 |---|---|---|
 | 安装后提示「已损坏，无法打开」 | 未公证 + quarantine 属性（Gatekeeper）。**仅影响 ≤ v0.1.28 的下载包**——之后 CI 已配 Developer ID 签名 + 公证（`APPLE_*` secrets），Gatekeeper 直接放行 | 老版本包：`xattr -cr /Applications/yAssets.app`（README 已记载）；应用内更新下载不带 quarantine，不受影响。新发版后用 `spctl -a -vvv -t install` 应看到 `source=Notarized Developer ID` |
+| 拖某类素材到外部应用 → 整个 app 立刻消失,**日志空白、无 panic 信息**,崩溃报告是 SIGABRT + `__rust_foreign_exception` | ObjC 异常穿过 Rust。`NSImage(byReferencingFile:)` **惰性加载**:指向非图像(mp3)返回**非 nil**、size (0,0)、representations 0、isValid false,所以 `.expect()` 和错误分支全都察觉不到;AppKit 到 `beginDraggingSession` 才抛 NSException。而该闭包由 `run_on_main_thread` 派发、tao 在 CFRunLoop observer 里套 `catch_unwind` 调用它 → Rust 无法捕获外来异常 → `abort()` | 交给 AppKit 的图**只能是我们自己生成的缩略图或内嵌 PNG**,绝不用素材原始字节(`commands/drag.rs` 的 `FALLBACK_DRAG_GHOST`)。诊断手法:`swift` 三行脚本直接对可疑文件跑 `NSImage(byReferencingFile:)`,看 size/representations/isValid |
+| 崩溃报告只有 `abort() called`,没有 `*** Terminating app due to uncaught exception` 那句 reason | 异常被 `catch_unwind` 截住了,ObjC 的**未捕获异常处理器从未运行**,所以连异常名和 reason 都没留下。栈里看到的是 abort 路径,不是 raise 路径 | 别指望报告告诉你抛在哪。找**只对某类数据复现**的差异(有无缩略图、有无某字段),那条差异就是入口。栈顶出现 `tao::...::stop_app_on_panic` + `__rust_foreign_exception` 即可确认是这一类 |
 | 双击启动「闪退」 | 大概率不是 crash：single-instance 插件——dev 实例与 release 版同 identifier（`com.maosensen.yassets`），后启动者直接退出 | 先查 `~/Library/Logs/DiagnosticReports` 有无记录；没有 → 关掉 `pnpm tauri dev` 再启动。dev 与正式版互斥属预期 |
 | （潜在）不同大小写文件名撞车 | APFS 大小写不敏感 | 文件 id 只用 `[0-9a-z]` 字母表（`library::new_id`），别引入混合大小写 id |
 

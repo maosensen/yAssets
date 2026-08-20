@@ -9,6 +9,19 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+### Fixed
+
+- **Dragging an audio file out no longer quits the app.** The drag ghost fell
+  back to the asset's own file when it had no thumbnail, and handing macOS a
+  non-image there takes the whole process down with no error and nothing in the
+  log. The ghost is now always a real image. A mixed selection also shows a
+  proper thumbnail if any item has one.
+- **A smart folder saved by a newer version no longer disappears.** Its rules
+  can't be read by an older build, and the folder used to vanish from the
+  sidebar — indistinguishable from having been deleted. It now stays listed and
+  marked as needing an app update. It can't be opened or edited in that state
+  (saving would overwrite the rules), but it can still be deleted.
+
 ## [0.1.30] - 2026-08-18
 
 ### Added
