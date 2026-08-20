@@ -2,6 +2,30 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.31",
+		date: "2026-08-20",
+		title: "Two fixes worth shipping straight away",
+		summary:
+			"Dragging an audio file out could take the whole app down, and a smart folder from a newer version could look deleted.",
+		changes: [
+			{
+				kind: "fixed",
+				title: "Dragging audio out no longer quits the app",
+				text: "The ghost image under the cursor fell back to the asset's own file when it had no thumbnail, and handing macOS a non-image there killed the process outright — no error, nothing in the log. The ghost is now always a real image, and a mixed selection shows a proper thumbnail if any item has one.",
+			},
+			{
+				kind: "fixed",
+				title: "A smart folder from a newer version no longer disappears",
+				text: "Its rules can't be read by an older build, so the folder used to vanish from the sidebar — indistinguishable from having been deleted. It now stays listed and marked as needing an app update. It can't be opened or edited in that state, since saving would overwrite rules that were never read, but it can still be deleted.",
+			},
+			{
+				kind: "fixed",
+				title: "Type icons line up",
+				text: "In a smart folder's Type condition, the music note sat visibly right of the other three. All four now share one icon family.",
+			},
+		],
+	},
+	{
 		version: "0.1.30",
 		date: "2026-08-18",
 		title: "Smart folders by type, in one click",

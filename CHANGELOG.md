@@ -9,6 +9,8 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.31] - 2026-08-20
+
 ### Fixed
 
 - **Dragging an audio file out no longer quits the app.** The drag ghost fell
@@ -21,6 +23,8 @@ Each release's section below is published verbatim as its GitHub Release notes
   sidebar — indistinguishable from having been deleted. It now stays listed and
   marked as needing an app update. It can't be opened or edited in that state
   (saving would overwrite the rules), but it can still be deleted.
+- **The type icons in a smart folder's condition line up.** The music note sat
+  visibly right of the others; the four now share one icon family.
 
 ## [0.1.30] - 2026-08-18
 
@@ -450,6 +454,7 @@ with Tauri 2.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
 [Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.26...HEAD
+[0.1.31]: https://github.com/maosensen/yAssets/releases/tag/v0.1.31
 [0.1.30]: https://github.com/maosensen/yAssets/releases/tag/v0.1.30
 [0.1.29]: https://github.com/maosensen/yAssets/releases/tag/v0.1.29
 [0.1.28]: https://github.com/maosensen/yAssets/releases/tag/v0.1.28
