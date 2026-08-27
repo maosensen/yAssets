@@ -259,6 +259,22 @@ go in the host entry's `note`, not into new entries. `id` values are permanent â
 never rename or reuse them. Releases reconcile the ledger as a gate step
 (`shippedIn` backfill happens there).
 
+**Check it before pushing.** A ledger that fails to parse or validate takes
+this whole repo out of the sync: yPulse skips the file, so these rows freeze at
+their last good state while every other project keeps moving, and the CI signal
+is a run that may already be red for someone else's reason. From the yPulse
+checkout:
+
+```sh
+cd ../yIPulse && pnpm ledger:check   # this repo plus every sibling checkout
+```
+
+Two mistakes have each cost a repo weeks of frozen data, so they are worth
+naming. Long notes must be block scalars (`note: |`) â€” a bare `key: value`
+inside a single-line plain scalar makes YAML read it as a nested mapping, and
+the whole file stops parsing. And a new `area` word has to join the file's
+`areas:` list in the same edit, or every entry using it fails validation at once.
+
 ## Before committing
 
 `pnpm check` must pass. That runs, in order:
