@@ -58,8 +58,22 @@ export function AppShell() {
 			<DropOverlay visible={isDragOver} />
 			<DragGhost />
 			<DuplicateAlertDialog />
+			{/* The two rails keep their pixel width when the window resizes; the
+			    content column absorbs the difference. Without
+			    `preserve-pixel-size` (the library's default is
+			    `preserve-relative-size`) a panel holds its *percentage* of the
+			    group, so maximizing scaled both rails up until they hit
+			    maxSize — 260px of a 1200px window is 21.7%, which is 416px at
+			    1920px wide. Both rails snapped to their maximum on every
+			    maximize. The group needs at least one relative panel, which is
+			    exactly the role the content column should play anyway. */}
 			<ResizablePanelGroup className="min-h-0 flex-1">
-				<ResizablePanel defaultSize="260px" minSize="200px" maxSize="420px">
+				<ResizablePanel
+					defaultSize="260px"
+					minSize="200px"
+					maxSize="420px"
+					groupResizeBehavior="preserve-pixel-size"
+				>
 					<Sidebar />
 				</ResizablePanel>
 				<ResizableHandle />
@@ -70,7 +84,12 @@ export function AppShell() {
 					</main>
 				</ResizablePanel>
 				<ResizableHandle />
-				<ResizablePanel defaultSize="280px" minSize="240px" maxSize="420px">
+				<ResizablePanel
+					defaultSize="280px"
+					minSize="240px"
+					maxSize="420px"
+					groupResizeBehavior="preserve-pixel-size"
+				>
 					<InspectorPanel />
 				</ResizablePanel>
 			</ResizablePanelGroup>

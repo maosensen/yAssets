@@ -9,6 +9,13 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+### Fixed
+
+- **Maximizing the window no longer widens both sidebars.** The two rails held
+  their share of the window rather than their width, so every maximize stretched
+  them out to their maximum. They now keep the width you set, and the content
+  column takes the extra space.
+
 ## [0.1.31] - 2026-08-20
 
 ### Fixed
