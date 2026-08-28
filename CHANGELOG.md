@@ -15,6 +15,9 @@ Each release's section below is published verbatim as its GitHub Release notes
   their share of the window rather than their width, so every maximize stretched
   them out to their maximum. They now keep the width you set, and the content
   column takes the extra space.
+- **Sidebar widths survive a relaunch.** Dragging a sidebar wider used to be
+  forgotten on the next launch. The widths are remembered now — but only the
+  ones you set by hand, so resizing the window never quietly redefines them.
 
 ## [0.1.31] - 2026-08-20
 

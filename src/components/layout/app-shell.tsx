@@ -31,6 +31,7 @@ import {
 	ResizableHandle,
 	ResizablePanel,
 	ResizablePanelGroup,
+	useDefaultLayout,
 } from "@/components/ui/resizable";
 import { useAgentEvents } from "@/hooks/use-agent-events";
 import { useCollectEvents } from "@/hooks/use-collect-events";
@@ -52,6 +53,17 @@ export function AppShell() {
 	const { isDragOver } = useDragImport((paths) =>
 		importPaths(paths, dropFolderId),
 	);
+	// Rail widths survive a relaunch (localStorage, keyed once for the whole
+	// app — this is window chrome, not per-library data).
+	//
+	// `onlySaveAfterUserInteractions` matters: a window resize also emits a
+	// layout change, so without it a maximize/restore cycle would write its own
+	// widths back to storage and make them the new normal. Only a deliberate
+	// drag of a separator counts.
+	const { defaultLayout, onLayoutChanged } = useDefaultLayout({
+		id: "app-shell",
+		onlySaveAfterUserInteractions: true,
+	});
 
 	return (
 		<div className="flex h-screen flex-col">
@@ -67,8 +79,13 @@ export function AppShell() {
 			    1920px wide. Both rails snapped to their maximum on every
 			    maximize. The group needs at least one relative panel, which is
 			    exactly the role the content column should play anyway. */}
-			<ResizablePanelGroup className="min-h-0 flex-1">
+			<ResizablePanelGroup
+				className="min-h-0 flex-1"
+				defaultLayout={defaultLayout}
+				onLayoutChanged={onLayoutChanged}
+			>
 				<ResizablePanel
+					id="sidebar"
 					defaultSize="260px"
 					minSize="200px"
 					maxSize="420px"
@@ -77,7 +94,7 @@ export function AppShell() {
 					<Sidebar />
 				</ResizablePanel>
 				<ResizableHandle />
-				<ResizablePanel minSize="320px">
+				<ResizablePanel id="content" minSize="320px">
 					{/* Content column stays solid — thumbnails need stable ground. */}
 					<main className="h-full min-w-0 overflow-hidden bg-background">
 						<Outlet />
@@ -85,6 +102,7 @@ export function AppShell() {
 				</ResizablePanel>
 				<ResizableHandle />
 				<ResizablePanel
+					id="inspector"
 					defaultSize="280px"
 					minSize="240px"
 					maxSize="420px"

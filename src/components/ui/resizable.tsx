@@ -47,4 +47,7 @@ function ResizableHandle({
 	);
 }
 
+// Re-exported so app code never imports the panel library directly — the
+// dependency stays pinned to this one file, same reasoning as icons.ts.
+export { useDefaultLayout } from "react-resizable-panels";
 export { ResizableHandle, ResizablePanel, ResizablePanelGroup };
