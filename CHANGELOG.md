@@ -11,6 +11,15 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ### Fixed
 
+- **Watched folders no longer import hidden intermediates from live events.** The
+  initial scan of a watched folder already skipped dot-prefixed entries and rebuilt
+  the folder chain, but files arriving through live filesystem events went straight
+  to import as loose paths — no junk filter, no chain. Point a watched folder at a
+  recorder's output directory and every frame it wrote into `.work/frames/` landed
+  in the library as an uncategorized asset (1,719 of them, in one recording). Live
+  events now go through the same filter and land in the same `root/sub/…` folders
+  the scan would have created.
+
 - **Maximizing the window no longer widens both sidebars.** The two rails held
   their share of the window rather than their width, so every maximize stretched
   them out to their maximum. They now keep the width you set, and the content

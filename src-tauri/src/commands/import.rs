@@ -48,6 +48,7 @@ pub async fn import_paths(
         keep_duplicates,
         // User-initiated import — surface exact duplicates in the alert dialog.
         true,
+        None,
     );
     Ok(ImportStarted { job_id })
 }
@@ -95,6 +96,7 @@ pub async fn import_clipboard(
         false,
         // Clipboard paste is user-initiated — surface duplicates in the dialog.
         true,
+        None,
     );
     Ok(ImportStarted { job_id })
 }

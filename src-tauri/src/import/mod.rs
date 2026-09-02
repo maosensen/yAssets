@@ -54,6 +54,7 @@ pub fn spawn(
     folder_id: Option<String>,
     keep_duplicates: bool,
     report_duplicates: bool,
+    watched_root: Option<PathBuf>,
 ) {
     tauri::async_runtime::spawn(async move {
         let ctx = Arc::new(JobCtx {
@@ -64,6 +65,7 @@ pub fn spawn(
             folder_id,
             keep_duplicates,
             report_duplicates,
+            watched_root,
             total: AtomicU32::new(0),
             done: AtomicU32::new(0),
             imported: AtomicU32::new(0),
@@ -95,6 +97,12 @@ struct JobCtx {
     /// folders), where already-cataloged files must be skipped silently — else
     /// every startup re-scan pops the dialog for the folder's existing content.
     report_duplicates: bool,
+    /// Set for live watched-folder events: the loose file paths arrive one by
+    /// one, so discovery must (a) apply the same hidden/junk filter the
+    /// initial scan applies to walked entries, and (b) rebuild the folder
+    /// chain relative to this root — otherwise a recorder's `.work/frames/`
+    /// intermediates flood the library as uncategorized files.
+    watched_root: Option<PathBuf>,
     total: AtomicU32,
     done: AtomicU32,
     imported: AtomicU32,
@@ -189,6 +197,7 @@ fn run_job(ctx: &Arc<JobCtx>, paths: Vec<String>) {
     // Phase A — discovery.
     let files = discover(
         paths.iter().map(PathBuf::from),
+        ctx.watched_root.as_deref(),
         ctx.library.root(),
         |found| {
             ctx.total.store(found, Ordering::Relaxed);
@@ -296,6 +305,7 @@ pub(crate) struct DiscoveredFile {
 /// library into the library must not recurse).
 pub(crate) fn discover(
     inputs: impl Iterator<Item = PathBuf>,
+    watched_root: Option<&Path>,
     library_root: &Path,
     mut on_progress: impl FnMut(u32),
     cancelled: impl Fn() -> bool,
@@ -313,9 +323,32 @@ pub(crate) fn discover(
             continue;
         }
         if input.is_file() {
+            // Loose files dropped by the user are honored as-is (explicit
+            // intent). Files surfaced by a watched folder's live events are
+            // treated exactly like the initial scan would: hidden/junk
+            // ancestors disqualify them, and the chain leads with the root.
+            let folder_components = match watched_root {
+                Some(root) if input.starts_with(root) => {
+                    let rel = input.strip_prefix(root).unwrap_or(&input);
+                    if rel.components().any(|c| is_junk(c.as_os_str())) {
+                        continue;
+                    }
+                    let base = root.parent().unwrap_or(root);
+                    input
+                        .parent()
+                        .and_then(|dir| dir.strip_prefix(base).ok())
+                        .map(|rel| {
+                            rel.components()
+                                .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                                .collect()
+                        })
+                        .unwrap_or_default()
+                }
+                _ => Vec::new(),
+            };
             files.push(DiscoveredFile {
                 path: input,
-                folder_components: Vec::new(),
+                folder_components,
             });
         } else if input.is_dir() {
             // Chains are measured from the drop's PARENT, so the dropped
@@ -718,6 +751,41 @@ mod tests {
     }
 
     #[test]
+    fn discover_watched_root_filters_junk_ancestors_and_rebuilds_chain() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let root = tmp.path().join("out");
+        std::fs::create_dir_all(root.join("clip/.work/frames")).expect("mkdir");
+        std::fs::write(root.join("clip/master.mp4"), b"m").expect("w");
+        std::fs::write(root.join("clip/.work/frames/frame-000001.jpg"), b"f").expect("w");
+        let lib_root = tmp.path().join("Lib");
+        std::fs::create_dir_all(&lib_root).expect("mkdir");
+
+        // Live events hand over loose file paths, one per file.
+        let files = discover(
+            vec![
+                root.join("clip/master.mp4"),
+                root.join("clip/.work/frames/frame-000001.jpg"),
+            ]
+            .into_iter(),
+            Some(&root),
+            &lib_root,
+            |_| {},
+            || false,
+        );
+        assert_eq!(
+            files.len(),
+            1,
+            "hidden .work ancestor must disqualify the frame"
+        );
+        assert_eq!(files[0].path, root.join("clip/master.mp4"));
+        // Same chain the initial scan of `out/` would produce: root name leads.
+        assert_eq!(
+            files[0].folder_components,
+            vec!["out".to_string(), "clip".to_string()]
+        );
+    }
+
+    #[test]
     fn discover_skips_hidden_junk_and_library_itself() {
         let tmp = tempfile::tempdir().expect("tmpdir");
         let drop_dir = tmp.path().join("drop");
@@ -740,6 +808,7 @@ mod tests {
 
         let files = discover(
             vec![drop_dir.clone(), explicit_hidden.clone(), inside_lib].into_iter(),
+            None,
             &lib_root,
             |_| {},
             || false,
@@ -785,7 +854,13 @@ mod tests {
         write_png(&drop_dir.join("icons/a.png"), 8, 8, 2);
         write_png(&drop_dir.join("icons/dark/b.png"), 8, 8, 3);
 
-        let files = discover(vec![drop_dir].into_iter(), lib.root(), |_| {}, || false);
+        let files = discover(
+            vec![drop_dir].into_iter(),
+            None,
+            lib.root(),
+            |_| {},
+            || false,
+        );
         let map = build_folder_map(&lib, None, &files).expect("map");
         assert_eq!(map.len(), 3); // pack, pack/icons, pack/icons/dark
 
@@ -818,6 +893,7 @@ mod tests {
         // Re-importing the same tree reuses every folder (no duplicates).
         let files_again = discover(
             vec![tmp.path().join("pack")].into_iter(),
+            None,
             lib.root(),
             |_| {},
             || false,

@@ -129,6 +129,9 @@ fn reconcile(app: &tauri::AppHandle, library: &Arc<Library>, targets: &Targets) 
             // Automatic import — skip already-cataloged files silently, never
             // pop the duplicate dialog for a watched folder's existing content.
             false,
+            // Directory input: discovery walks it with the junk filter and
+            // builds the chain itself.
+            None,
         );
     }
 }
@@ -141,7 +144,9 @@ fn on_events(
     targets: &Targets,
     events: Vec<DebouncedEvent>,
 ) {
-    let mut by_target: HashMap<Option<String>, Vec<String>> = HashMap::new();
+    // Grouped by (watched root, target folder): discovery needs the root to
+    // apply the junk filter and rebuild the folder chain for loose paths.
+    let mut by_target: HashMap<(PathBuf, Option<String>), Vec<String>> = HashMap::new();
     for event in events {
         if !matches!(event.kind, EventKind::Create(_) | EventKind::Modify(_)) {
             continue;
@@ -152,14 +157,14 @@ fn on_events(
             }
             // The most-specific watched root that contains this path wins, so a
             // watched folder nested under another gets its own target.
-            let folder_id = targets
+            let target = targets
                 .iter()
                 .filter(|(root, _)| path.starts_with(root))
                 .max_by_key(|(root, _)| root.as_os_str().len())
-                .map(|(_, folder)| folder.clone());
-            if let Some(folder_id) = folder_id {
+                .map(|(root, folder)| (root.clone(), folder.clone()));
+            if let Some(target) = target {
                 by_target
-                    .entry(folder_id)
+                    .entry(target)
                     .or_default()
                     .push(path.to_string_lossy().into_owned());
             }
@@ -178,7 +183,7 @@ fn on_events(
         Ok(current) if Arc::ptr_eq(&current, library) => {}
         _ => return,
     }
-    for (folder_id, paths) in by_target {
+    for ((root, folder_id), paths) in by_target {
         let job_id = crate::import::new_job_id();
         let cancel = state.register_import(&job_id);
         crate::import::spawn(
@@ -191,6 +196,9 @@ fn on_events(
             false,
             // Automatic import — skip already-cataloged files silently.
             false,
+            // Loose paths: let discovery filter hidden ancestors (a recorder's
+            // `.work/frames/`) and rebuild the chain relative to this root.
+            Some(root),
         );
     }
 }
