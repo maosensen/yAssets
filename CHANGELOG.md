@@ -9,6 +9,12 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.32] - 2026-09-02
+
+Housekeeping on two things that quietly misbehaved: a watched folder pointed at a
+tool's output directory imported the tool's scratch files, and the sidebars treated
+every window resize as permission to redefine their own width.
+
 ### Fixed
 
 - **Watched folders no longer import hidden intermediates from live events.** The
@@ -472,7 +478,8 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.26...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.32...HEAD
+[0.1.32]: https://github.com/maosensen/yAssets/releases/tag/v0.1.32
 [0.1.31]: https://github.com/maosensen/yAssets/releases/tag/v0.1.31
 [0.1.30]: https://github.com/maosensen/yAssets/releases/tag/v0.1.30
 [0.1.29]: https://github.com/maosensen/yAssets/releases/tag/v0.1.29

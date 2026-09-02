@@ -2,6 +2,30 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.32",
+		date: "2026-09-02",
+		title: "A watched folder that minds its own business",
+		summary:
+			"Watched folders no longer sweep up a tool's scratch files, and the sidebars keep the width you gave them.",
+		changes: [
+			{
+				kind: "fixed",
+				title: "Watched folders skip hidden scratch files",
+				text: "A folder's first scan always ignored dot-prefixed directories, but files appearing later — while the app was running — went straight in. Watching a video tool's output directory therefore imported every intermediate frame it wrote into a hidden working folder: 1,719 stray assets from one recording. Live changes now get the same treatment as the first scan, and land in the same subfolders.",
+			},
+			{
+				kind: "fixed",
+				title: "Maximizing no longer widens the sidebars",
+				text: "The two rails held a share of the window rather than a width, so every maximize stretched them to their limit. They now stay put and the content column takes the extra space.",
+			},
+			{
+				kind: "fixed",
+				title: "Sidebar widths survive a relaunch",
+				text: "Dragging a rail wider used to be forgotten on the next launch. Only the widths you set by hand are remembered, so resizing the window never quietly redefines them.",
+			},
+		],
+	},
+	{
 		version: "0.1.31",
 		date: "2026-08-20",
 		title: "Two fixes worth shipping straight away",
