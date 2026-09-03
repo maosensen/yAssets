@@ -184,6 +184,13 @@ export const commands = {
 	listWatchedFolders: () => typedError<WatchedFolder[], AppError>(__TAURI_INVOKE("list_watched_folders")),
 	addWatchedFolder: (path: string, folderId: string | null) => typedError<WatchedFolder, AppError>(__TAURI_INVOKE("add_watched_folder", { path, folderId })),
 	setWatchedFolderEnabled: (id: string, enabled: boolean) => typedError<null, AppError>(__TAURI_INVOKE("set_watched_folder_enabled", { id, enabled })),
+	/**
+	 *  Bind an existing watch to its library folder. Rows created before watches
+	 *  were bound have `folder_id = NULL`; this adopts the folder the import
+	 *  already created for them (matched by directory name) rather than guessing at
+	 *  render time.
+	 */
+	linkWatchedFolder: (id: string) => typedError<WatchedFolder, AppError>(__TAURI_INVOKE("link_watched_folder", { id })),
 	removeWatchedFolder: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("remove_watched_folder", { id })),
 	getMaintenanceReport: () => typedError<MaintenanceReport, AppError>(__TAURI_INVOKE("get_maintenance_report")),
 	/**  Reclaim free database pages. Returns bytes reclaimed. */
@@ -822,8 +829,16 @@ export type VideoToolStatus = {
 export type WatchedFolder = {
 	id: string,
 	path: string,
-	/**  Library folder new files import into; None = library root. */
+	/**
+	 *  Library folder new files import into; None = not bound to one yet, so
+	 *  files land wherever the import's directory mirroring puts them.
+	 */
 	folder_id: string | null,
+	/**
+	 *  Name of `folder_id`, resolved for display. None when unbound (or when
+	 *  the folder was deleted out from under the row).
+	 */
+	folder_name: string | null,
 	auto_import: boolean,
 	/**  Unix ms of the last reconciliation pass; None = never scanned. */
 	last_scanned_at: number | null,

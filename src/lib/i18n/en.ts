@@ -258,6 +258,9 @@ export const en = {
 		libraryRoot: "Library root",
 		remove: "Stop watching",
 		autoImport: "Auto-import",
+		importsInto: (folder: string) => `Auto-import into ${folder}`,
+		notLinked: "Auto-import · not linked to a folder yet",
+		link: "Link",
 	},
 	maintenance: {
 		description:

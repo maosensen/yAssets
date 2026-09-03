@@ -47,6 +47,7 @@ export {
 	Music as IconKindAudio,
 	Palette as IconPalette,
 	Plus as IconZoomIn,
+	RefreshCw as IconWatched,
 	Search as IconSearch,
 	Video as IconKindVideo,
 } from "lucide-react";

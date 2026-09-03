@@ -14,8 +14,12 @@ use crate::state::AppState;
 pub struct WatchedFolder {
     pub id: String,
     pub path: String,
-    /// Library folder new files import into; None = library root.
+    /// Library folder new files import into; None = not bound to one yet, so
+    /// files land wherever the import's directory mirroring puts them.
     pub folder_id: Option<String>,
+    /// Name of `folder_id`, resolved for display. None when unbound (or when
+    /// the folder was deleted out from under the row).
+    pub folder_name: Option<String>,
     pub auto_import: bool,
     /// Unix ms of the last reconciliation pass; None = never scanned.
     pub last_scanned_at: Option<f64>,
@@ -23,7 +27,11 @@ pub struct WatchedFolder {
     pub created_at: f64,
 }
 
-const WATCHED_COLS: &str = "id, path, folder_id, auto_import, last_scanned_at, created_at";
+const WATCHED_COLS: &str = "w.id, w.path, w.folder_id, w.auto_import, \
+     w.last_scanned_at, w.created_at, f.name";
+
+/// `SELECT {WATCHED_COLS} {WATCHED_FROM}` — the join that resolves `folder_name`.
+const WATCHED_FROM: &str = "FROM watched_folders w LEFT JOIN folders f ON f.id = w.folder_id";
 
 fn watched_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<WatchedFolder> {
     Ok(WatchedFolder {
@@ -33,7 +41,39 @@ fn watched_from_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<WatchedFolder> 
         auto_import: row.get::<_, i64>(3)? != 0,
         last_scanned_at: row.get::<_, Option<i64>>(4)?.map(|v| v as f64),
         created_at: row.get::<_, i64>(5)? as f64,
+        folder_name: row.get(6)?,
     })
+}
+
+/// Basename of a watched directory — the name the import's mirroring gives the
+/// library folder for it, and therefore the folder a watch binds to.
+fn dir_basename(path: &str) -> Option<String> {
+    std::path::Path::new(path)
+        .file_name()
+        .map(|name| name.to_string_lossy().into_owned())
+        .filter(|name| !name.is_empty())
+}
+
+/// Bind a watch to the top-level library folder named after its directory,
+/// creating it only if the import hasn't already. Returns the folder id.
+///
+/// This is what makes a watch identifiable in the sidebar: without it
+/// `folder_id` stays NULL and the folder the import creates is
+/// indistinguishable from one the user made by hand.
+fn bind_destination(
+    conn: &rusqlite::Connection,
+    watched_id: &str,
+    path: &str,
+) -> AppResult<Option<String>> {
+    let Some(name) = dir_basename(path) else {
+        return Ok(None);
+    };
+    let folder_id = crate::import::ensure_folder(conn, None, &name)?;
+    conn.execute(
+        "UPDATE watched_folders SET folder_id = ?2 WHERE id = ?1",
+        rusqlite::params![watched_id, folder_id],
+    )?;
+    Ok(Some(folder_id))
 }
 
 #[tauri::command]
@@ -45,7 +85,7 @@ pub async fn list_watched_folders(
     library
         .read(|conn| {
             let mut stmt = conn.prepare(&format!(
-                "SELECT {WATCHED_COLS} FROM watched_folders ORDER BY created_at"
+                "SELECT {WATCHED_COLS} {WATCHED_FROM} ORDER BY w.created_at"
             ))?;
             let rows = stmt
                 .query_map([], watched_from_row)?
@@ -110,8 +150,14 @@ pub async fn add_watched_folder(
                     AppError::from(err)
                 }
             })?;
+            // No explicit destination: bind to the folder the import's mirroring
+            // would create for this directory anyway, so the watch is
+            // identifiable from the sidebar rather than anonymous.
+            if folder_id.is_none() {
+                bind_destination(conn, &id, &path)?;
+            }
             let row = conn.query_row(
-                &format!("SELECT {WATCHED_COLS} FROM watched_folders WHERE id = ?1"),
+                &format!("SELECT {WATCHED_COLS} {WATCHED_FROM} WHERE w.id = ?1"),
                 [&id],
                 watched_from_row,
             )?;
@@ -121,6 +167,38 @@ pub async fn add_watched_folder(
     // Pick up the new folder without reopening the library.
     crate::library::watch::restart(&app, &state, &library);
     Ok(row)
+}
+
+/// Bind an existing watch to its library folder. Rows created before watches
+/// were bound have `folder_id = NULL`; this adopts the folder the import
+/// already created for them (matched by directory name) rather than guessing at
+/// render time.
+#[tauri::command]
+#[specta::specta]
+pub async fn link_watched_folder(
+    id: String,
+    state: tauri::State<'_, AppState>,
+) -> AppResult<WatchedFolder> {
+    let library = state.current_library()?;
+    library
+        .write(move |conn| {
+            let path: String = conn
+                .query_row(
+                    "SELECT path FROM watched_folders WHERE id = ?1",
+                    [&id],
+                    |row| row.get(0),
+                )
+                .optional()?
+                .ok_or_else(|| AppError::NotFound(format!("watched folder {id}")))?;
+            bind_destination(conn, &id, &path)?;
+            let row = conn.query_row(
+                &format!("SELECT {WATCHED_COLS} {WATCHED_FROM} WHERE w.id = ?1"),
+                [&id],
+                watched_from_row,
+            )?;
+            Ok(row)
+        })
+        .await
 }
 
 #[tauri::command]
@@ -202,8 +280,11 @@ mod tests {
                     AppError::from(err)
                 }
             })?;
+            if folder_id.is_none() {
+                bind_destination(conn, &id, path)?;
+            }
             let row = conn.query_row(
-                &format!("SELECT {WATCHED_COLS} FROM watched_folders WHERE id = ?1"),
+                &format!("SELECT {WATCHED_COLS} {WATCHED_FROM} WHERE w.id = ?1"),
                 [&id],
                 watched_from_row,
             )?;
@@ -214,7 +295,7 @@ mod tests {
     fn list(lib: &Library) -> Vec<WatchedFolder> {
         lib.with_reader(|conn| {
             let mut stmt = conn.prepare(&format!(
-                "SELECT {WATCHED_COLS} FROM watched_folders ORDER BY created_at"
+                "SELECT {WATCHED_COLS} {WATCHED_FROM} ORDER BY w.created_at"
             ))?;
             let rows = stmt
                 .query_map([], watched_from_row)?
@@ -225,6 +306,37 @@ mod tests {
     }
 
     #[test]
+    fn binding_adopts_the_folder_the_import_already_made() {
+        // The case that matters for libraries predating binding: the import has
+        // long since created a folder for the watched directory, so binding
+        // must adopt THAT folder, not add a second one beside it.
+        let (tmp, lib) = test_library();
+        let outside = tmp.path().join("Renders").to_string_lossy().into_owned();
+
+        let existing = lib
+            .with_writer(|conn| Ok(crate::import::ensure_folder(conn, None, "Renders")?))
+            .expect("seed folder");
+
+        let row = insert(&lib, &outside, None).expect("add");
+        assert_eq!(
+            row.folder_id.as_deref(),
+            Some(existing.as_str()),
+            "must reuse the folder the import created"
+        );
+
+        let count: i64 = lib
+            .with_reader(|conn| {
+                Ok(conn.query_row(
+                    "SELECT COUNT(*) FROM folders WHERE name = 'Renders' AND parent_id IS NULL",
+                    [],
+                    |row| row.get(0),
+                )?)
+            })
+            .expect("count");
+        assert_eq!(count, 1, "no duplicate folder");
+    }
+
+    #[test]
     fn add_list_remove_roundtrip() {
         let (tmp, lib) = test_library();
         let outside = tmp.path().join("Watched").to_string_lossy().into_owned();
@@ -232,6 +344,10 @@ mod tests {
         assert_eq!(row.path, outside);
         assert!(row.auto_import);
         assert_eq!(list(&lib).len(), 1);
+        // Bound on add, to a folder named after the directory — this is what
+        // lets the sidebar mark the folder as auto-importing.
+        assert!(row.folder_id.is_some(), "add must bind a destination");
+        assert_eq!(row.folder_name.as_deref(), Some("Watched"));
 
         lib.with_writer(|conn| {
             conn.execute("DELETE FROM watched_folders WHERE id = ?1", [&row.id])?;

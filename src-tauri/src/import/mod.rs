@@ -442,7 +442,11 @@ fn build_folder_map(
 }
 
 /// Find a same-named child folder (case-insensitive) or create it.
-fn ensure_folder(
+///
+/// Also used by `commands::watched_folders` to bind a watch to the very folder
+/// this import would have created for it anyway — lookup-before-insert is what
+/// makes that safe to call ahead of the first import.
+pub(crate) fn ensure_folder(
     conn: &rusqlite::Connection,
     parent: Option<&str>,
     name: &str,

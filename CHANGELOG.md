@@ -9,6 +9,15 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+### Added
+
+- **Watched folders are now marked in the sidebar.** A folder that auto-imports
+  carries a small badge, so it's obvious which folders fill themselves. Adding a
+  watched folder also links it to its library folder from the start; existing
+  watched folders get a **Link** button in Preferences ▸ Watched Folders, which
+  adopts the folder the import already created for them. Each row now says which
+  folder it imports into.
+
 ## [0.1.32] - 2026-09-02
 
 Housekeeping on two things that quietly misbehaved: a watched folder pointed at a

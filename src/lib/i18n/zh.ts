@@ -250,6 +250,9 @@ export const zh: Messages = {
 		libraryRoot: "资料库根目录",
 		remove: "停止监视",
 		autoImport: "自动导入",
+		importsInto: (folder: string) => `自动导入到「${folder}」`,
+		notLinked: "自动导入 · 尚未关联到文件夹",
+		link: "关联",
 	},
 	maintenance: {
 		description:

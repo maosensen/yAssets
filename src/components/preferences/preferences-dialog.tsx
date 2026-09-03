@@ -63,6 +63,7 @@ import {
 } from "@/lib/queries/maintenance";
 import {
 	useAddWatchedFolder,
+	useLinkWatchedFolder,
 	useRemoveWatchedFolder,
 	useSetWatchedFolderEnabled,
 	watchedFoldersQueryOptions,
@@ -701,6 +702,7 @@ function WatchedFoldersPane() {
 	const add = useAddWatchedFolder();
 	const setEnabled = useSetWatchedFolderEnabled();
 	const remove = useRemoveWatchedFolder();
+	const link = useLinkWatchedFolder();
 
 	const onAdd = async () => {
 		const dir = await pickDirectory(T.watched.add);
@@ -729,10 +731,26 @@ function WatchedFoldersPane() {
 									<div className="truncate text-sm" title={folder.path}>
 										{folder.path}
 									</div>
-									<div className="text-muted-foreground text-xs">
-										{T.watched.autoImport}
+									<div className="truncate text-muted-foreground text-xs">
+										{folder.folder_name
+											? T.watched.importsInto(folder.folder_name)
+											: T.watched.notLinked}
 									</div>
 								</div>
+								{folder.folder_id === null && (
+									// Rows predating destination binding. Linking adopts the
+									// folder the import already created for this directory,
+									// which is what lets the sidebar badge it.
+									<Button
+										variant="outline"
+										size="sm"
+										className="h-7 shrink-0"
+										disabled={link.isPending}
+										onClick={() => link.mutate(folder.id)}
+									>
+										{T.watched.link}
+									</Button>
+								)}
 								<Switch
 									checked={folder.auto_import}
 									onCheckedChange={(checked) =>

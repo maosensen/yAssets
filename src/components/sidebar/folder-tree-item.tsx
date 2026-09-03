@@ -9,6 +9,7 @@ import {
 	IconChevronRight,
 	IconFolder,
 	IconFolderBold,
+	IconWatched,
 } from "@/components/icons";
 import {
 	ContextMenu,
@@ -40,6 +41,9 @@ type FolderTreeItemProps = {
 	) => (event: React.PointerEvent) => void;
 	/** True right after a drag, so the trailing click doesn't navigate. */
 	draggedRef: React.RefObject<boolean>;
+	/** Folders a watched directory imports into — badged so it's obvious their
+	 *  contents change on their own. Spread down the recursion with the rest. */
+	watchedFolderIds: ReadonlySet<string>;
 };
 
 export function FolderTreeItem(props: FolderTreeItemProps) {
@@ -55,6 +59,7 @@ export function FolderTreeItem(props: FolderTreeItemProps) {
 		onDelete,
 		onFolderPointerDown,
 		draggedRef,
+		watchedFolderIds,
 	} = props;
 	const expanded = isExpanded(node.id);
 	const active = activeFolderId === node.id;
@@ -65,6 +70,7 @@ export function FolderTreeItem(props: FolderTreeItemProps) {
 	// fills in (bold) on the active row. Color, if set, tints whichever glyph.
 	const CustomIcon = resolveFolderIcon(node.icon);
 	const FolderGlyph = CustomIcon ?? (active ? IconFolderBold : IconFolder);
+	const watched = watchedFolderIds.has(node.id);
 
 	return (
 		<>
@@ -130,10 +136,24 @@ export function FolderTreeItem(props: FolderTreeItemProps) {
 							}
 						}}
 					>
-						<FolderGlyph
-							className="size-4 shrink-0"
-							style={node.color ? { color: node.color } : undefined}
-						/>
+						<span
+							className="relative flex shrink-0"
+							title={watched ? T.watched.autoImport : undefined}
+						>
+							<FolderGlyph
+								className="size-4"
+								style={node.color ? { color: node.color } : undefined}
+							/>
+							{watched && (
+								// Corner badge, not a trailing marker: the row's trailing
+								// slot is the count column, and shifting counts on some
+								// rows would break the alignment `RowCount` exists for.
+								<IconWatched
+									aria-hidden
+									className="-right-0.5 -bottom-0.5 absolute size-3 rounded-full bg-sidebar text-primary"
+								/>
+							)}
+						</span>
 						<span className="min-w-0 flex-1 truncate">{node.name}</span>
 						<RowCount value={node.assetCount} />
 					</Link>

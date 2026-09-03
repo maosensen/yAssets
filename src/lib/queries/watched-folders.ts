@@ -13,7 +13,7 @@ import { toast } from "sonner";
 import { commands } from "@/lib/bindings";
 import { describeError } from "@/lib/errors";
 import { unwrap } from "@/lib/tauri";
-import { watchedFolderKeys } from "./keys";
+import { folderKeys, watchedFolderKeys } from "./keys";
 
 export function watchedFoldersQueryOptions() {
 	return queryOptions({
@@ -29,6 +29,24 @@ export function useAddWatchedFolder() {
 			unwrap(await commands.addWatchedFolder(input.path, input.folderId)),
 		onSuccess: () => {
 			void queryClient.invalidateQueries({ queryKey: watchedFolderKeys.all });
+			// Adding a watch binds it to a library folder, creating that folder
+			// when the import hasn't already — the sidebar has to hear about it.
+			void queryClient.invalidateQueries({ queryKey: folderKeys.all });
+		},
+		onError: (error) => toast.error(describeError(error)),
+	});
+}
+
+/** Bind a pre-existing watch to its library folder (rows added before watches
+ *  were bound have no destination, so the sidebar can't mark them). */
+export function useLinkWatchedFolder() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async (id: string) =>
+			unwrap(await commands.linkWatchedFolder(id)),
+		onSuccess: () => {
+			void queryClient.invalidateQueries({ queryKey: watchedFolderKeys.all });
+			void queryClient.invalidateQueries({ queryKey: folderKeys.all });
 		},
 		onError: (error) => toast.error(describeError(error)),
 	});

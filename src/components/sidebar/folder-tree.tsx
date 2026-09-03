@@ -28,6 +28,7 @@ import {
 	filterFolderTree,
 } from "@/lib/folder-tree";
 import { foldersQueryOptions, useDeleteFolder } from "@/lib/queries/folders";
+import { watchedFoldersQueryOptions } from "@/lib/queries/watched-folders";
 import { T } from "@/lib/text";
 import {
 	FolderCustomizeDialog,
@@ -41,6 +42,18 @@ export function FolderTree({ filter }: { filter: string }) {
 	// Also rendered under /preview (same layout) — no throw, no active folder.
 	const search = useSearch({ from: "/_library/", shouldThrow: false });
 	const { data: folders } = useQuery(foldersQueryOptions());
+	const { data: watched } = useQuery(watchedFoldersQueryOptions());
+	// Built once here rather than queried per row: the tree recurses, and a
+	// subscription per folder would multiply one tiny query by the whole tree.
+	const watchedFolderIds = useMemo(
+		() =>
+			new Set(
+				(watched ?? [])
+					.map((entry) => entry.folder_id)
+					.filter((id): id is string => id !== null),
+			),
+		[watched],
+	);
 	const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(
 		new Set(),
 	);
@@ -92,6 +105,7 @@ export function FolderTree({ filter }: { filter: string }) {
 						key={node.id}
 						node={node}
 						depth={0}
+						watchedFolderIds={watchedFolderIds}
 						// While filtering, ancestors of matches must stay visible.
 						isExpanded={(id) => filtering || expandedIds.has(id)}
 						onToggle={toggle}

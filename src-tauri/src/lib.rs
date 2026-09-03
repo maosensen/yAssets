@@ -75,6 +75,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::watched_folders::list_watched_folders,
             commands::watched_folders::add_watched_folder,
             commands::watched_folders::set_watched_folder_enabled,
+            commands::watched_folders::link_watched_folder,
             commands::watched_folders::remove_watched_folder,
             commands::maintenance::get_maintenance_report,
             commands::maintenance::vacuum_database,

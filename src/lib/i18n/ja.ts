@@ -260,6 +260,9 @@ export const ja: Messages = {
 		libraryRoot: "ライブラリのルート",
 		remove: "監視を停止",
 		autoImport: "自動インポート",
+		importsInto: (folder: string) => `「${folder}」に自動取り込み`,
+		notLinked: "自動取り込み · フォルダ未リンク",
+		link: "リンク",
 	},
 	maintenance: {
 		description:
