@@ -2,6 +2,25 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.33",
+		date: "2026-09-03",
+		title: "You can see which folders fill themselves",
+		summary:
+			"A watched folder now looks different from one you filled by hand, because it finally IS different — the watch is bound to it.",
+		changes: [
+			{
+				kind: "new",
+				title: "Watched folders are badged",
+				text: "A folder that auto-imports carries a small badge on its icon, so it is obvious at a glance which folders change on their own.",
+			},
+			{
+				kind: "improved",
+				title: "A watch is bound to its folder",
+				text: "Adding a watched folder links it to its library folder from the start, and each row in Preferences ▸ Watched Folders says which folder it imports into. Watched folders added before this have a Link button that adopts the folder the import already made for them.",
+			},
+		],
+	},
+	{
 		version: "0.1.32",
 		date: "2026-09-02",
 		title: "A watched folder that minds its own business",

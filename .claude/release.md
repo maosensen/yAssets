@@ -39,5 +39,5 @@ bump 后 `grep -rn "<旧版本号>"` 确认四处无残留(排除 lockfile 第�
 ## 本项目特有注意事项
 
 - 签名私钥在 `~/.tauri/yassets.key`(带密码),**密钥与密码永不入库**;丢失任一 = 已发行版本永久收不到更新。CI 从 `TAURI_SIGNING_PRIVATE_KEY(_PASSWORD)` secrets 读取
-- macOS 未公证:首次手动安装 dmg 报「已损坏」→ `xattr -cr /Applications/yAssets.app`;应用内更新不受影响
+- macOS 签名 + 公证自 **v0.1.29** 起在 CI 内完成(`APPLE_*` secrets,详见 dev-playbook/release.md),下载包直接过 Gatekeeper。**≤ v0.1.28 的旧包**仍会报「已损坏」→ `xattr -cr /Applications/yAssets.app`
 - dev 实例(`pnpm tauri dev`)开着时启动正式版会立即退出(single-instance 同 identifier)

@@ -9,6 +9,8 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.33] - 2026-09-03
+
 ### Added
 
 - **Watched folders are now marked in the sidebar.** A folder that auto-imports
@@ -488,6 +490,7 @@ with Tauri 2.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
 [Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.32...HEAD
+[0.1.33]: https://github.com/maosensen/yAssets/releases/tag/v0.1.33
 [0.1.32]: https://github.com/maosensen/yAssets/releases/tag/v0.1.32
 [0.1.31]: https://github.com/maosensen/yAssets/releases/tag/v0.1.31
 [0.1.30]: https://github.com/maosensen/yAssets/releases/tag/v0.1.30

@@ -190,6 +190,10 @@ features:
       外部目录新文件自动入库,可开关;v0.1.20 起启动时静默跳过已导入。
       实时事件路径补上与初次扫描相同的隐藏/垃圾祖先过滤与文件夹链重建——之前
       监视 yReel/out 时录制器写入 .work/frames/ 的 1719 张中间帧被灌成未分类。
+      v0.1.33:监视配置与库文件夹建立真实关联(add 时经 import::ensure_folder
+      认领导入本会创建的同名文件夹,老数据用 link_watched_folder 一键补),
+      侧栏据此给这些文件夹加角标——此前 folder_id 恒为 NULL,监视目标与手建
+      文件夹无从区分。
   - id: yclip-collect
     title: yClip 浏览器扩展直采
     area: 素材入库
