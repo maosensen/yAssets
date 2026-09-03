@@ -31,10 +31,10 @@ export default defineConfig({
 	clearScreen: false,
 	server: {
 		// Tauri expects a fixed port; fail if it is taken.
-		port: 1420,
+		port: 4385,
 		strictPort: true,
 		host: host || false,
-		hmr: host ? { protocol: "ws", host, port: 1421 } : undefined,
+		hmr: host ? { protocol: "ws", host, port: 4386 } : undefined,
 		watch: {
 			// Rust recompiles handle src-tauri; don't let Vite watch it.
 			ignored: ["**/src-tauri/**"],
