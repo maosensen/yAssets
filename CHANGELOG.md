@@ -9,6 +9,8 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.34] - 2026-09-04
+
 ### Fixed
 
 - **Watched-folder imports no longer nest a level too deep.** A watch is bound to the

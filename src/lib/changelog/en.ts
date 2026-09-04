@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.34",
+		date: "2026-09-04",
+		title: "Watched folders stop nesting",
+		summary:
+			"Files from a watched folder land where you would put them yourself, one level shallower than before.",
+		changes: [
+			{
+				kind: "fixed",
+				title: "No more folder inside the folder of the same name",
+				text: "A watch is bound to the library folder that stands for it, but the import repeated that name on top, so everything was filed one level too deep — a watched Renders folder collected its files under Renders ▸ Renders. Both the startup scan and live changes now agree on the shallower path. Trees created by the old behaviour keep their contents; the empty duplicate is safe to delete.",
+			},
+		],
+	},
+	{
 		version: "0.1.33",
 		date: "2026-09-03",
 		title: "You can see which folders fill themselves",

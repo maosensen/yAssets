@@ -2,6 +2,19 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.34",
+		date: "2026-09-04",
+		title: "监视文件夹不再多一层",
+		summary: "来自监视文件夹的文件,现在落在你自己会放的位置,比以前浅一层。",
+		changes: [
+			{
+				kind: "fixed",
+				title: "同名文件夹里不再套一个同名文件夹",
+				text: "监视目录本来就绑定着一个代表它的库文件夹,导入时却又把这个名字算了一遍,于是所有文件都深了一层——监视 Renders 目录,文件全进了 Renders ▸ Renders。现在启动扫描与实时变化都落在正确的那一层。旧行为造成的目录内容不受影响,清空后的重复层可以放心删除。",
+			},
+		],
+	},
+	{
 		version: "0.1.33",
 		date: "2026-09-03",
 		title: "哪些文件夹会自己变化,现在看得出来了",
