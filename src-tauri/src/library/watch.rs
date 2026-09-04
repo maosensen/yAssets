@@ -129,9 +129,9 @@ fn reconcile(app: &tauri::AppHandle, library: &Arc<Library>, targets: &Targets) 
             // Automatic import — skip already-cataloged files silently, never
             // pop the duplicate dialog for a watched folder's existing content.
             false,
-            // Directory input: discovery walks it with the junk filter and
-            // builds the chain itself.
-            None,
+            // The scan walks the root; passing it makes the chain relative to
+            // the root, matching the folder this watch is bound to.
+            Some(root.to_path_buf()),
         );
     }
 }

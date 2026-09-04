@@ -9,6 +9,14 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+### Fixed
+
+- **Watched-folder imports no longer nest a level too deep.** A watch is bound to the
+  library folder that stands for its root, so a file's folder chain must be measured
+  from the root itself — measuring from the root's *parent* repeated that name and
+  filed everything one level down (`out/clip` became `out/out/clip`). Both paths into
+  the importer, the startup scan and the live events, now agree.
+
 ## [0.1.33] - 2026-09-03
 
 ### Added

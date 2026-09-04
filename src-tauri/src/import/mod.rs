@@ -333,10 +333,12 @@ pub(crate) fn discover(
                     if rel.components().any(|c| is_junk(c.as_os_str())) {
                         continue;
                     }
-                    let base = root.parent().unwrap_or(root);
+                    // 链从 root **本身**量起,不是它的父目录:add_watched_folder
+                    // 会把每个监视目录绑定到代表它的库文件夹,再带上根自己的
+                    // 名字就会比那个文件夹深一层(out/clip 变成 out/out/clip)。
                     input
                         .parent()
-                        .and_then(|dir| dir.strip_prefix(base).ok())
+                        .and_then(|dir| dir.strip_prefix(root).ok())
                         .map(|rel| {
                             rel.components()
                                 .map(|c| c.as_os_str().to_string_lossy().into_owned())
@@ -351,12 +353,16 @@ pub(crate) fn discover(
                 folder_components,
             });
         } else if input.is_dir() {
-            // Chains are measured from the drop's PARENT, so the dropped
-            // directory itself becomes the top of the recreated tree.
-            let base = input
-                .parent()
-                .map(Path::to_path_buf)
-                .unwrap_or_else(|| input.clone());
+            // 用户拖入的目录从**父目录**量起,于是被拖的目录本身成为重建树的顶层;
+            // 监视目录则从自身量起——它已经有一个代表自己的绑定文件夹,这样扫描
+            // 与实时事件算出的链条才一致。
+            let base = match watched_root {
+                Some(root) if input == root => root.to_path_buf(),
+                _ => input
+                    .parent()
+                    .map(Path::to_path_buf)
+                    .unwrap_or_else(|| input.clone()),
+            };
             let walker = WalkDir::new(&input)
                 .follow_links(false)
                 .into_iter()
@@ -782,11 +788,22 @@ mod tests {
             "hidden .work ancestor must disqualify the frame"
         );
         assert_eq!(files[0].path, root.join("clip/master.mp4"));
-        // Same chain the initial scan of `out/` would produce: root name leads.
-        assert_eq!(
-            files[0].folder_components,
-            vec!["out".to_string(), "clip".to_string()]
+        // The watch's bound folder already stands for `out`, so the chain must
+        // NOT repeat it — otherwise the file lands in `out/out/clip`.
+        assert_eq!(files[0].folder_components, vec!["clip".to_string()]);
+
+        // The reconcile scan hands over the root directory instead of loose
+        // paths; it must produce the very same chain.
+        let scanned = discover(
+            vec![root.clone()].into_iter(),
+            Some(&root),
+            &lib_root,
+            |_| {},
+            || false,
         );
+        assert_eq!(scanned.len(), 1);
+        assert_eq!(scanned[0].path, root.join("clip/master.mp4"));
+        assert_eq!(scanned[0].folder_components, vec!["clip".to_string()]);
     }
 
     #[test]
