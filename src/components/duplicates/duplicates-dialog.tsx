@@ -180,7 +180,24 @@ export function DuplicatesDialog({
 	);
 }
 
-/** One duplicate group: thumbnail strip + name/meta + the group action. */
+/**
+ * One duplicate group: thumbnail strip + name/meta + the group action.
+ *
+ * Width priority, in the order the row gives ground: thumbnails first, then
+ * the name, and the button never. That order is deliberate — the button says
+ * how many files it is about to trash, so a clipped label is the one thing
+ * this row must not produce, and for an exact group every thumbnail in the
+ * strip is the *same image* anyway (that's what byte-identical means), so
+ * losing the fourth one costs nothing.
+ *
+ * Getting there needs three things, and dropping any one of them collapses
+ * the row: the strip shrinks and clips (it used to be `shrink-0`, which made
+ * the name column the only thing that could yield, so the name vanished
+ * first); the name column carries a real flex-basis so it has standing in the
+ * shrink calculation instead of a basis of 0 that can only ever grow into
+ * leftovers; and both text lines truncate, or the meta reflows into a
+ * one-word-per-line stack ("9 / files / · / 13.9 / MB") on its way down.
+ */
 function GroupRow({
 	group,
 	action,
@@ -196,11 +213,11 @@ function GroupRow({
 
 	return (
 		<div className="flex items-center gap-3 rounded-md border border-border/60 p-2">
-			<div className="flex shrink-0 items-center gap-1">
+			<div className="flex min-w-0 shrink items-center gap-1 overflow-hidden">
 				{shown.map((asset) => (
 					<div
 						key={asset.id}
-						className="flex size-14 items-center justify-center overflow-hidden rounded-sm bg-muted"
+						className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-sm bg-muted"
 					>
 						{asset.has_thumb ? (
 							<img
@@ -217,15 +234,17 @@ function GroupRow({
 						)}
 					</div>
 				))}
-				{extra > 0 && (
-					<span className="text-muted-foreground text-xs">+{extra}</span>
-				)}
 			</div>
-			<div className="min-w-0 flex-1">
+			{/* Outside the clipping strip: the count of what you can't see is
+			    the last thing that should be clipped away. */}
+			{extra > 0 && (
+				<span className="shrink-0 text-muted-foreground text-xs">+{extra}</span>
+			)}
+			<div className="min-w-0 flex-[1_1_8rem]">
 				<p className="truncate text-sm" title={first.name}>
 					{first.name}
 				</p>
-				<p className="text-muted-foreground text-xs tabular-nums">
+				<p className="truncate text-muted-foreground text-xs tabular-nums">
 					{T.duplicatesCenter.filesMeta(group.length, formatBytes(totalSize))}
 				</p>
 			</div>
