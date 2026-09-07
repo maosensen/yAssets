@@ -9,6 +9,35 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.35] - 2026-09-07
+
+A watched folder pointed at a build tool's output could catalog the same file
+over and over. That's fixed, along with the duplicate scan you would reach for
+to clean up after it.
+
+### Added
+
+- **The inspector's Source row is now actionable.** It records where a file was
+  imported from, but the path was long enough that it got cut off mid-way, so it
+  could be neither read nor used. Two buttons now sit beside it: copy the full
+  path, and open the original in Finder. If the original has since been moved or
+  deleted, the folder that held it opens instead.
+
+### Fixed
+
+- **A watched folder no longer imports the same file more than once.** A tool
+  that rewrites its output — a build, a render, an export — emits filesystem
+  events for seconds on end, and each burst started its own import run. Those
+  runs overlapped, and the content check meant to catch the repeat happened
+  before the file was copied rather than as part of filing it, so every run
+  passed it. A single image could land nine times this way. The check is now
+  part of the same step that files the asset, so only the first run in wins.
+- **Find Duplicates no longer offers to delete a bookmark.** Exact-duplicate
+  groups are byte-identical *files* only. A bookmark is identified by its link,
+  not by the cover image fetched for it, so two pages sharing a stock preview —
+  or a bookmark whose cover happens to match an image already in the library —
+  are no longer grouped as duplicates of each other.
+
 ## [0.1.34] - 2026-09-04
 
 ### Fixed
@@ -499,7 +528,9 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.32...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.35...HEAD
+[0.1.35]: https://github.com/maosensen/yAssets/releases/tag/v0.1.35
+[0.1.34]: https://github.com/maosensen/yAssets/releases/tag/v0.1.34
 [0.1.33]: https://github.com/maosensen/yAssets/releases/tag/v0.1.33
 [0.1.32]: https://github.com/maosensen/yAssets/releases/tag/v0.1.32
 [0.1.31]: https://github.com/maosensen/yAssets/releases/tag/v0.1.31

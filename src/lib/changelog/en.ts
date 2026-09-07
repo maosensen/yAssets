@@ -2,6 +2,30 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.35",
+		date: "2026-09-07",
+		title: "One file, one asset",
+		summary:
+			"A watched folder pointed at a tool's output could catalog the same file over and over. It can't any more.",
+		changes: [
+			{
+				kind: "fixed",
+				title: "A watched folder imports a file once",
+				text: "A tool that rewrites its output — a build, a render, an export — emits filesystem events for seconds on end, and each burst started its own import run. Those runs overlapped, and the content check meant to catch the repeat happened before the file was copied rather than as part of filing it, so every run passed it. A single image could land nine times this way. The check is now part of the same step that files the asset, so only the first run in wins. Copies already in the library are byte-identical, so Find Duplicates groups them for cleanup in one pass.",
+			},
+			{
+				kind: "new",
+				title: "Copy or open an asset's source path",
+				text: "The Source row in Properties records where a file was imported from, but the path was long enough that it got cut off mid-way. Two buttons now sit beside it: copy the full path, and open the original in Finder. If the original has since been moved or deleted, the folder that held it opens instead.",
+			},
+			{
+				kind: "fixed",
+				title: "Find Duplicates leaves bookmarks alone",
+				text: "Exact-duplicate groups are byte-identical files only. A bookmark is identified by its link, not by the cover image fetched for it, so two pages sharing a stock preview — or a bookmark whose cover happens to match an image already in the library — are no longer offered up for deletion.",
+			},
+		],
+	},
+	{
 		version: "0.1.34",
 		date: "2026-09-04",
 		title: "Watched folders stop nesting",
