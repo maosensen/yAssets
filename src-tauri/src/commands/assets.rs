@@ -1,5 +1,5 @@
 //! Asset read/update commands: the grid's list query, the inspector's
-//! detail + patch, and reveal-in-Finder.
+//! detail + patch, and reveal-in-Finder (managed copy and import source).
 //!
 //! specta red line: no 64-bit integers across IPC — byte sizes and
 //! timestamps travel as `f64` (unix ms), dimensions as `u32`, rating as `u8`.
@@ -692,6 +692,69 @@ pub async fn reveal_asset(id: String, state: tauri::State<'_, AppState>) -> AppR
     })
 }
 
+/// Where "reveal the import source" should actually point.
+///
+/// `src_path` records where a file came from *at import time*, and originals
+/// get moved, renamed, or cleaned out of Downloads afterwards — the folder
+/// outliving the file it held is the normal case here, not an edge one. So
+/// falling back to the folder keeps the button useful instead of erroring.
+#[derive(Debug, PartialEq, Eq)]
+enum SourceTarget {
+    /// Original still there — select it inside its folder.
+    Item(std::path::PathBuf),
+    /// Original gone, its folder isn't. The folder still answers "where did
+    /// this come from", so open it rather than failing.
+    Dir(std::path::PathBuf),
+}
+
+fn source_target(src_path: &str) -> Option<SourceTarget> {
+    let path = std::path::Path::new(src_path);
+    if path.exists() {
+        return Some(SourceTarget::Item(path.to_path_buf()));
+    }
+    // `parent()` of a bare filename is `""` — not a folder anyone can open.
+    let parent = path.parent().filter(|p| !p.as_os_str().is_empty())?;
+    parent
+        .is_dir()
+        .then(|| SourceTarget::Dir(parent.to_path_buf()))
+}
+
+/// Reveal an asset's *import source* — the original file it was brought in
+/// from — as opposed to `reveal_asset`, which reveals the managed copy. Both
+/// are useful and neither substitutes for the other: the managed copy is what
+/// the library owns, the source is where the user's own working file lives.
+#[tauri::command]
+#[specta::specta]
+pub async fn reveal_asset_source(id: String, state: tauri::State<'_, AppState>) -> AppResult<()> {
+    let library = state.current_library()?;
+    let src: Option<String> = library
+        .read(move |conn| {
+            conn.query_row(
+                "SELECT src_path FROM assets WHERE id = ?1",
+                [id.as_str()],
+                |row| row.get(0),
+            )
+            .map_err(|err| match err {
+                rusqlite::Error::QueryReturnedNoRows => AppError::NotFound(format!("asset {id}")),
+                other => other.into(),
+            })
+        })
+        .await?;
+    let src = src
+        .filter(|path| !path.is_empty())
+        .ok_or_else(|| AppError::NotFound("no import source recorded".into()))?;
+
+    match source_target(&src) {
+        Some(SourceTarget::Item(path)) => tauri_plugin_opener::reveal_item_in_dir(path),
+        Some(SourceTarget::Dir(dir)) => tauri_plugin_opener::open_path(dir, None::<&str>),
+        None => return Err(AppError::NotFound(format!("import source {src}"))),
+    }
+    .map_err(|err| {
+        log::error!("reveal source failed: {err}");
+        AppError::Io("failed to reveal the import source".into())
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1014,6 +1077,38 @@ mod tests {
             Ok(())
         })
         .expect("reader");
+    }
+
+    #[test]
+    fn a_live_import_source_reveals_the_file_itself() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let file = tmp.path().join("original.png");
+        std::fs::write(&file, b"x").expect("write");
+        assert_eq!(
+            source_target(file.to_str().expect("utf8")),
+            Some(SourceTarget::Item(file))
+        );
+    }
+
+    #[test]
+    fn a_deleted_original_falls_back_to_the_folder_that_held_it() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let gone = tmp.path().join("cleaned-out-of-downloads.png");
+        assert_eq!(
+            source_target(gone.to_str().expect("utf8")),
+            Some(SourceTarget::Dir(tmp.path().to_path_buf()))
+        );
+    }
+
+    #[test]
+    fn a_source_whose_folder_is_gone_too_has_nothing_to_reveal() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        // An unmounted volume or a deleted parent: neither level survives.
+        let gone = tmp.path().join("removed-dir").join("file.png");
+        assert_eq!(source_target(gone.to_str().expect("utf8")), None);
+        // A bare filename has no folder to fall back to at all.
+        assert_eq!(source_target("file.png"), None);
+        assert_eq!(source_target(""), None);
     }
 }
 

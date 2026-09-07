@@ -13,9 +13,11 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { FolderPicker } from "@/components/folder-picker";
 import {
 	IconClose,
+	IconCopy,
 	IconFolder,
 	IconPlus,
 	IconReveal,
@@ -34,6 +36,7 @@ import { openExternalUrl } from "@/lib/opener";
 import {
 	assetDetailQueryOptions,
 	revealAsset,
+	revealAssetSource,
 	useUpdateAsset,
 } from "@/lib/queries/assets";
 import {
@@ -368,18 +371,53 @@ function InfoTable({ detail }: { detail: AssetDetail }) {
 						<dd className="truncate text-right tabular-nums">{value}</dd>
 					</div>
 				))}
-				{detail.src_path && (
-					<div className="contents">
-						<dt className="text-muted-foreground">{T.inspector.infoSource}</dt>
-						<dd
-							className="truncate text-right text-muted-foreground"
-							title={detail.src_path}
-						>
-							{detail.src_path}
-						</dd>
-					</div>
-				)}
+				{detail.src_path && <SourceRow path={detail.src_path} id={detail.id} />}
 			</dl>
+		</div>
+	);
+}
+
+/**
+ * Import source: where the file came from on disk. The path is long and the
+ * inspector is narrow, so the text is decoration — the two actions are the
+ * point, since a truncated path can be neither read nor used.
+ */
+function SourceRow({ path, id }: { path: string; id: string }) {
+	const copy = async () => {
+		try {
+			await navigator.clipboard.writeText(path);
+			toast.success(T.inspector.copyPathDone);
+		} catch {
+			toast.error(T.inspector.copyPathFailed);
+		}
+	};
+
+	return (
+		<div className="contents">
+			<dt className="text-muted-foreground">{T.inspector.infoSource}</dt>
+			<dd className="flex min-w-0 items-center justify-end gap-1.5">
+				<span className="truncate text-muted-foreground" title={path}>
+					{path}
+				</span>
+				<button
+					type="button"
+					aria-label={T.inspector.copyPath}
+					title={T.inspector.copyPath}
+					className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+					onClick={() => void copy()}
+				>
+					<IconCopy className="size-3.5" />
+				</button>
+				<button
+					type="button"
+					aria-label={T.inspector.revealSource}
+					title={T.inspector.revealSource}
+					className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+					onClick={() => revealAssetSource(id)}
+				>
+					<IconReveal className="size-3.5" />
+				</button>
+			</dd>
 		</div>
 	);
 }

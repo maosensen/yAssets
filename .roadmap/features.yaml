@@ -368,6 +368,7 @@ features:
     title: Reveal in Finder + 重新生成封面
     area: 元数据详情
     status: done
+    note: 两个入口互不替代 —— 底栏按钮定位库内管理副本,属性表 Source 行的复制路径 / 在访达中显示来源指向导入原件(原件已删则退回它所在的文件夹)。
 
   # —— 素材出库 ——
   - id: copy-out

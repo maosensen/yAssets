@@ -87,6 +87,13 @@ export const commands = {
 	 */
 	revealAsset: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("reveal_asset", { id })),
 	/**
+	 *  Reveal an asset's *import source* — the original file it was brought in
+	 *  from — as opposed to `reveal_asset`, which reveals the managed copy. Both
+	 *  are useful and neither substitutes for the other: the managed copy is what
+	 *  the library owns, the source is where the user's own working file lives.
+	 */
+	revealAssetSource: (id: string) => typedError<null, AppError>(__TAURI_INVOKE("reveal_asset_source", { id })),
+	/**
 	 *  Assets still missing a cover whose format the WebView (not headless Rust)
 	 *  must decode: video, PDF, and HEIC/HEIF. The worker grabs a frame/page/image
 	 *  with the engine's own decoder and ships it back (see `set_video_thumbnail`

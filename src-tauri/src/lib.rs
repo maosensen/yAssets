@@ -40,6 +40,7 @@ fn specta_builder() -> Builder<tauri::Wry> {
             commands::assets::update_asset,
             commands::assets::set_assets_rating,
             commands::assets::reveal_asset,
+            commands::assets::reveal_asset_source,
             commands::assets::list_cover_candidates,
             commands::assets::set_video_thumbnail,
             commands::assets::set_captured_thumbnail,

@@ -460,6 +460,17 @@ export function revealAsset(id: string): void {
 	});
 }
 
+/**
+ * Reveal the *import source* in Finder — the original file, not the managed
+ * copy `revealAsset` shows. Errors when nothing survives at that path (the
+ * original and its folder both gone), which is why it toasts like the above.
+ */
+export function revealAssetSource(id: string): void {
+	void commands.revealAssetSource(id).then((result) => {
+		if (result.status === "error") toast.error(describeError(result.error));
+	});
+}
+
 /** Ergonomic partial patch — converted to the wire shape (all-nullable). */
 export type AssetPatchInput = {
 	name?: string;
