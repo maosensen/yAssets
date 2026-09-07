@@ -2,11 +2,17 @@
 //!
 //! A debounced `notify` watcher over the library's enabled `watched_folders`
 //! rows. New/changed files import into the row's target folder through the
-//! normal pipeline (content-hash dedupe makes a re-fire on an unchanged file a
-//! no-op, so a modify event never re-imports the same bytes). The watcher never
-//! observes the app's own writes — `add_watched_folder` forbids watching inside
-//! (or a parent of) the library root, and imports copy into the library, not the
-//! watched folder.
+//! normal pipeline, where content-hash dedupe makes a re-fire on unchanged
+//! bytes a no-op. The watcher never observes the app's own writes —
+//! `add_watched_folder` forbids watching inside (or a parent of) the library
+//! root, and imports copy into the library, not the watched folder.
+//!
+//! Note that the debounce coalesces a *quiet* window, not a whole build: a tool
+//! rewriting the same file for several seconds matures batch after batch, and
+//! each batch spawns its own import job. Those jobs overlap, so dedupe has to
+//! hold across concurrent jobs — `import::process_file_with_meta` re-checks
+//! under the writer lock for exactly this reason. Don't rely on the debounce
+//! alone to keep one file from being cataloged twice.
 //!
 //! Lifecycle: started in `commands::library::install_library` and stored in
 //! `AppState` as an opaque RAII handle; dropping it (library switch/close, or a

@@ -29,10 +29,12 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use rusqlite::OptionalExtension;
 use tauri::Manager;
 use tauri_specta::Event;
 use walkdir::WalkDir;
 
+use crate::error::AppResult;
 use crate::events::{DuplicateItem, ImportFailure, ImportFinished, ImportPhase, ImportProgress};
 use crate::library::{asset_rel_path, new_id, now_ms, Library};
 use crate::state::AppState;
@@ -563,38 +565,17 @@ pub(crate) fn process_file_with_meta(
         }
     }
 
-    // Library-wide dedupe (L1 exact, blake3): an alive asset with the same
-    // content wins; a targeted folder still gains membership of the existing
-    // asset. "Keep both" jobs skip this check entirely. Only files dedupe
-    // against files: a link asset's stored cover image must never swallow a
-    // real file import (nor vice versa — link imports pass keep_duplicates).
+    // Library-wide dedupe (L1 exact, blake3), fast path: skip the copy and the
+    // thumbnail when we already hold these bytes. Only advisory — it reads on a
+    // pooled reader, so a concurrent importer of the same file can pass it too;
+    // `insert_unless_duplicate` re-checks under the writer lock and is what
+    // actually keeps the row unique.
     if !keep_duplicates {
-        let existing: Option<String> = library
-            .with_reader(|conn| {
-                Ok(conn
-                    .query_row(
-                        "SELECT id FROM assets
-                           WHERE hash_blake3 = ?1 AND deleted_at IS NULL AND kind = 'file'
-                           LIMIT 1",
-                        [&hash],
-                        |row| row.get(0),
-                    )
-                    .ok())
-            })
+        let existing = library
+            .with_reader(|conn| Ok(duplicate_of(conn, &hash)?))
             .map_err(|err| err.to_string())?;
         if let Some(existing_id) = existing {
-            if let Some(folder) = folder_id {
-                library
-                    .with_writer(|conn| {
-                        conn.execute(
-                            "INSERT OR IGNORE INTO asset_folders (asset_id, folder_id, added_at)
-                             VALUES (?1, ?2, ?3)",
-                            rusqlite::params![existing_id, folder, now_ms()],
-                        )?;
-                        Ok(())
-                    })
-                    .map_err(|err| err.to_string())?;
-            }
+            adopt_into_folder(library, &existing_id, folder_id).map_err(|err| err.to_string())?;
             return Ok(FileOutcome::Duplicate { existing_id });
         }
     }
@@ -649,8 +630,17 @@ pub(crate) fn process_file_with_meta(
 
     let mime = mime_guess::from_path(path).first().map(|m| m.to_string());
     let now = now_ms();
+    // One transaction under the writer lock: re-check the dedupe, then insert.
+    // Splitting those two is what let a watched folder catalog the same bytes
+    // nine times — see `insert_unless_duplicate`.
     let inserted = library.with_writer(|conn| {
         let tx = conn.transaction()?;
+        if !keep_duplicates {
+            if let Some(existing_id) = duplicate_of(&tx, &hash)? {
+                tx.commit()?;
+                return Ok(Some(existing_id));
+            }
+        }
         tx.execute(
             "INSERT INTO assets (
                id, name, ext, mime, size, width, height, hash_blake3,
@@ -689,17 +679,67 @@ pub(crate) fn process_file_with_meta(
             )?;
         }
         tx.commit()?;
-        Ok(())
+        Ok(None)
     });
 
-    if let Err(err) = inserted {
-        // Roll the filesystem back so no orphan outlives a failed insert.
+    let raced = match inserted {
+        Ok(raced) => raced,
+        Err(err) => {
+            // Roll the filesystem back so no orphan outlives a failed insert.
+            let _ = std::fs::remove_file(&dest);
+            let _ = std::fs::remove_file(library.thumb_path(&id));
+            return Err(format!("db insert failed: {err}"));
+        }
+    };
+
+    if let Some(existing_id) = raced {
+        // Another importer cataloged these bytes while we were copying and
+        // thumbnailing. Our copy is now an orphan — drop it and report the
+        // duplicate, exactly as the fast path above would have.
         let _ = std::fs::remove_file(&dest);
         let _ = std::fs::remove_file(library.thumb_path(&id));
-        return Err(format!("db insert failed: {err}"));
+        adopt_into_folder(library, &existing_id, folder_id).map_err(|err| err.to_string())?;
+        return Ok(FileOutcome::Duplicate { existing_id });
     }
 
     Ok(FileOutcome::Imported)
+}
+
+/// The alive file asset already holding `hash`, if any.
+///
+/// Only files dedupe against files: a link asset's stored cover image must
+/// never swallow a real file import (nor vice versa — link imports pass
+/// `keep_duplicates`). Shared by the pre-copy fast path and the re-check inside
+/// the insert transaction so the two can never drift apart.
+fn duplicate_of(conn: &rusqlite::Connection, hash: &str) -> rusqlite::Result<Option<String>> {
+    conn.query_row(
+        "SELECT id FROM assets
+           WHERE hash_blake3 = ?1 AND deleted_at IS NULL AND kind = 'file'
+           LIMIT 1",
+        [hash],
+        |row| row.get(0),
+    )
+    .optional()
+}
+
+/// A dropped duplicate still earns the targeted folder membership its import
+/// asked for — the user pointed at a folder, so the content belongs there.
+fn adopt_into_folder(
+    library: &Library,
+    existing_id: &str,
+    folder_id: Option<&str>,
+) -> AppResult<()> {
+    let Some(folder) = folder_id else {
+        return Ok(());
+    };
+    library.with_writer(|conn| {
+        conn.execute(
+            "INSERT OR IGNORE INTO asset_folders (asset_id, folder_id, added_at)
+             VALUES (?1, ?2, ?3)",
+            rusqlite::params![existing_id, folder, now_ms()],
+        )?;
+        Ok(())
+    })
 }
 
 fn display_name(path: &Path) -> String {
@@ -1136,6 +1176,59 @@ mod tests {
             FileOutcome::Imported
         ));
         assert_eq!(count_assets(&lib), 2);
+    }
+
+    /// The watched-folder bug: a build tool rewriting one file makes the
+    /// debouncer emit several batches, each spawning its own import job with
+    /// its own `seen_hashes`. They overlap in the copy+thumbnail window, so a
+    /// dedupe that only reads before that window lets every one of them
+    /// insert — this library grew nine rows of one 1.6 MB PNG that way.
+    #[test]
+    fn concurrent_jobs_importing_one_file_catalog_it_once() {
+        let (tmp, lib) = test_library();
+        let src = tmp.path().join("rewritten-by-a-build.png");
+        write_png(&src, 96, 96, 7);
+
+        const JOBS: usize = 8;
+        let start = std::sync::Barrier::new(JOBS);
+        let outcomes: Vec<FileOutcome> = std::thread::scope(|scope| {
+            let handles: Vec<_> = (0..JOBS)
+                .map(|_| {
+                    scope.spawn(|| {
+                        // A fresh set per thread: batch-local dedupe never
+                        // crosses jobs, which is the point of the test.
+                        let seen = Mutex::new(HashSet::new());
+                        start.wait();
+                        process_file(&lib, &src, None, &seen, false).expect("import")
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .map(|h| h.join().expect("join"))
+                .collect()
+        });
+
+        assert_eq!(count_assets(&lib), 1);
+        let imported = outcomes
+            .iter()
+            .filter(|o| matches!(o, FileOutcome::Imported))
+            .count();
+        let duplicates = outcomes
+            .iter()
+            .filter(|o| matches!(o, FileOutcome::Duplicate { .. }))
+            .count();
+        assert_eq!(imported, 1, "exactly one job may win the race");
+        assert_eq!(duplicates, JOBS - 1, "the losers must report Duplicate");
+
+        // The losers copied bytes in before losing — those must not survive as
+        // orphans the catalog no longer references.
+        let stored = walkdir::WalkDir::new(lib.resolve_rel("assets"))
+            .into_iter()
+            .filter_map(Result::ok)
+            .filter(|e| e.file_type().is_file())
+            .count();
+        assert_eq!(stored, 1, "a lost race must not leave an orphaned copy");
     }
 
     #[test]
