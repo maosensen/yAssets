@@ -70,6 +70,8 @@
 
 - 改导入管线共享函数签名（如 `process_file` 加参数）→ 用 codegraph_impact 全仓扫调用点（上次波及 10 处，含 `commands/trash.rs` 的恢复路径），受影响测试语义同 commit 更新。
 - `keep_duplicates = true` 只关**库级**查重；批内 `seen_hashes` 永远生效（同一批拖两份一样的文件仍只进一份）。
+- **同一张图进库多次（hash 完全相同、时间戳挤在几秒内）= 查重竞态,不是内容变了。** 先验证再动手:`SELECT substr(hash_blake3,1,12), count(*), min/max(imported_at) ... GROUP BY hash_blake3 HAVING count(*)>1` —— hash 相同 + 秒级聚簇就是竞态;hash 不同才是文件真被重写了。根因是 check-then-act:预检 SELECT 走 reader,中间隔着 hash + copy + 缩略图(几百 ms)才在 writer 上 INSERT,并发导入全部通过预检。`hash_blake3` **不能**加 UNIQUE(keep-both 导入和 link 封面合法共享 hash),`seen_hashes` 是 per-job 的、跨不了 job。修法:查重**放进 INSERT 那个事务**里复检(`with_writer` 持单写锁 = 原子),预检只当快路径。
+- **watched folder 的 debounce 拦不住重复导入。** 700ms 去抖合并的是「安静窗口」而不是整场构建 —— 构建工具反复重写同一个文件会连续成熟出好几个 batch,每个 batch `import::spawn` 一个**独立 job**(各有各的 `seen_hashes`),这些 job 天然并发。凡是「一个文件只会被处理一次」的假设都不要建立在去抖上。
 - 嵌套文件夹导入：`DiscoveredFile.folder_components` 相对「拖入目录的父级」计算（所以拖入的目录名本身是链条第一层）；`build_folder_map` 用 BTreeSet 保证父先于子创建，`ensure_folder` 按 `name COLLATE NOCASE + parent_id` 复用——重复导入收敛到同一棵树。
 
 ## 网络 / 三方源 (Discover)
