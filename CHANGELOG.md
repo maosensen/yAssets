@@ -9,6 +9,17 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.36] - 2026-09-07
+
+### Fixed
+
+- **Duplicate groups stay readable in a narrow window.** In a group of nine, the
+  asset's name disappeared, the file count and size reflowed into a
+  one-word-per-line stack, and the Trash button pushed past the row with its
+  label clipped mid-word — the count of files it was about to trash. The row now
+  gives ground in a set order: thumbnails first (in an exact group every one of
+  them is the same image anyway), then the name, and never the button.
+
 ## [0.1.35] - 2026-09-07
 
 A watched folder pointed at a build tool's output could catalog the same file
@@ -528,7 +539,8 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.35...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.36...HEAD
+[0.1.36]: https://github.com/maosensen/yAssets/releases/tag/v0.1.36
 [0.1.35]: https://github.com/maosensen/yAssets/releases/tag/v0.1.35
 [0.1.34]: https://github.com/maosensen/yAssets/releases/tag/v0.1.34
 [0.1.33]: https://github.com/maosensen/yAssets/releases/tag/v0.1.33

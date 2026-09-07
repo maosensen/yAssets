@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.36",
+		date: "2026-09-07",
+		title: "Duplicate groups fit the window",
+		summary:
+			"A group of nine files was unreadable in a narrow window. The row now knows what to give up first.",
+		changes: [
+			{
+				kind: "fixed",
+				title: "Duplicate rows stay readable when space runs out",
+				text: "In a large group the asset's name disappeared, the file count and size reflowed into a one-word-per-line stack, and the Trash button pushed past the row with its label clipped mid-word — the very count of files it was about to trash. The row now gives ground in a set order: thumbnails first, since in an exact group every one of them is the same image anyway, then the name, and never the button.",
+			},
+		],
+	},
+	{
 		version: "0.1.35",
 		date: "2026-09-07",
 		title: "One file, one asset",
