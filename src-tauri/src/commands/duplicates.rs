@@ -8,6 +8,12 @@
 //!   (so exact groups never re-appear here), edges at Hamming distance ≤
 //!   [`crate::import::dhash::SIMILAR_MAX_DISTANCE`]. Presented for review,
 //!   not mechanical deletion — "similar" is a judgement call.
+//!
+//! The two differ on `kind` by choice: exact groups are files only, clusters
+//! are not. Only exact groups drive a destructive button, so only they need to
+//! match the import pipeline's file-vs-file dedupe; a cluster's one action is
+//! "Compare", and a link cover that looks like a catalogued image is worth
+//! putting in front of the user rather than hiding.
 
 use serde::Serialize;
 
@@ -24,15 +30,25 @@ pub struct DuplicateScan {
     pub visual: Vec<Vec<AssetSummary>>,
 }
 
-/// Exact-duplicate groups: alive assets sharing a blake3 hash, each group
-/// ordered oldest-first. Reads the hash by column NAME (not index) so a change
-/// to `SUMMARY_COLS`'s width can't silently shift the read.
+/// Exact-duplicate groups: alive **file** assets sharing a blake3 hash, each
+/// group ordered oldest-first. Reads the hash by column NAME (not index) so a
+/// change to `SUMMARY_COLS`'s width can't silently shift the read.
+///
+/// `kind = 'file'` mirrors the import pipeline's dedupe, and this is the query
+/// that has to: its groups drive a mechanical trash-all. A link bookmark is
+/// identified by its URL, not by the bytes of the cover image fetched for it —
+/// so two pages sharing a stock og-image are not duplicates, and a link whose
+/// cover matches a real file is not one either. The import side lets both
+/// coexist on purpose; offering to delete one here would undo that. Filtering
+/// both the outer query and the `HAVING` subquery matters: filtering only the
+/// outer one would let a file+link pair satisfy `COUNT(*) > 1` and then render
+/// as a bogus single-member group.
 fn exact_duplicate_groups(conn: &rusqlite::Connection) -> rusqlite::Result<Vec<Vec<AssetSummary>>> {
     let mut stmt = conn.prepare(&format!(
         "SELECT {SUMMARY_COLS}, hash_blake3 FROM assets
-         WHERE deleted_at IS NULL AND hash_blake3 IN (
+         WHERE deleted_at IS NULL AND kind = 'file' AND hash_blake3 IN (
            SELECT hash_blake3 FROM assets
-           WHERE deleted_at IS NULL
+           WHERE deleted_at IS NULL AND kind = 'file'
            GROUP BY hash_blake3 HAVING COUNT(*) > 1
          )
          ORDER BY hash_blake3, imported_at"
@@ -175,6 +191,38 @@ mod tests {
 
     fn ids(cluster: &[String]) -> Vec<&str> {
         cluster.iter().map(String::as_str).collect()
+    }
+
+    /// A link's cover bytes must not group with a real file's. The import
+    /// pipeline deliberately lets them coexist, and this group feeds a
+    /// mechanical trash-all — grouping them would offer to delete a bookmark
+    /// because a stock og-image matched an image already in the library.
+    #[test]
+    fn a_link_cover_never_groups_with_a_file_of_the_same_bytes() {
+        let tmp = tempfile::tempdir().expect("tmpdir");
+        let lib = Library::create(&tmp.path().join("Lib")).expect("create");
+        lib.with_writer(|conn| {
+            conn.execute_batch(
+                "INSERT INTO assets (id, name, ext, size, hash_blake3, rel_path, imported_at, updated_at, kind)
+                 VALUES ('bb000000000000000001','file','png',10,'shared','assets/bb/a.png',1,0,'file'),
+                        ('bb000000000000000002','link','png',10,'shared','assets/bb/b.png',2,0,'link'),
+                        ('bb000000000000000003','l2','png',10,'twolinks','assets/bb/c.png',3,0,'link'),
+                        ('bb000000000000000004','l3','png',10,'twolinks','assets/bb/d.png',4,0,'link');",
+            )?;
+            Ok(())
+        })
+        .expect("seed");
+
+        lib.with_reader(|conn| {
+            // One file + one link sharing bytes: no group, and specifically not
+            // a one-member group (which the subquery would emit if only the
+            // outer query were filtered).
+            // Two links sharing bytes: also no group — a bookmark's identity is
+            // its URL, not its cover.
+            assert!(exact_duplicate_groups(conn)?.is_empty());
+            Ok(())
+        })
+        .expect("reader");
     }
 
     /// Guards the `SELECT {SUMMARY_COLS}, hash_blake3` column read against
