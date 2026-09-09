@@ -79,6 +79,13 @@ export function useImportEvents() {
 		track(
 			events.importProgress.listen((event) => {
 				const p = event.payload;
+				// Automatic jobs (watched folders) still invalidate — their
+				// results matter — but they don't narrate themselves. A watcher
+				// re-scanning its root on every launch is not news.
+				if (p.origin === "Automatic") {
+					throttledInvalidate();
+					return;
+				}
 				touchJob(p.job_id);
 				toast.loading(
 					p.phase === "Discovering"
@@ -103,6 +110,21 @@ export function useImportEvents() {
 					useDuplicatesStore.getState().raise(f.job_id, f.duplicates);
 				} else {
 					useDuplicatesStore.getState().forget(f.job_id);
+				}
+				// An automatic pass that imported nothing and failed nothing
+				// has no news: it is the watched-folder reconciliation finding
+				// the folder already catalogued, which used to fire one success
+				// toast per watched folder at every launch. Anything it
+				// actually did — new files, failures — still surfaces.
+				const silent =
+					f.origin === "Automatic" &&
+					!f.cancelled &&
+					f.imported === 0 &&
+					f.failed.length === 0;
+				if (silent) {
+					toast.dismiss(f.job_id);
+					invalidateAll();
+					return;
 				}
 				if (f.cancelled) {
 					toast.info(T.import.cancelled(f.imported), {

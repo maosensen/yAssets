@@ -132,9 +132,7 @@ fn reconcile(app: &tauri::AppHandle, library: &Arc<Library>, targets: &Targets) 
             vec![root.to_string_lossy().into_owned()],
             folder_id.clone(),
             false,
-            // Automatic import — skip already-cataloged files silently, never
-            // pop the duplicate dialog for a watched folder's existing content.
-            false,
+            crate::events::JobOrigin::Automatic,
             // The scan walks the root; passing it makes the chain relative to
             // the root, matching the folder this watch is bound to.
             Some(root.to_path_buf()),
@@ -200,8 +198,7 @@ fn on_events(
             paths,
             folder_id,
             false,
-            // Automatic import — skip already-cataloged files silently.
-            false,
+            crate::events::JobOrigin::Automatic,
             // Loose paths: let discovery filter hidden ancestors (a recorder's
             // `.work/frames/`) and rebuild the chain relative to this root.
             Some(root),

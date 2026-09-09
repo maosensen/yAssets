@@ -35,7 +35,9 @@ use tauri_specta::Event;
 use walkdir::WalkDir;
 
 use crate::error::AppResult;
-use crate::events::{DuplicateItem, ImportFailure, ImportFinished, ImportPhase, ImportProgress};
+use crate::events::{
+    DuplicateItem, ImportFailure, ImportFinished, ImportPhase, ImportProgress, JobOrigin,
+};
 use crate::library::{asset_rel_path, new_id, now_ms, Library};
 use crate::state::AppState;
 
@@ -55,7 +57,7 @@ pub fn spawn(
     paths: Vec<String>,
     folder_id: Option<String>,
     keep_duplicates: bool,
-    report_duplicates: bool,
+    origin: JobOrigin,
     watched_root: Option<PathBuf>,
 ) {
     tauri::async_runtime::spawn(async move {
@@ -66,7 +68,7 @@ pub fn spawn(
             cancel,
             folder_id,
             keep_duplicates,
-            report_duplicates,
+            origin,
             watched_root,
             total: AtomicU32::new(0),
             done: AtomicU32::new(0),
@@ -94,11 +96,13 @@ struct JobCtx {
     folder_id: Option<String>,
     /// "Keep both" mode: skip library-wide dedupe (batch-local still applies).
     keep_duplicates: bool,
-    /// Collect exact duplicates into the interactive alert (drives the "Use
-    /// existing / Keep both" dialog). False for automatic imports (watched
-    /// folders), where already-cataloged files must be skipped silently — else
-    /// every startup re-scan pops the dialog for the folder's existing content.
-    report_duplicates: bool,
+    /// Who asked (see `JobOrigin`). Drives three things at once: the
+    /// interactive duplicate alert, whether the frontend toasts at all, and
+    /// whether unchanged files are re-hashed. An automatic pass must be silent
+    /// AND cheap — a watched folder re-scans its whole root at every watcher
+    /// start, so the folder's existing content would otherwise pop the dialog,
+    /// toast three times, and re-read every byte on every launch.
+    origin: JobOrigin,
     /// Set for live watched-folder events: the loose file paths arrive one by
     /// one, so discovery must (a) apply the same hidden/junk filter the
     /// initial scan applies to walked entries, and (b) rebuild the folder
@@ -153,6 +157,7 @@ impl JobCtx {
             total: self.total.load(Ordering::Relaxed),
             current,
             failed: self.failed_count(),
+            origin: self.origin,
         };
         if let Err(err) = event.emit(&self.app) {
             log::warn!("failed to emit ImportProgress: {err}");
@@ -178,6 +183,7 @@ impl JobCtx {
             failed: failures,
             duplicates,
             cancelled: self.cancelled(),
+            origin: self.origin,
         };
         log::info!(
             "import {} finished: imported={} skipped={} duplicates={} failed={} cancelled={}",
@@ -210,6 +216,22 @@ fn run_job(ctx: &Arc<JobCtx>, paths: Vec<String>) {
     ctx.total.store(files.len() as u32, Ordering::Relaxed);
     ctx.emit_progress(ImportPhase::Processing, None, true);
 
+    // Automatic passes trust each file's own stat instead of re-reading it:
+    // a watched root is re-scanned at every watcher start, so without this the
+    // app re-hashes the folder's entire content on every launch — measured at
+    // 1.0 GB across 463 files on the author's three watched folders, none of
+    // which had changed. A failure here only costs the shortcut.
+    let imported_stats = if ctx.origin == JobOrigin::Automatic {
+        ctx.library
+            .with_reader(|conn| Ok(imported_stat_index(conn)?))
+            .unwrap_or_else(|err| {
+                log::warn!("stat index unavailable, re-reading every file: {err}");
+                std::collections::HashMap::new()
+            })
+    } else {
+        std::collections::HashMap::new()
+    };
+
     // Mirror the dropped directory structure as library folders — one writer
     // transaction before the parallel phase (folder counts are tiny). On
     // failure we degrade gracefully: files land in the drop target instead.
@@ -233,6 +255,23 @@ fn run_job(ctx: &Arc<JobCtx>, paths: Vec<String>) {
                     return;
                 }
                 let path = &file.path;
+                // Unchanged since we imported it from this very path — the
+                // outcome would be a duplicate skip anyway, so don't read the
+                // bytes to find that out. `stat` already told us.
+                if ctx.origin == JobOrigin::Automatic {
+                    let meta = std::fs::metadata(path).ok();
+                    let size = meta.as_ref().map(|m| m.len());
+                    let mtime = meta
+                        .as_ref()
+                        .and_then(|m| system_time_ms(m.modified().ok()));
+                    if let Some(size) = size {
+                        if unchanged_since_import(imported_stats.get(path), size, mtime) {
+                            ctx.skipped.fetch_add(1, Ordering::Relaxed);
+                            ctx.done.fetch_add(1, Ordering::Relaxed);
+                            return;
+                        }
+                    }
+                }
                 // Nested files attach to their mirrored folder; loose files
                 // (and map misses) keep the drop target.
                 let target_folder = if file.folder_components.is_empty() {
@@ -258,7 +297,7 @@ fn run_job(ctx: &Arc<JobCtx>, paths: Vec<String>) {
                     }
                     Ok(FileOutcome::Duplicate { existing_id }) => {
                         ctx.skipped.fetch_add(1, Ordering::Relaxed);
-                        if ctx.report_duplicates {
+                        if ctx.origin == JobOrigin::UserInitiated {
                             let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
                             if let Ok(mut duplicates) = ctx.duplicates.lock() {
                                 duplicates.push(DuplicateItem {
@@ -287,6 +326,55 @@ fn run_job(ctx: &Arc<JobCtx>, paths: Vec<String>) {
 
     ctx.emit_progress(ImportPhase::Processing, None, true);
     ctx.finish();
+}
+
+/// What we recorded about a file the last time we imported it from a path:
+/// `(size, mtime_ms)`. `file_mtime` is nullable, so the mtime is too.
+type ImportedStat = (i64, Option<i64>);
+
+/// `src_path` → the stat we stored when importing it.
+///
+/// One query up front rather than a point lookup per file: the map is built
+/// before the parallel phase so the rayon workers never take a reader
+/// connection to make this decision, and a whole-table read of a few thousand
+/// rows is cheaper than a few hundred indexed lookups anyway (`src_path` has
+/// no index).
+fn imported_stat_index(
+    conn: &rusqlite::Connection,
+) -> rusqlite::Result<std::collections::HashMap<PathBuf, ImportedStat>> {
+    let mut stmt = conn.prepare(
+        "SELECT src_path, size, file_mtime FROM assets
+           WHERE deleted_at IS NULL AND kind = 'file' AND src_path IS NOT NULL",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok((
+            PathBuf::from(row.get::<_, String>(0)?),
+            (row.get::<_, i64>(1)?, row.get::<_, Option<i64>>(2)?),
+        ))
+    })?;
+    rows.collect()
+}
+
+/// Is this file byte-for-byte what we already imported from this same path?
+///
+/// Deliberately keyed on the **source path**, not on a "modified since the
+/// last scan" timestamp: a file moved into a watched folder keeps its old
+/// mtime, and a global timestamp filter would skip it forever. Here it simply
+/// has no entry and gets read normally.
+///
+/// Matching size *and* mtime is the bet every build system and backup tool
+/// makes. The residual risk is a file replaced with different content of
+/// identical length whose mtime is also restored to the same millisecond —
+/// which is why only automatic passes take this shortcut. A user who drops
+/// files in is asking for an answer about those exact bytes, and gets one.
+fn unchanged_since_import(recorded: Option<&ImportedStat>, size: u64, mtime: Option<i64>) -> bool {
+    match recorded {
+        // An unknown mtime on either side proves nothing — read the file.
+        Some(&(recorded_size, Some(recorded_mtime))) => {
+            recorded_size == size as i64 && mtime == Some(recorded_mtime)
+        }
+        _ => false,
+    }
 }
 
 /// One discovered file plus the directory chain to recreate in the library.
@@ -1229,6 +1317,58 @@ mod tests {
             .filter(|e| e.file_type().is_file())
             .count();
         assert_eq!(stored, 1, "a lost race must not leave an orphaned copy");
+    }
+
+    #[test]
+    fn an_unchanged_file_is_recognised_from_its_stat_alone() {
+        let recorded = (1625246_i64, Some(1_700_000_000_000_i64));
+        assert!(unchanged_since_import(
+            Some(&recorded),
+            1_625_246,
+            Some(1_700_000_000_000)
+        ));
+    }
+
+    #[test]
+    fn any_difference_or_missing_evidence_means_read_the_file() {
+        let recorded = (100_i64, Some(500_i64));
+        // Edited in place: same length, new mtime.
+        assert!(!unchanged_since_import(Some(&recorded), 100, Some(501)));
+        // Grew or shrank.
+        assert!(!unchanged_since_import(Some(&recorded), 101, Some(500)));
+        // Never imported from this path — the case that keeps a file moved in
+        // with a preserved old mtime from being skipped forever.
+        assert!(!unchanged_since_import(None, 100, Some(500)));
+        // Caller could not stat it.
+        assert!(!unchanged_since_import(Some(&recorded), 100, None));
+        // We never recorded an mtime for it (nullable column).
+        assert!(!unchanged_since_import(Some(&(100, None)), 100, Some(500)));
+    }
+
+    #[test]
+    fn the_stat_index_maps_source_paths_to_what_was_imported() {
+        let (tmp, lib) = test_library();
+        let src = tmp.path().join("from-a-watched-folder.png");
+        write_png(&src, 48, 48, 9);
+        let seen = Mutex::new(HashSet::new());
+        process_file(&lib, &src, None, &seen, false).expect("import");
+
+        let meta = std::fs::metadata(&src).expect("stat");
+        let mtime = system_time_ms(meta.modified().ok());
+        lib.with_reader(|conn| {
+            let index = imported_stat_index(conn)?;
+            // A second automatic pass over the same untouched file must decide
+            // "skip" without ever opening it — this is the whole point.
+            assert!(unchanged_since_import(index.get(&src), meta.len(), mtime));
+            // A file the library has never seen is not in the index.
+            assert!(!unchanged_since_import(
+                index.get(&tmp.path().join("brand-new.png")),
+                10,
+                Some(1)
+            ));
+            Ok(())
+        })
+        .expect("reader");
     }
 
     #[test]

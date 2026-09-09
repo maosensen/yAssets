@@ -21,6 +21,23 @@ pub enum ImportPhase {
     Processing,
 }
 
+/// Who asked for this import.
+///
+/// One input, three consequences — they belong together because they answer
+/// the same question, "is anyone watching?": whether exact duplicates are
+/// raised in the alert dialog, whether the job announces itself in a toast,
+/// and whether files unchanged since their own import are re-read at all.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
+pub enum JobOrigin {
+    /// A drop, a paste, a folder picker — the user is looking at the app and
+    /// waiting for an answer, so every outcome is worth reporting.
+    UserInitiated,
+    /// A watched folder: the pass at watcher start, or a filesystem event.
+    /// Nobody asked for it, so it stays silent unless it actually imported
+    /// something, and it trusts a file's own stat over re-hashing it.
+    Automatic,
+}
+
 /// Throttled progress snapshot for an in-flight import job.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
 pub struct ImportProgress {
@@ -34,6 +51,8 @@ pub struct ImportProgress {
     pub current: Option<String>,
     /// Files that failed so far.
     pub failed: u32,
+    /// Lets the frontend stay quiet for work the user never asked for.
+    pub origin: JobOrigin,
 }
 
 /// One file that could not be imported, with a user-displayable reason.
@@ -101,4 +120,6 @@ pub struct ImportFinished {
     pub duplicates: Vec<DuplicateItem>,
     /// True when the job was cancelled before completing.
     pub cancelled: bool,
+    /// See `JobOrigin` — an automatic job that imported nothing says nothing.
+    pub origin: JobOrigin,
 }

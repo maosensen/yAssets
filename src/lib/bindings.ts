@@ -567,6 +567,8 @@ export type ImportFinished = {
 	duplicates: DuplicateItem[],
 	/**  True when the job was cancelled before completing. */
 	cancelled: boolean,
+	/**  See `JobOrigin` — an automatic job that imported nothing says nothing. */
+	origin: JobOrigin,
 };
 
 /**  Which stage of the import pipeline a progress event refers to. */
@@ -591,6 +593,8 @@ export type ImportProgress = {
 	current: string | null,
 	/**  Files that failed so far. */
 	failed: number,
+	/**  Lets the frontend stay quiet for work the user never asked for. */
+	origin: JobOrigin,
 };
 
 export type ImportStarted = {
@@ -606,6 +610,27 @@ export type ImportSummary = {
 	duplicates: number,
 	failed: number,
 };
+
+/**
+ *  Who asked for this import.
+ * 
+ *  One input, three consequences — they belong together because they answer
+ *  the same question, "is anyone watching?": whether exact duplicates are
+ *  raised in the alert dialog, whether the job announces itself in a toast,
+ *  and whether files unchanged since their own import are re-read at all.
+ */
+export type JobOrigin = 
+/**
+ *  A drop, a paste, a folder picker — the user is looking at the app and
+ *  waiting for an answer, so every outcome is worth reporting.
+ */
+"UserInitiated" | 
+/**
+ *  A watched folder: the pass at watcher start, or a filesystem event.
+ *  Nobody asked for it, so it stays silent unless it actually imported
+ *  something, and it trusts a file's own stat over re-hashing it.
+ */
+"Automatic";
 
 /**  Library descriptor crossing the IPC boundary. */
 export type LibraryInfo = {
