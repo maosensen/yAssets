@@ -28,8 +28,15 @@ bump 后 `grep -rn "<旧版本号>"` 确认四处无残留(排除 lockfile 第�
 - 渠道:A(tag `v*` 触发 `.github/workflows/release.yml`,四平台矩阵 macOS aarch64/x64 + Windows + Linux → **draft** Release)
 - 等待 CI:用 release skill 的 `scripts/watch_run.sh <run-id>` 轮询到 completed,不要只信 `gh run watch`
 - 产物期望数:**17**(2026-07-28 以 v0.1.25 实测)——macOS 2 架构 ×(dmg 无 sig + app.tar.gz + .sig)= 6;Windows msi/.sig + setup.exe/.sig = 4;Linux deb/rpm/AppImage 各带 .sig = 6;latest.json = 1
-- 发布:资产数达标后 `gh release edit vX.Y.Z --draft=false`
-- 发布后验证:`curl -sL https://github.com/maosensen/yAssets/releases/latest/download/latest.json` → version 正确、darwin-aarch64 / darwin-x86_64 / windows-x86_64 等平台齐、每平台有 signature(draft 阶段 404 属预期)
+- **发布前必验 `latest.json` 的平台数(v0.1.37 实测教训:资产数达标 ≠ 可发布)**:
+  `gh release download vX.Y.Z --repo maosensen/yAssets --pattern latest.json --dir <tmp>` 然后数 `platforms` —— **必须 11 个**,且每个有 `signature`。
+  原因:`latest.json` 是**单个**资产,四个构建 job 都要「读—改—写」它。并发撞车时输的那个 job 报
+  `Not Found - .../get-a-release-asset`,而它的**二进制已经上传成功了** —— 于是资产数正好 17、
+  看起来完美,但那个平台在更新清单里**没有条目**,该架构用户的自更新永远报「无新版本」。
+  v0.1.37 就是这样:17/17 资产 + latest.json 只有 9 个平台,缺 darwin-aarch64(= 作者自己的机器)。
+  处置:`gh run rerun <run-id> --failed` 单独重跑那个 job(无并发即不会再撞),重跑后再数一次平台。
+- 发布:**资产数达标且 latest.json 11 个平台齐**后 `gh release edit vX.Y.Z --draft=false`
+- 发布后验证:`curl -sL https://github.com/maosensen/yAssets/releases/latest/download/latest.json` → version 正确、11 个平台齐、每平台有 signature(draft 阶段 404 属预期)
 
 ## 功能台账
 
