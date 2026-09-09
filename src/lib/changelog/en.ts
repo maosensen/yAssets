@@ -2,6 +2,25 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.37",
+		date: "2026-09-09",
+		title: "A quieter, lighter startup",
+		summary:
+			"Watched folders stop reporting the rescan they do at every launch — and stop re-reading what they already know.",
+		changes: [
+			{
+				kind: "fixed",
+				title: "No more toast per watched folder at launch",
+				text: 'Every launch fired one "Imported 0 items, skipped N duplicates" toast per watched folder, with the same numbers every time. The rescan itself is necessary — the watcher cannot see files added while the app was closed — but it now stays quiet unless it actually imported something. Anything it does pick up, or fails on, still surfaces as before.',
+			},
+			{
+				kind: "improved",
+				title: "Startup skips files it has already catalogued",
+				text: "That same rescan hashed every file in every watched root on every launch — on three real watched folders, 1.0 GB of reading to conclude nothing had changed. An automatic pass now takes a file's own size and modification time as evidence and skips it unread, cutting that roughly in half. Files whose content the library holds under a different source path are still read. Imports you start yourself are unchanged: they always inspect the actual bytes.",
+			},
+		],
+	},
+	{
 		version: "0.1.36",
 		date: "2026-09-07",
 		title: "Duplicate groups fit the window",

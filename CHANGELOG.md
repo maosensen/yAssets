@@ -9,6 +9,24 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.37] - 2026-09-09
+
+### Fixed
+
+- **A watched folder no longer announces its startup rescan.** Every launch
+  fired one "Imported 0 items, skipped N duplicates" toast per watched folder,
+  with the same numbers every time. The rescan is necessary — the watcher can't
+  see files added while the app was closed — but it now stays quiet unless it
+  actually imported something. Anything it does pick up, or fails on, still
+  surfaces as before.
+- **Startup no longer re-reads files it has already catalogued.** That same
+  rescan hashed every file in every watched root on every launch, which on three
+  real watched folders meant reading 1.0 GB to conclude nothing had changed. An
+  automatic pass now takes a file's own size and modification time as evidence
+  and skips it unread, cutting that by about half. Files whose content the
+  library holds under a different source path are still read; user-initiated
+  imports are unchanged and always inspect the actual bytes.
+
 ## [0.1.36] - 2026-09-07
 
 ### Fixed
@@ -539,7 +557,8 @@ with Tauri 2.
 - Color extraction and filter-by-color; SVG thumbnails; asset export.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
-[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.36...HEAD
+[Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.37...HEAD
+[0.1.37]: https://github.com/maosensen/yAssets/releases/tag/v0.1.37
 [0.1.36]: https://github.com/maosensen/yAssets/releases/tag/v0.1.36
 [0.1.35]: https://github.com/maosensen/yAssets/releases/tag/v0.1.35
 [0.1.34]: https://github.com/maosensen/yAssets/releases/tag/v0.1.34
