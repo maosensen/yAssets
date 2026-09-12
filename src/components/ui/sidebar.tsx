@@ -304,7 +304,20 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
 		<main
 			data-slot="sidebar-inset"
 			className={cn(
-				"relative flex w-full flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2",
+				// `min-w-0` is OURS — upstream shadcn does not have it, so a wholesale
+				// copy from upstream would delete it and bring the bug back.
+				//
+				// A flex item defaults to `min-width: auto`, which floors it at its
+				// content's min-content width. This one holds the entire page, so any
+				// region that legitimately refuses to get narrower — a horizontally
+				// scrolling tab row, a wide table — stops being an internal scroll and
+				// becomes the page's own width instead: the inset outgrows the space
+				// left beside the sidebar and pushes the whole document, header
+				// included, into a sideways scroll (a 1440px viewport beside a 256px
+				// sidebar went to 1536px). With the floor removed the inset takes the
+				// space it is given and the regions inside it scroll themselves, which
+				// is what they were built to do.
+				"relative flex w-full min-w-0 flex-1 flex-col bg-background md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ml-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ml-2",
 				className,
 			)}
 			{...props}
