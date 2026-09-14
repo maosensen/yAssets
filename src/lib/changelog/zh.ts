@@ -2,6 +2,19 @@ import type { ChangelogRelease } from "./index";
 
 export const zh: ChangelogRelease[] = [
 	{
+		version: "0.1.38",
+		date: "2026-09-14",
+		title: "不再横向滚动",
+		summary: "遇到宽表格时,横着动的是整个窗口,而不是表格自己。",
+		changes: [
+			{
+				kind: "fixed",
+				title: "窗口不再横向滚动",
+				text: "flex 子项默认不能小于内容的最小宽度,而装着整个页面的那一层正受这条限制——于是宽区域的宽度变成了窗口的宽度,吸顶栏也跟着跑。现在它按给定的空间排,宽区域各自滚各自的。",
+			},
+		],
+	},
+	{
 		version: "0.1.37",
 		date: "2026-09-09",
 		title: "启动更安静,也更轻",

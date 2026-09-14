@@ -9,6 +9,24 @@ Each release's section below is published verbatim as its GitHub Release notes
 
 ## [Unreleased]
 
+## [0.1.38] - 2026-09-14
+
+### Fixed
+
+- **The window no longer scrolls sideways.** `SidebarInset` is a flex item,
+  and a flex item's automatic minimum size is its content's min-content width.
+  That one holds the entire page, so any region built to scroll inside itself
+  — a wide table, a horizontally scrolling row — stopped being an internal
+  scroll and became the window's own width instead, taking the sticky header
+  with it. `min-w-0` lets the inset take the space it is given. Upstream
+  shadcn does not carry this class, so it is commented as ours: a wholesale
+  copy of the component would delete it and bring the bug back.
+
+### Changed
+
+- **Release runbook.** The published `latest.json` has its platform list
+  verified before a release leaves draft.
+
 ## [0.1.37] - 2026-09-09
 
 ### Fixed
@@ -558,6 +576,7 @@ with Tauri 2.
 - Signed **self-update** pipeline across macOS, Windows, and Linux.
 
 [Unreleased]: https://github.com/maosensen/yAssets/compare/v0.1.37...HEAD
+[0.1.38]: https://github.com/maosensen/yAssets/compare/v0.1.37...v0.1.38
 [0.1.37]: https://github.com/maosensen/yAssets/releases/tag/v0.1.37
 [0.1.36]: https://github.com/maosensen/yAssets/releases/tag/v0.1.36
 [0.1.35]: https://github.com/maosensen/yAssets/releases/tag/v0.1.35

@@ -2,6 +2,20 @@ import type { ChangelogRelease } from "./index";
 
 export const en: ChangelogRelease[] = [
 	{
+		version: "0.1.38",
+		date: "2026-09-14",
+		title: "No sideways scrolling",
+		summary:
+			"A wide table used to push the whole window sideways instead of scrolling inside itself.",
+		changes: [
+			{
+				kind: "fixed",
+				title: "The window stops scrolling sideways",
+				text: "A flex item cannot shrink below its content's minimum width by default, and the frame holding the whole page was subject to that — so a wide region's width became the window's, dragging the sticky header along. It now fits the space it is given and wide regions scroll within themselves.",
+			},
+		],
+	},
+	{
 		version: "0.1.37",
 		date: "2026-09-09",
 		title: "A quieter, lighter startup",
